@@ -44,7 +44,7 @@ interface JiraUser {
   emailAddress?: string;
 }
 
-interface JiraStatus {
+export interface JiraStatus {
   name: string;
 }
 
@@ -52,7 +52,7 @@ interface JiraPriority {
   name: string;
 }
 
-interface JiraIssueType {
+export interface JiraIssueType {
   name: string;
 }
 
@@ -62,7 +62,7 @@ interface JiraAttachment {
   mimeType: string;
 }
 
-interface JiraComment {
+export interface JiraComment {
   id: string;
   author: JiraUser;
   body: unknown; // ADF
@@ -70,11 +70,54 @@ interface JiraComment {
   updated: string;
 }
 
-interface JiraSubtask {
+export interface JiraSubtask {
   key: string;
   fields: {
     summary: string;
     status: JiraStatus;
+  };
+}
+
+export interface JiraIssueLinkType {
+  name: string;       // e.g. "Blocks", "is blocked by", "relates to", "duplicates", "clones"
+  inward: string;
+  outward: string;
+}
+
+export interface JiraIssueLink {
+  id: string;
+  type: JiraIssueLinkType;
+  inwardIssue?: {
+    key: string;
+    fields: {
+      summary: string;
+      status: JiraStatus;
+      issuetype: JiraIssueType;
+    };
+  };
+  outwardIssue?: {
+    key: string;
+    fields: {
+      summary: string;
+      status: JiraStatus;
+      issuetype: JiraIssueType;
+    };
+  };
+}
+
+export interface JiraMinimalIssue {
+  id: string;
+  key: string;
+  fields: {
+    summary: string;
+    description: unknown | null;
+    status: JiraStatus;
+    priority: JiraPriority | null;
+    issuetype: JiraIssueType;
+    parent?: { key: string; fields: { summary: string } };
+    subtasks: JiraSubtask[];
+    comment: { comments: JiraComment[]; total: number };
+    updated: string;
   };
 }
 
@@ -98,6 +141,14 @@ interface JiraIssueFields {
   };
   created: string;
   updated: string;
+  issuelinks?: JiraIssueLink[];
+  epic?: {
+    key: string;
+    fields: { summary: string; status: JiraStatus };
+  } | null;
+  // Note: custom fields (e.g. epicFieldId like "customfield_10014") are accessed
+  // via (issue.fields as any)[epicFieldId] because an index signature
+  // [key: string]: unknown would conflict with the typed fields above.
 }
 
 export interface JiraIssue {
@@ -137,6 +188,20 @@ const ISSUE_FIELDS = [
   "attachment",
   "comment",
   "created",
+  "updated",
+  "issuelinks",
+  "epic",
+].join(",");
+
+const MINIMAL_ISSUE_FIELDS = [
+  "summary",
+  "description",
+  "status",
+  "priority",
+  "issuetype",
+  "parent",
+  "subtasks",
+  "comment",
   "updated",
 ].join(",");
 
@@ -233,6 +298,37 @@ export class JiraClient {
     }
 
     return response.json() as Promise<JiraIssue>;
+  }
+
+  async getIssueMinimal(issueKey: string): Promise<JiraMinimalIssue> {
+    const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=${MINIMAL_ISSUE_FIELDS}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15_000);
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "GET",
+        headers: this.commonHeaders(),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new JiraNetworkError("Jira request timed out after 15 seconds.");
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      throw new JiraNetworkError(
+        `Network error connecting to Jira: ${message}`
+      );
+    }
+
+    if (!response.ok) {
+      await this.handleErrorResponse(response, issueKey);
+    }
+
+    return response.json() as Promise<JiraMinimalIssue>;
   }
 
   async searchIssues(

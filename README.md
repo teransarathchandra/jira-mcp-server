@@ -134,6 +134,82 @@ jira_prepare_work_prompt({"issueKey": "CMPI-1234"})
 jira_search_my_open_issues({"maxResults": 10})
 ```
 
+## Context-aware Jira task fetching
+
+The server includes two advanced tools that gather surrounding context from Jira — parent issues, epics, linked issues, subtasks, and analyzed comments — to produce a richer brief for implementing complex requirements.
+
+### New tools
+
+#### `jira_get_issue_context`
+
+Fetches an issue and its surrounding Jira context, producing a comprehensive developer brief.
+
+```json
+{
+  "issueKey": "CMPI-1234",
+  "includeComments": true,
+  "includeParent": true,
+  "includeEpic": true,
+  "includeLinkedIssues": true,
+  "includeSubtasks": true,
+  "includeEpicSiblings": false,
+  "maxLinkedIssues": 8,
+  "maxSubtasks": 10,
+  "maxCommentsPerIssue": 10,
+  "contextDepth": 1
+}
+```
+
+Output includes: Main Task metadata, Core Requirement, Acceptance Criteria, Requirement Clarifications from Comments, Parent/Epic Context, Related Issues, Subtasks, Possible Dependencies/Blockers, Technical Signals, Risk/Ambiguity, and a Final Implementation Prompt.
+
+#### `jira_prepare_contextual_work_prompt`
+
+Same as `jira_get_issue_context` but returns only the final implementation prompt — ready to paste directly into Claude Code or Codex.
+
+```json
+{
+  "issueKey": "CMPI-1234",
+  "includeComments": true,
+  "includeParent": true,
+  "includeEpic": true,
+  "includeLinkedIssues": true,
+  "includeSubtasks": true,
+  "includeEpicSiblings": false
+}
+```
+
+### Example Claude Code prompts
+
+**Example 1 — Full context brief:**
+> Use Jira MCP to fetch full context for CMPI-1234 including comments, parent, epic, linked issues, and subtasks.
+
+**Example 2 — Contextual work prompt:**
+> Use Jira MCP to prepare a contextual implementation prompt for CMPI-1234. Then inspect this repository and implement only the confirmed requirements.
+
+**Example 3 — Without epic siblings:**
+> Use Jira MCP to fetch CMPI-1234 but do not include epic sibling issues.
+
+### Optional: Epic field configuration
+
+Some Jira Cloud projects store the epic link in a custom field (e.g., `customfield_10014`). Add it to `.env` if automatic epic detection does not work:
+
+```
+JIRA_EPIC_FIELD_ID=customfield_10014
+```
+
+Standard Jira Cloud projects do not need this setting — the server tries the standard `epic` field first.
+
+### Context budget controls
+
+- `includeEpicSiblings` defaults to `false` — sibling issues can add a lot of noise.
+- `contextDepth` maximum is `2` — keep it at `1` for most tasks.
+- `maxLinkedIssues` maximum is `15` — default is `8`.
+- If the brief is too large, lower `maxLinkedIssues`, `maxCommentsPerIssue`, or set `includeEpicSiblings: false`.
+
+### Why these tools are still read-only
+
+Both new tools only read from Jira. They do not create, update, delete, comment on, or transition any Jira issues.
+
 ## Troubleshooting
 
 | Problem | Cause | Fix |

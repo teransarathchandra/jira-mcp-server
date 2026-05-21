@@ -11,6 +11,8 @@ import { JiraClient } from './jiraClient.js';
 import { getIssue } from './tools/getIssue.js';
 import { searchMyIssues } from './tools/searchMyIssues.js';
 import { prepareWorkPrompt } from './tools/prepareWorkPrompt.js';
+import { getIssueContext } from './tools/getIssueContext.js';
+import { prepareContextualWorkPrompt } from './tools/prepareContextualWorkPrompt.js';
 import {
   JiraAuthError,
   JiraNotFoundError,
@@ -32,6 +34,30 @@ const SearchMyIssuesSchema = z.object({
 
 const PrepareWorkPromptSchema = z.object({
   issueKey: z.string().describe('Jira issue key to prepare implementation prompt for (e.g., CMPI-1234)'),
+});
+
+const GetIssueContextSchema = z.object({
+  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  includeComments: z.boolean().optional().default(true),
+  includeParent: z.boolean().optional().default(true),
+  includeEpic: z.boolean().optional().default(true),
+  includeLinkedIssues: z.boolean().optional().default(true),
+  includeSubtasks: z.boolean().optional().default(true),
+  includeEpicSiblings: z.boolean().optional().default(false),
+  maxLinkedIssues: z.number().int().min(1).max(15).optional().default(8),
+  maxSubtasks: z.number().int().min(1).max(20).optional().default(10),
+  maxCommentsPerIssue: z.number().int().min(1).max(20).optional().default(10),
+  contextDepth: z.number().int().min(1).max(2).optional().default(1),
+});
+
+const PrepareContextualWorkPromptSchema = z.object({
+  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  includeComments: z.boolean().optional().default(true),
+  includeParent: z.boolean().optional().default(true),
+  includeEpic: z.boolean().optional().default(true),
+  includeLinkedIssues: z.boolean().optional().default(true),
+  includeSubtasks: z.boolean().optional().default(true),
+  includeEpicSiblings: z.boolean().optional().default(false),
 });
 
 // Tool definitions for MCP list_tools
@@ -67,6 +93,44 @@ const TOOLS = [
       type: 'object' as const,
       properties: {
         issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+      },
+      required: ['issueKey'],
+    },
+  },
+  {
+    name: 'jira_get_issue_context',
+    description: 'Fetch a Jira issue and its surrounding context (parent, epic, linked issues, subtasks, comments) to produce a comprehensive developer brief for implementing the full requirement.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        includeComments: { type: 'boolean', description: 'Include analyzed comments (default: true)' },
+        includeParent: { type: 'boolean', description: 'Include parent issue context (default: true)' },
+        includeEpic: { type: 'boolean', description: 'Include epic context (default: true)' },
+        includeLinkedIssues: { type: 'boolean', description: 'Include linked issues (default: true)' },
+        includeSubtasks: { type: 'boolean', description: 'Include subtasks (default: true)' },
+        includeEpicSiblings: { type: 'boolean', description: 'Include sibling issues under the same epic (default: false — may add noise)' },
+        maxLinkedIssues: { type: 'number', description: 'Max linked issues to fetch (1-15, default: 8)' },
+        maxSubtasks: { type: 'number', description: 'Max subtasks (1-20, default: 10)' },
+        maxCommentsPerIssue: { type: 'number', description: 'Max comments per issue (1-20, default: 10)' },
+        contextDepth: { type: 'number', description: 'Context depth (1-2, default: 1)' },
+      },
+      required: ['issueKey'],
+    },
+  },
+  {
+    name: 'jira_prepare_contextual_work_prompt',
+    description: 'Fetch a Jira issue with full surrounding context and return only the final implementation prompt suitable for pasting directly into Claude Code or Codex.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        includeComments: { type: 'boolean', description: 'Include comments (default: true)' },
+        includeParent: { type: 'boolean', description: 'Include parent context (default: true)' },
+        includeEpic: { type: 'boolean', description: 'Include epic context (default: true)' },
+        includeLinkedIssues: { type: 'boolean', description: 'Include linked issues (default: true)' },
+        includeSubtasks: { type: 'boolean', description: 'Include subtasks (default: true)' },
+        includeEpicSiblings: { type: 'boolean', description: 'Include epic siblings (default: false)' },
       },
       required: ['issueKey'],
     },
@@ -109,6 +173,18 @@ async function main() {
         case 'jira_prepare_work_prompt': {
           const input = PrepareWorkPromptSchema.parse(args);
           const result = await prepareWorkPrompt(input, client);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'jira_get_issue_context': {
+          const input = GetIssueContextSchema.parse(args);
+          const result = await getIssueContext(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'jira_prepare_contextual_work_prompt': {
+          const input = PrepareContextualWorkPromptSchema.parse(args);
+          const result = await prepareContextualWorkPrompt(input, client, config);
           return { content: [{ type: 'text', text: result }] };
         }
 

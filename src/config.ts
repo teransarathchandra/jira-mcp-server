@@ -3,6 +3,7 @@ export interface Config {
   email: string;
   apiToken: string;
   projectKey: string;
+  epicFieldId: string | null;  // e.g. "customfield_10014" — null if not set
 }
 
 export function getConfig(): Config {
@@ -10,6 +11,7 @@ export function getConfig(): Config {
   const email = process.env.JIRA_EMAIL?.trim();
   const apiToken = process.env.JIRA_API_TOKEN?.trim();
   const projectKey = (process.env.JIRA_PROJECT_KEY?.trim()) || "CMPI";
+  const epicFieldId = process.env.JIRA_EPIC_FIELD_ID?.trim() || null;
 
   const errors: string[] = [];
 
@@ -34,5 +36,6 @@ export function getConfig(): Config {
     email: email as string,
     apiToken: apiToken as string,
     projectKey,
+    epicFieldId,
   };
 }
