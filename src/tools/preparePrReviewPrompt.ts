@@ -4,9 +4,13 @@ import { validateIssueKey } from '../utils/issueKey.js';
 import { validateGitRef, resolveRepoPath } from '../utils/gitSafety.js';
 import { fetchIssueContext, ContextFetchOptions } from '../jira/issueContextService.js';
 import { extractRequirements } from '../utils/requirementExtractor.js';
-import { isGitRepository, getDiffResult } from '../git/gitDiffService.js';
+import { getDiffResult } from '../git/gitDiffService.js';
 import { classifyChangedFiles } from '../utils/changedFileClassifier.js';
 import type { ChangedFile } from '../git/gitDiffService.js';
+
+// ── Constants ──────────────────────────────────────────────────────────────────
+
+const PROMPT_MAX_DIFF_CHARS = 5000; // keep prompt context lean — callers can run jira_review_pr_alignment for full analysis
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -67,21 +71,19 @@ export async function preparePrReviewPrompt(
   // ── Step 4: Get changed files (limited diff for prompt context) ────────────
   const resolvedPath = resolveRepoPath(input.repoPath);
 
-  const isRepo = await isGitRepository(resolvedPath);
-  if (!isRepo) {
-    return `Not a git repository: ${input.repoPath}. Please provide a valid repository path.`;
-  }
-
   let diffResult;
   try {
     diffResult = await getDiffResult(
       resolvedPath,
       input.baseBranch,
       input.compareRef,
-      5000,
+      PROMPT_MAX_DIFF_CHARS,
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    if (message.toLowerCase().includes('not a git repository')) {
+      return `Not a git repository: ${input.repoPath}. Please provide a valid repository path.`;
+    }
     return (
       `Could not get diff: ${message}. ` +
       `Check that baseBranch '${input.baseBranch}' and compareRef '${input.compareRef}' exist in the repository.`

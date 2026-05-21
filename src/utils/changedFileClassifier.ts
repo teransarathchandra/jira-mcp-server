@@ -234,14 +234,11 @@ function isBackendFile(path: string): boolean {
     return true;
   }
 
-  if (
-    name.includes('controller') ||
-    name.includes('service') ||
-    name.includes('repository') ||
-    name.includes('handler') ||
-    name.includes('route') ||
-    name.includes('middleware')
-  ) {
+  // Only apply keyword matching to plain .ts/.js files (not .tsx/.jsx) to avoid
+  // false positives on React components like ServiceWorker.ts → already caught above,
+  // Router.tsx, or KeyboardHandler.tsx.
+  const isTsOrJs = name.endsWith('.ts') || name.endsWith('.js');
+  if (isTsOrJs && /\b(controller|service|repository|handler|route|middleware)\b/i.test(name)) {
     return true;
   }
 
@@ -368,8 +365,8 @@ export function classifyChangedFiles(files: ChangedFile[]): ClassifiedFiles {
     if (backend) result.backendFiles.push(file);
     if (frontend) result.frontendFiles.push(file);
 
-    // Source files = not test, config, migration, lock, or generated
-    if (!test && !config && !migration && !lock && !generated) {
+    // Source files = not test, config, migration, lock, generated, or documentation
+    if (!test && !config && !migration && !lock && !generated && !documentation) {
       result.sourceFiles.push(file);
     }
 

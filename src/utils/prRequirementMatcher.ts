@@ -217,8 +217,6 @@ export function matchRequirementsToChanges(input: MatchInput): MatchResult {
   const missingSignals: string[] = [];
   let technicalSignalMatchCount = 0;
 
-  const matchedSignalTerms = new Set<string>(); // lowercase matched signals
-
   for (const signal of requirementSignals.technicalSignals) {
     const lower = signal.toLowerCase();
     const fileMatches = signalMatchesFiles(lower, allFiles);
@@ -226,7 +224,6 @@ export function matchRequirementsToChanges(input: MatchInput): MatchResult {
 
     if (fileMatches.length > 0 || inDiff) {
       technicalSignalMatchCount++;
-      matchedSignalTerms.add(lower);
       for (const path of fileMatches) {
         if (!matchedEvidence.includes(path)) {
           matchedEvidence.push(path);
@@ -255,6 +252,11 @@ export function matchRequirementsToChanges(input: MatchInput): MatchResult {
     const criterion = requirementSignals.acceptanceCriteria[i];
     const keyTerms = acKeyTermsPerCriterion[i];
 
+    if (keyTerms.length === 0) {
+      coverageItems.push({ criterion, evidence: [], status: 'not_enough_evidence' });
+      continue;
+    }
+
     const evidenceFiles: string[] = [];
     let termMatchCount = 0;
 
@@ -277,7 +279,7 @@ export function matchRequirementsToChanges(input: MatchInput): MatchResult {
     }
 
     let status: RequirementCoverageStatus;
-    if (termMatchCount >= 2) {
+    if (termMatchCount >= Math.min(2, keyTerms.length)) {
       status = 'covered';
     } else if (termMatchCount === 1) {
       status = 'partial';
@@ -332,9 +334,7 @@ export function matchRequirementsToChanges(input: MatchInput): MatchResult {
     const shouldFlag = totalNonNoisy > 0 && candidateUnrelated.length < totalNonNoisy;
 
     for (const file of candidateUnrelated) {
-      const reason = requirementSignals.technicalSignals.length > 0
-        ? 'No Jira technical signals match this path'
-        : 'File appears unrelated to the Jira task requirement';
+      const reason = 'No Jira technical signals match this path';
       unrelatedChanges.push({ path: file.path, reason });
 
       if (!shouldFlag) {

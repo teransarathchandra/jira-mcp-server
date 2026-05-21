@@ -107,11 +107,11 @@ describe('scoreAlignment — perfect input', () => {
     });
 
     const result = scoreAlignment(input);
-    const { acCoverageScore, technicalSignalScore, relevantFilesScore, testCoverageScore, noiseScore } = result.scoreBreakdown;
+    const { acCoverageScore, technicalSignalScore, relevantFilesScore, testCoverageScore, noiseScore, crossCuttingPenalty } = result.scoreBreakdown;
     const breakdownSum = acCoverageScore + technicalSignalScore + relevantFilesScore + testCoverageScore + noiseScore;
 
-    // Score should equal breakdown sum since no cross-cutting penalties apply
-    expect(result.score).toBe(breakdownSum);
+    // Score should equal breakdown sum minus cross-cutting penalties
+    expect(result.score).toBe(breakdownSum - crossCuttingPenalty);
   });
 });
 
@@ -326,9 +326,8 @@ describe('scoreAlignment — NOT_ENOUGH_EVIDENCE override', () => {
     const result = scoreAlignment(input);
 
     // Score should be low enough (<30) to trigger override
-    if (result.score < 30) {
-      expect(result.status).toBe('NOT_ENOUGH_EVIDENCE');
-    }
+    expect(result.score).toBeLessThan(30); // verify precondition
+    expect(result.status).toBe('NOT_ENOUGH_EVIDENCE');
   });
 
   it('does NOT override when diff truncated but score >= 30', () => {
@@ -353,9 +352,8 @@ describe('scoreAlignment — NOT_ENOUGH_EVIDENCE override', () => {
 
     const result = scoreAlignment(input);
 
-    if (result.score >= 30) {
-      expect(result.status).not.toBe('NOT_ENOUGH_EVIDENCE');
-    }
+    expect(result.score).toBeGreaterThanOrEqual(30); // verify precondition
+    expect(result.status).not.toBe('NOT_ENOUGH_EVIDENCE');
   });
 });
 

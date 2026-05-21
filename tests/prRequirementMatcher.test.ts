@@ -280,9 +280,9 @@ describe('matchRequirementsToChanges – AC coverage', () => {
     });
     const result = matchRequirementsToChanges(input);
     // Terms: email (>4 chars, not stop word), address (>4), match, password, requirements
-    // "email" appears in diffText; "userService" in path
-    // We just need to confirm it's not "missing"
-    expect(['covered', 'partial']).toContain(result.coverageItems[0].status);
+    // "email" appears in diffText; "userService" in path but is not a key term
+    // Only "email" matches → 1 match out of 4+ terms → partial
+    expect(result.coverageItems[0].status).toBe('partial');
   });
 
   it('returns not_enough_evidence when no AC and no files and no diff', () => {

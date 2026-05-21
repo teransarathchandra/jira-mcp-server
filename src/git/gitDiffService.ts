@@ -40,6 +40,33 @@ function parseFileStatus(statusCode: string): FileStatus {
   return 'unknown';
 }
 
+/**
+ * Parse a single line from `git diff --name-status` output.
+ * Returns null if the line is empty or unparseable.
+ */
+export function parseNameStatusLine(line: string): ChangedFile | null {
+  if (!line || line.trim().length === 0) return null;
+
+  const parts = line.split('\t');
+  if (parts.length < 2) return null;
+
+  const statusCode = parts[0];
+  const status = parseFileStatus(statusCode);
+
+  if (status === 'renamed' && parts.length >= 3) {
+    return {
+      path: parts[2],
+      status,
+      oldPath: parts[1],
+    };
+  }
+
+  return {
+    path: parts[1] || '',
+    status,
+  };
+}
+
 // ── Public API ─────────────────────────────────────────────────────────────────
 
 /**
@@ -133,7 +160,7 @@ export async function getDiff(
     '-C', resolved,
     'diff',
     `${baseBranch}...${compareRef}`,
-  ]);
+  ], { maxBuffer: 10 * 1024 * 1024 });
 
   const originalLength = stdout.length;
   const truncated = originalLength > maxDiffChars;

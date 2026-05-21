@@ -444,6 +444,29 @@ describe('classifyChangedFiles – backendFiles', () => {
     const result = classifyChangedFiles(files);
     expect(result.backendFiles).toContainEqual(files[0]);
   });
+
+  it('does NOT classify ServiceWorker.ts as a backend file (false positive guard)', () => {
+    const files = [makeFile('src/ServiceWorker.ts')];
+    const result = classifyChangedFiles(files);
+    // ServiceWorker.ts ends in .ts and "service" is a substring, but the suffix
+    // patterns don't match (it's not *.service.ts) — word-boundary regex must
+    // not fire on "ServiceWorker" since "service" appears as a prefix, not a
+    // standalone word. This test documents the expected behaviour.
+    // The word-boundary regex /\bservice\b/ does NOT match "ServiceWorker".
+    expect(result.backendFiles).not.toContainEqual(files[0]);
+  });
+
+  it('does NOT classify Router.tsx as a backend file', () => {
+    const files = [makeFile('src/Router.tsx')];
+    const result = classifyChangedFiles(files);
+    expect(result.backendFiles).not.toContainEqual(files[0]);
+  });
+
+  it('does NOT classify KeyboardHandler.tsx as a backend file', () => {
+    const files = [makeFile('src/KeyboardHandler.tsx')];
+    const result = classifyChangedFiles(files);
+    expect(result.backendFiles).not.toContainEqual(files[0]);
+  });
 });
 
 // ── classifyChangedFiles – frontendFiles ──────────────────────────────────────
@@ -521,6 +544,12 @@ describe('classifyChangedFiles – sourceFiles', () => {
 
   it('does not put generated files into sourceFiles', () => {
     const files = [makeFile('dist/bundle.js')];
+    const result = classifyChangedFiles(files);
+    expect(result.sourceFiles).toHaveLength(0);
+  });
+
+  it('does not put documentation files (README.md) into sourceFiles', () => {
+    const files = [makeFile('README.md')];
     const result = classifyChangedFiles(files);
     expect(result.sourceFiles).toHaveLength(0);
   });

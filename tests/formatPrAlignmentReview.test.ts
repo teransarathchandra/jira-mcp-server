@@ -371,12 +371,28 @@ describe('formatPrAlignmentReview', () => {
     expect(output).toContain('No description available.');
   });
 
+  it('shows acceptance criteria when provided', () => {
+    const input = makePrReviewInput({
+      acceptanceCriteria: ['User can submit the form', 'Validation error is shown'],
+    });
+    const output = formatPrAlignmentReview(input);
+    expect(output).toContain('**Acceptance Criteria:**');
+    expect(output).toContain('- User can submit the form');
+    expect(output).toContain('- Validation error is shown');
+  });
+
+  it('does not show acceptance criteria section when empty', () => {
+    const input = makePrReviewInput({ acceptanceCriteria: [] });
+    const output = formatPrAlignmentReview(input);
+    expect(output).not.toContain('**Acceptance Criteria:**');
+  });
+
   it('shows truncation warning when diff is truncated', () => {
     const input = makePrReviewInput({
       diffResult: makeDiffResult({ truncated: true, originalDiffLength: 100_000 }),
     });
     const output = formatPrAlignmentReview(input);
-    expect(output).toContain('Diff was truncated');
+    expect(output).toContain('- ⚠️ Diff was truncated');
     expect(output).toContain('100000');
   });
 
@@ -506,5 +522,20 @@ describe('formatPrAlignmentReview', () => {
     expect(output).toContain('Modified: 1');
     expect(output).toContain('Deleted: 1');
     expect(output).toContain('Renamed: 1');
+  });
+
+  it('shows Other count when unknown file statuses are present', () => {
+    const input = makePrReviewInput({
+      diffResult: makeDiffResult({
+        changedFiles: [
+          { path: 'src/a.ts', status: 'added' },
+          // Cast to simulate an unknown status returned by git
+          { path: 'src/b.ts', status: 'copied' as 'modified' },
+        ],
+      }),
+    });
+    const output = formatPrAlignmentReview(input);
+    expect(output).toContain('Changed files:** 2');
+    expect(output).toContain('Other: 1');
   });
 });

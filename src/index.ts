@@ -13,6 +13,8 @@ import { searchMyIssues } from './tools/searchMyIssues.js';
 import { prepareWorkPrompt } from './tools/prepareWorkPrompt.js';
 import { getIssueContext } from './tools/getIssueContext.js';
 import { prepareContextualWorkPrompt } from './tools/prepareContextualWorkPrompt.js';
+import { reviewPrAlignment } from './tools/reviewPrAlignment.js';
+import { preparePrReviewPrompt } from './tools/preparePrReviewPrompt.js';
 import {
   JiraAuthError,
   JiraNotFoundError,
@@ -58,6 +60,23 @@ const PrepareContextualWorkPromptSchema = z.object({
   includeLinkedIssues: z.boolean().optional().default(true),
   includeSubtasks: z.boolean().optional().default(true),
   includeEpicSiblings: z.boolean().optional().default(false),
+});
+
+const ReviewPrAlignmentSchema = z.object({
+  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  mode: z.enum(['local_diff', 'github_pr']).optional().default('local_diff').describe('Diff mode: local_diff (default) or github_pr'),
+  baseBranch: z.string().optional().default('origin/main').describe('Base branch to diff against (default: origin/main)'),
+  compareRef: z.string().optional().default('HEAD').describe('Compare ref (branch name or commit SHA, default: HEAD)'),
+  prNumber: z.number().int().positive().optional().nullable().default(null).describe('GitHub PR number (only for github_pr mode)'),
+  repoPath: z.string().optional().default('.').describe('Path to the git repository (default: current directory)'),
+  maxDiffChars: z.number().int().min(1000).max(200000).optional().default(50000).describe('Maximum diff characters to analyze (default: 50000)'),
+});
+
+const PreparePrReviewPromptSchema = z.object({
+  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  baseBranch: z.string().optional().default('origin/main').describe('Base branch to diff against (default: origin/main)'),
+  compareRef: z.string().optional().default('HEAD').describe('Compare ref (default: HEAD)'),
+  repoPath: z.string().optional().default('.').describe('Path to the git repository (default: current directory)'),
 });
 
 // Tool definitions for MCP list_tools
@@ -135,6 +154,37 @@ const TOOLS = [
       required: ['issueKey'],
     },
   },
+  {
+    name: 'jira_review_pr_alignment',
+    description: 'Review a PR or local branch against a Jira task requirement. Compares the Jira requirement, acceptance criteria, and technical signals against changed files and diff to produce an evidence-based alignment report with score, matched requirements, missing requirements, unrelated changes, and review comments.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        mode: { type: 'string', enum: ['local_diff', 'github_pr'], description: 'Diff mode (default: local_diff)' },
+        baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
+        compareRef: { type: 'string', description: 'Compare ref — branch name or commit SHA (default: HEAD)' },
+        prNumber: { type: 'number', description: 'GitHub PR number — only for github_pr mode' },
+        repoPath: { type: 'string', description: 'Path to the git repository (default: current directory)' },
+        maxDiffChars: { type: 'number', description: 'Max diff characters to analyze (1000-200000, default: 50000)' },
+      },
+      required: ['issueKey'],
+    },
+  },
+  {
+    name: 'jira_prepare_pr_review_prompt',
+    description: 'Prepare a focused Claude Code review prompt for reviewing a PR against a Jira task requirement. The prompt includes the Jira requirement summary, acceptance criteria, changed files, and review instructions.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
+        compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
+        repoPath: { type: 'string', description: 'Path to the git repository (default: current directory)' },
+      },
+      required: ['issueKey'],
+    },
+  },
 ];
 
 async function main() {
@@ -185,6 +235,18 @@ async function main() {
         case 'jira_prepare_contextual_work_prompt': {
           const input = PrepareContextualWorkPromptSchema.parse(args);
           const result = await prepareContextualWorkPrompt(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'jira_review_pr_alignment': {
+          const input = ReviewPrAlignmentSchema.parse(args);
+          const result = await reviewPrAlignment(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'jira_prepare_pr_review_prompt': {
+          const input = PreparePrReviewPromptSchema.parse(args);
+          const result = await preparePrReviewPrompt(input, client, config);
           return { content: [{ type: 'text', text: result }] };
         }
 

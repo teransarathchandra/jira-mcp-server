@@ -59,9 +59,8 @@ export function validateGitRef(ref: string): void {
 // ── Repo Path Validation ───────────────────────────────────────────────────────
 
 /**
- * Returns true if the path looks like a real directory (exists and is not suspicious).
- * Uses path.resolve to normalize. Does NOT shell out — just checks basic safety.
- * A valid repo path: non-empty string, no null bytes, no shell metacharacters.
+ * Returns true if the path string is safe to pass to git commands (no null bytes,
+ * no shell metacharacters). Does not check whether the path exists on disk.
  */
 export function isValidRepoPath(repoPath: string): boolean {
   if (!repoPath || repoPath.length === 0) return false;

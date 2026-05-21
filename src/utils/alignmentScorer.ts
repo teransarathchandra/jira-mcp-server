@@ -18,6 +18,7 @@ export interface ScoreBreakdown {
   relevantFilesScore: number;    // 0-15
   testCoverageScore: number;     // 0-15
   noiseScore: number;            // 0-10
+  crossCuttingPenalty: number;   // subtracted from component sum to yield final score
 }
 
 export interface AlignmentResult {
@@ -111,6 +112,11 @@ function scoreTestCoverage(
     case 'no_test_changes':
       penalties.push('No test changes detected');
       return 0;
+    default: {
+      const _exhaustive: never = matchResult.testCoverageSignal;
+      void _exhaustive;
+      return 0;
+    }
   }
 }
 
@@ -186,14 +192,6 @@ export function scoreAlignment(input: ScoringInput): AlignmentResult {
   const testCoverageScore = scoreTestCoverage(matchResult, penalties);
   const noiseScore = scoreNoise(input, penalties);
 
-  const scoreBreakdown: ScoreBreakdown = {
-    acCoverageScore,
-    technicalSignalScore,
-    relevantFilesScore,
-    testCoverageScore,
-    noiseScore,
-  };
-
   // ── Sum components ────────────────────────────────────────────────────────
 
   let score =
@@ -205,22 +203,33 @@ export function scoreAlignment(input: ScoringInput): AlignmentResult {
 
   // ── Cross-cutting flat penalties ──────────────────────────────────────────
 
+  let crossCuttingPenalty = 0;
+
   if (jiraContextQualityScore < 40) {
-    score -= 5;
+    crossCuttingPenalty += 5;
     penalties.push('Jira context quality too low for reliable scoring');
   }
 
   if (input.hasBackendRequirement && !matchResult.hasBackendChanges) {
-    score -= 8;
+    crossCuttingPenalty += 8;
     penalties.push('Jira requires backend changes but no backend files changed');
   }
 
   if (input.hasFrontendRequirement && !matchResult.hasFrontendChanges) {
-    score -= 8;
+    crossCuttingPenalty += 8;
     penalties.push('Jira requires frontend changes but no frontend files changed');
   }
 
-  score = Math.max(0, score);
+  score = Math.max(0, score - crossCuttingPenalty);
+
+  const scoreBreakdown: ScoreBreakdown = {
+    acCoverageScore,
+    technicalSignalScore,
+    relevantFilesScore,
+    testCoverageScore,
+    noiseScore,
+    crossCuttingPenalty,
+  };
 
   // ── Status determination ──────────────────────────────────────────────────
 

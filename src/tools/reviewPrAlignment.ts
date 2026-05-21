@@ -4,9 +4,9 @@ import { validateIssueKey } from '../utils/issueKey.js';
 import { validateGitRef, resolveRepoPath } from '../utils/gitSafety.js';
 import { fetchIssueContext, ContextFetchOptions } from '../jira/issueContextService.js';
 import { extractRequirements } from '../utils/requirementExtractor.js';
-import { detectConflicts, formatConflicts } from '../utils/conflictDetector.js';
+import { detectConflicts } from '../utils/conflictDetector.js';
 import { scoreContextQuality } from '../utils/contextQualityScorer.js';
-import { isGitRepository, getDiffResult } from '../git/gitDiffService.js';
+import { getDiffResult } from '../git/gitDiffService.js';
 import { classifyChangedFiles } from '../utils/changedFileClassifier.js';
 import { generateRepoInspectionHints } from '../utils/repoInspectionHintGenerator.js';
 import { matchRequirementsToChanges } from '../utils/prRequirementMatcher.js';
@@ -23,10 +23,8 @@ export interface ReviewPrAlignmentInput {
   mode: 'local_diff' | 'github_pr';
   baseBranch: string;
   compareRef: string;
-  prNumber?: number | null;
+  prNumber?: number | null; // Reserved for future github_pr mode support
   repoPath: string;
-  includeTests?: boolean;
-  includeUnrelatedChangeDetection?: boolean;
   maxDiffChars?: number;
 }
 
@@ -124,11 +122,6 @@ export async function reviewPrAlignment(
   // ── Step 6: Get diff ───────────────────────────────────────────────────────
   const resolvedPath = resolveRepoPath(input.repoPath);
 
-  const isRepo = await isGitRepository(resolvedPath);
-  if (!isRepo) {
-    return `Not a git repository: ${input.repoPath}. Please provide a valid repository path.`;
-  }
-
   let diffResult;
   try {
     diffResult = await getDiffResult(
@@ -139,6 +132,9 @@ export async function reviewPrAlignment(
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    if (message.toLowerCase().includes('not a git repository')) {
+      return `Not a git repository: ${input.repoPath}. Please provide a valid repository path.`;
+    }
     return (
       `Could not get diff: ${message}. ` +
       `Check that baseBranch '${input.baseBranch}' and compareRef '${input.compareRef}' exist in the repository.`
@@ -192,10 +188,7 @@ export async function reviewPrAlignment(
   });
 
   // ── Step 11: Format review ─────────────────────────────────────────────────
-  const conflictsFormatted = formatConflicts(conflictResult);
-  const jiraConflicts = conflictsFormatted
-    ? conflictsFormatted.split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2))
-    : [];
+  const jiraConflicts = conflictResult.conflicts.map(c => c.description);
 
   const review = formatPrAlignmentReview({
     issueKey: key,

@@ -176,6 +176,7 @@ export function formatPrAlignmentReview(input: PrReviewInput): string {
     issueKey,
     issueSummary,
     issueDescription,
+    acceptanceCriteria,
     jiraConflicts,
     jiraAmbiguities,
     diffResult,
@@ -198,12 +199,20 @@ export function formatPrAlignmentReview(input: PrReviewInput): string {
 
   // ── Section: Jira Requirement Summary ────────────────────────────────────────
   const descText = issueDescription.trim() || 'No description available.';
-  const jiraSection = [
+  const jiraSectionLines: string[] = [
     '## Jira Requirement Summary',
     issueSummary,
     '',
     descText,
-  ].join('\n');
+  ];
+  if (acceptanceCriteria.length > 0) {
+    jiraSectionLines.push('');
+    jiraSectionLines.push('**Acceptance Criteria:**');
+    for (const criterion of acceptanceCriteria) {
+      jiraSectionLines.push(`- ${criterion}`);
+    }
+  }
+  const jiraSection = jiraSectionLines.join('\n');
 
   // ── Section: PR Summary ──────────────────────────────────────────────────────
   const changedFiles = diffResult.changedFiles;
@@ -232,9 +241,14 @@ export function formatPrAlignmentReview(input: PrReviewInput): string {
     `- **Risky files changed:** ${riskyFileCount}`,
   ];
 
+  const totalKnown = addedCount + modifiedCount + deletedCount + renamedCount;
+  if (totalKnown !== changedFiles.length) {
+    prSummaryLines.push(`  - Other: ${changedFiles.length - totalKnown}`);
+  }
+
   if (diffResult.truncated) {
     prSummaryLines.push(
-      `⚠️ Diff was truncated (original: ${diffResult.originalDiffLength} chars). Alignment confidence is reduced.`,
+      `- ⚠️ Diff was truncated (original: ${diffResult.originalDiffLength} chars). Alignment confidence is reduced.`,
     );
   }
 
