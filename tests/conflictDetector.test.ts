@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { detectConflicts, formatConflicts } from '../src/utils/conflictDetector.js';
+import {
+  detectConflicts,
+  formatConflicts,
+  detectJiraConfluenceConflicts,
+  formatJiraConfluenceConflicts,
+} from '../src/utils/conflictDetector.js';
 
 // ── detectConflicts ────────────────────────────────────────────────────────────
 
@@ -191,5 +196,123 @@ describe('formatConflicts', () => {
     const conflict = result.conflicts[0];
     expect(conflict.source1).toBe('task description');
     expect(conflict.source2).toBe('user comment');
+  });
+});
+
+// ── detectJiraConfluenceConflicts ─────────────────────────────────────────────
+
+describe('detectJiraConfluenceConflicts', () => {
+  const freshPage = {
+    title: 'Feature Docs',
+    bodyMarkdown: 'This feature allows users to submit forms.',
+    url: 'https://wiki.example.com/feature-docs',
+    isStale: false,
+    lastUpdated: '2025-01-15',
+  };
+
+  // test 1: returns empty when no conflicts
+  it('returns empty when no conflicts exist', () => {
+    const result = detectJiraConfluenceConflicts(
+      [{ label: 'description', text: 'User can submit the form.' }],
+      [freshPage],
+    );
+    expect(result.hasConflicts).toBe(false);
+    expect(result.conflicts).toHaveLength(0);
+  });
+
+  // test 2: flags stale Confluence page as deprecation conflict
+  it('flags a stale Confluence page as a deprecation conflict', () => {
+    const stalePage = { ...freshPage, isStale: true, title: 'Old Feature Guide' };
+    const result = detectJiraConfluenceConflicts(
+      [{ label: 'description', text: 'User can submit the form.' }],
+      [stalePage],
+    );
+    expect(result.hasConflicts).toBe(true);
+    const conflict = result.conflicts.find(c => c.type === 'jira_confluence_deprecation_conflict');
+    expect(conflict).toBeDefined();
+    expect(conflict!.severity).toBe('high');
+    expect(conflict!.description).toContain('Old Feature Guide');
+    expect(conflict!.description).toContain('deprecated/archived');
+    expect(conflict!.source2).toContain('Confluence:');
+  });
+
+  // test 3: flags active Jira + deprecated Confluence as conflict
+  it('flags deprecated Confluence vs active Jira as a deprecation conflict', () => {
+    const pageWithDeprecated = {
+      ...freshPage,
+      bodyMarkdown: 'This feature has been deprecated and removed from the platform.',
+    };
+    const result = detectJiraConfluenceConflicts(
+      [{ label: 'description', text: 'We are launching this feature and it is active.' }],
+      [pageWithDeprecated],
+    );
+    expect(result.hasConflicts).toBe(true);
+    const conflict = result.conflicts.find(c => c.type === 'jira_confluence_deprecation_conflict');
+    expect(conflict).toBeDefined();
+    expect(conflict!.severity).toBe('high');
+    expect(conflict!.description).toContain('deprecated');
+  });
+
+  // test 4: detects behavior conflict across Jira-Confluence boundary
+  it('detects behavior conflict across Jira-Confluence boundary', () => {
+    const result = detectJiraConfluenceConflicts(
+      [{ label: 'Jira description', text: 'On invalid input, show warning to the user.' }],
+      [{ ...freshPage, bodyMarkdown: 'The form should block submission when validation fails.' }],
+    );
+    expect(result.hasConflicts).toBe(true);
+    const conflict = result.conflicts.find(c => c.type === 'jira_confluence_behavior_conflict');
+    expect(conflict).toBeDefined();
+    expect(conflict!.severity).toBe('medium');
+    expect(conflict!.source1).toBe('Jira description');
+    expect(conflict!.source2).toContain('Confluence:');
+    expect(conflict!.recommendedHandling).toContain('Jira latest comments');
+  });
+
+  // test 5: detects audience conflict across Jira-Confluence boundary
+  it('detects audience conflict across Jira-Confluence boundary', () => {
+    const result = detectJiraConfluenceConflicts(
+      [{ label: 'Jira spec', text: 'This feature is for admins only.' }],
+      [{ ...freshPage, bodyMarkdown: 'All users should be able to access this feature.' }],
+    );
+    expect(result.hasConflicts).toBe(true);
+    const conflict = result.conflicts.find(c => c.type === 'jira_confluence_audience_conflict');
+    expect(conflict).toBeDefined();
+    expect(conflict!.severity).toBe('high');
+    expect(conflict!.source2).toContain('Confluence:');
+    expect(conflict!.recommendedHandling).toContain('Jira latest comments');
+  });
+
+  // test 6: formatJiraConfluenceConflicts formats correctly
+  it('formatJiraConfluenceConflicts formats output with correct header', () => {
+    const stalePage = { ...freshPage, isStale: true };
+    const result = detectJiraConfluenceConflicts(
+      [{ label: 'description', text: 'User can submit the form.' }],
+      [stalePage],
+    );
+    const formatted = formatJiraConfluenceConflicts(result);
+    expect(formatted).toContain('⚠️');
+    expect(formatted).toContain('Jira vs Confluence Conflicts');
+    expect(formatted).toMatch(/\[high\]|\[medium\]|\[low\]/);
+    expect(formatted).toContain('Impact:');
+    expect(formatted).toContain('Handling:');
+  });
+
+  it('formatJiraConfluenceConflicts returns empty string when no conflicts', () => {
+    const result = detectJiraConfluenceConflicts(
+      [{ label: 'description', text: 'User can log in.' }],
+      [freshPage],
+    );
+    expect(formatJiraConfluenceConflicts(result)).toBe('');
+  });
+
+  // test 7: no false positives when both Jira and Confluence agree
+  it('produces no false positives when Jira and Confluence agree', () => {
+    const result = detectJiraConfluenceConflicts(
+      [{ label: 'Jira description', text: 'The form should show warning on invalid input.' }],
+      [{ ...freshPage, bodyMarkdown: 'The form should show a warning message when validation fails.' }],
+    );
+    // Both sources agree on "show warning" — no behavior conflict expected
+    const behaviorConflicts = result.conflicts.filter(c => c.type === 'jira_confluence_behavior_conflict');
+    expect(behaviorConflicts).toHaveLength(0);
   });
 });

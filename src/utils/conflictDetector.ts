@@ -7,7 +7,9 @@ export interface ConflictResult {
 
 export interface ConflictItem {
   type: 'requirement_change' | 'scope_conflict' | 'audience_conflict' | 'behavior_conflict' |
-        'validation_mismatch' | 'api_behavior_mismatch' | 'status_mismatch' | 'platform_conflict';
+        'validation_mismatch' | 'api_behavior_mismatch' | 'status_mismatch' | 'platform_conflict' |
+        'jira_confluence_behavior_conflict' | 'jira_confluence_deprecation_conflict' |
+        'jira_confluence_scope_conflict' | 'jira_confluence_audience_conflict';
   description: string;          // human-readable explanation
   source1: string;              // e.g. "task description"
   source2: string;              // e.g. "comment (2024-01-20)"
@@ -342,4 +344,191 @@ export function formatConflicts(result: ConflictResult): string {
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// ── Jira vs Confluence conflict detection ─────────────────────────────────────
+
+/**
+ * Detect conflicts between Jira issue sources and Confluence documentation pages.
+ */
+export function detectJiraConfluenceConflicts(
+  jiraSources: Array<{ label: string; text: string; date?: string }>,
+  confluencePages: Array<{ title: string; bodyMarkdown: string; url: string; isStale: boolean; lastUpdated: string }>,
+): ConflictResult {
+  const conflicts: ConflictItem[] = [];
+  const seen = new Set<string>();
+
+  const addConflict = (item: ConflictItem) => {
+    const key = conflictKey(item.type, item.source1, item.source2);
+    if (!seen.has(key)) {
+      seen.add(key);
+      conflicts.push(item);
+    }
+  };
+
+  for (const page of confluencePages) {
+    const confluenceLabel = `Confluence: ${page.title} (${page.url})`;
+
+    // ── Rule 1: Stale / deprecated Confluence page ────────────────────────────
+    if (page.isStale) {
+      addConflict({
+        type: 'jira_confluence_deprecation_conflict',
+        description: `Confluence page "${page.title}" appears to be deprecated/archived. It may contain outdated requirements.`,
+        source1: 'Jira context',
+        source2: confluenceLabel,
+        severity: 'high',
+        explanation: 'The Confluence page appears deprecated but may still be linked from Jira requirements',
+        likelyImpact: 'Implementing requirements from deprecated documentation may cause incorrect behavior',
+        recommendedHandling:
+          'Jira latest comments and confirmed acceptance criteria take priority over older Confluence documentation. Verify if this page has been superseded.',
+      });
+    }
+
+    // ── Rule 2: Jira says feature removed/sunset; Confluence says active ─────
+    const jiraAllText = jiraSources.map(s => s.text).join(' ');
+
+    if (
+      /\bfeature[\s_-]?removed\b|\bsunset\b|\bdecommission/i.test(jiraAllText) &&
+      /\bactive\b|\benabled\b|\bsupported\b/i.test(page.bodyMarkdown)
+    ) {
+      addConflict({
+        type: 'jira_confluence_deprecation_conflict',
+        description: 'Jira indicates feature removal/sunset while Confluence page suggests the feature is active',
+        source1: 'Jira context',
+        source2: confluenceLabel,
+        severity: 'high',
+        explanation: 'Jira signals the feature has been removed or sunset while the Confluence page describes it as active/enabled',
+        likelyImpact: 'Implementing a feature that has been removed or deprecated may cause incorrect behavior',
+        recommendedHandling:
+          'Jira latest comments and confirmed acceptance criteria take priority over older Confluence documentation.',
+      });
+    }
+
+    // ── Rule 2b: Confluence says deprecated; Jira says active/launching ──────
+    if (
+      /\bdeprecated\b|\bremoved\b|\bsunset\b/i.test(page.bodyMarkdown) &&
+      /\bactive\b|\benabled\b|\blaunch\b/i.test(jiraAllText)
+    ) {
+      addConflict({
+        type: 'jira_confluence_deprecation_conflict',
+        description: `Confluence page "${page.title}" indicates the feature may be deprecated while Jira marks it as active/launching`,
+        source1: 'Jira context',
+        source2: confluenceLabel,
+        severity: 'high',
+        explanation: `Confluence page "${page.title}" describes the feature as deprecated/removed/sunset while Jira treats it as active or launching`,
+        likelyImpact: 'Implementing a deprecated feature or ignoring a deprecated feature that should still be active',
+        recommendedHandling:
+          'Jira latest comments and confirmed acceptance criteria take priority over older Confluence documentation.',
+      });
+    }
+
+    // ── Rule 3: BEHAVIOR_PAIRS across Jira ↔ Confluence ──────────────────────
+    for (const jiraSrc of jiraSources) {
+      const jiraLabel = jiraSrc.date ? `${jiraSrc.label} (${jiraSrc.date})` : jiraSrc.label;
+      const jiraText = jiraSrc.text;
+      const confText = page.bodyMarkdown;
+
+      for (const pair of BEHAVIOR_PAIRS) {
+        if (
+          (pair.sideA.test(jiraText) && pair.sideB.test(confText)) ||
+          (pair.sideB.test(jiraText) && pair.sideA.test(confText))
+        ) {
+          addConflict({
+            type: 'jira_confluence_behavior_conflict',
+            description: pair.description,
+            source1: jiraLabel,
+            source2: confluenceLabel,
+            severity: 'medium',
+            explanation: `${jiraLabel} and ${confluenceLabel} contain contradictory behavior instructions`,
+            likelyImpact: 'Incorrect user experience if the wrong behavior is implemented',
+            recommendedHandling:
+              'Treat the most recent source as authoritative unless it contradicts confirmed requirements. ' +
+              'Jira latest comments and confirmed acceptance criteria take priority over older Confluence documentation.',
+          });
+        }
+      }
+
+      // ── Rule 4: AUDIENCE_PAIRS across Jira ↔ Confluence ──────────────────
+      for (const pair of AUDIENCE_PAIRS) {
+        if (
+          (pair.sideA.test(jiraText) && pair.sideB.test(confText)) ||
+          (pair.sideB.test(jiraText) && pair.sideA.test(confText))
+        ) {
+          addConflict({
+            type: 'jira_confluence_audience_conflict',
+            description: pair.description,
+            source1: jiraLabel,
+            source2: confluenceLabel,
+            severity: 'high',
+            explanation: `${jiraLabel} and ${confluenceLabel} specify different intended audiences for the same feature`,
+            likelyImpact: 'Feature may be exposed to unintended users or incorrectly restricted',
+            recommendedHandling:
+              'Treat the most recent source as authoritative unless it contradicts confirmed requirements. ' +
+              'Jira latest comments and confirmed acceptance criteria take priority over older Confluence documentation.',
+          });
+        }
+      }
+
+      // ── Rule 5: API path mismatch across Jira ↔ Confluence ───────────────
+      const jiraApiPaths = extractApiPaths(jiraText);
+      const confApiPaths = extractApiPaths(confText);
+
+      if (jiraApiPaths.length > 0 && confApiPaths.length > 0) {
+        const mismatch = jiraApiPaths.some(pathA =>
+          confApiPaths.some(pathB => pathA !== pathB)
+        );
+        if (mismatch) {
+          addConflict({
+            type: 'jira_confluence_behavior_conflict',
+            description:
+              `${jiraLabel} and ${confluenceLabel} reference different API endpoints ` +
+              `(${jiraApiPaths.join(', ')} vs ${confApiPaths.join(', ')}). ` +
+              'Verify which endpoint is correct for this feature.',
+            source1: jiraLabel,
+            source2: confluenceLabel,
+            severity: 'medium',
+            explanation: `${jiraLabel} mentions ${jiraApiPaths.join(', ')} but ${confluenceLabel} mentions ${confApiPaths.join(', ')}`,
+            likelyImpact: 'Could cause incorrect API calls or error handling if the wrong endpoint is used',
+            recommendedHandling:
+              'Verify the correct endpoint with the API contract or backend team. ' +
+              'Jira latest comments and confirmed acceptance criteria take priority over older Confluence documentation.',
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    hasConflicts: conflicts.length > 0,
+    conflicts,
+  };
+}
+
+// ── Jira vs Confluence formatter ──────────────────────────────────────────────
+
+/**
+ * Format a ConflictResult from detectJiraConfluenceConflicts for inclusion in
+ * a Risk/Ambiguity section. Returns an empty string when there are no conflicts.
+ */
+export function formatJiraConfluenceConflicts(result: ConflictResult): string {
+  if (!result.hasConflicts || result.conflicts.length === 0) {
+    return '';
+  }
+
+  const lines: string[] = ['⚠️ **Jira vs Confluence Conflicts:**'];
+
+  for (const item of result.conflicts) {
+    const typeLabel = item.type.replace(/_/g, ' ');
+    lines.push(
+      `- **[${item.severity}] ${capitalize(typeLabel)}:** ${item.description}`,
+    );
+    if (item.likelyImpact) {
+      lines.push(`  - Impact: ${item.likelyImpact}`);
+    }
+    if (item.recommendedHandling) {
+      lines.push(`  - Handling: ${item.recommendedHandling}`);
+    }
+  }
+
+  return lines.join('\n');
 }
