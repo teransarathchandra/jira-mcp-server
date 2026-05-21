@@ -303,6 +303,49 @@ describe('runSafetyChecks', () => {
     });
   });
 
+  // ── unrelated_files ──────────────────────────────────────────────────────
+
+  describe('unrelated_files', () => {
+    it('fires when changedFiles.length > 5 AND sourceFiles/changedFiles ratio > 0.5', () => {
+      const classified = emptyClassified();
+      // 5 source files out of 6 changed = ~0.83 ratio
+      classified.sourceFiles = Array.from({ length: 5 }, (_, i) => makeFile(`src/module${i}.ts`));
+      const changedFiles = Array.from({ length: 6 }, (_, i) => makeFile(`src/module${i}.ts`));
+      const result = runSafetyChecks({
+        diffResult: baseDiffResult({ changedFiles }),
+        classifiedFiles: classified,
+      });
+      const w = result.warnings.find(w => w.type === 'unrelated_files');
+      expect(w).toBeDefined();
+      expect(w?.severity).toBe('info');
+      expect(w?.detail).toContain('5 of 6');
+    });
+
+    it('does not fire when changedFiles.length <= 5 even if ratio > 0.5', () => {
+      const classified = emptyClassified();
+      // 4 source files out of 5 changed = 0.8 ratio, but count is not > 5
+      classified.sourceFiles = Array.from({ length: 4 }, (_, i) => makeFile(`src/module${i}.ts`));
+      const changedFiles = Array.from({ length: 5 }, (_, i) => makeFile(`src/module${i}.ts`));
+      const result = runSafetyChecks({
+        diffResult: baseDiffResult({ changedFiles }),
+        classifiedFiles: classified,
+      });
+      expect(result.warnings.find(w => w.type === 'unrelated_files')).toBeUndefined();
+    });
+
+    it('does not fire when sourceFiles/changedFiles ratio <= 0.5', () => {
+      const classified = emptyClassified();
+      // 3 source files out of 10 changed = 0.3 ratio
+      classified.sourceFiles = Array.from({ length: 3 }, (_, i) => makeFile(`src/module${i}.ts`));
+      const changedFiles = Array.from({ length: 10 }, (_, i) => makeFile(`src/module${i}.ts`));
+      const result = runSafetyChecks({
+        diffResult: baseDiffResult({ changedFiles }),
+        classifiedFiles: classified,
+      });
+      expect(result.warnings.find(w => w.type === 'unrelated_files')).toBeUndefined();
+    });
+  });
+
   // ── unresolved_requirement ────────────────────────────────────────────────
 
   describe('unresolved_requirement', () => {
