@@ -15,6 +15,10 @@ import { getIssueContext } from './tools/getIssueContext.js';
 import { prepareContextualWorkPrompt } from './tools/prepareContextualWorkPrompt.js';
 import { reviewPrAlignment } from './tools/reviewPrAlignment.js';
 import { preparePrReviewPrompt } from './tools/preparePrReviewPrompt.js';
+import { confluenceSearchRelatedPages } from './tools/confluenceSearchRelatedPages.js';
+import { confluenceGetPageSummary } from './tools/confluenceGetPageSummary.js';
+import { jiraGetIssueWithConfluenceContext } from './tools/jiraGetIssueWithConfluenceContext.js';
+import { jiraPrepareConfluenceEnrichedWorkPrompt } from './tools/jiraPrepareConfluenceEnrichedWorkPrompt.js';
 import {
   JiraAuthError,
   JiraNotFoundError,
@@ -22,6 +26,14 @@ import {
   JiraServerError,
   JiraNetworkError,
 } from './jiraClient.js';
+import {
+  ConfluenceAuthError,
+  ConfluenceNotFoundError,
+  ConfluenceRateLimitError,
+  ConfluenceServerError,
+  ConfluenceNetworkError,
+  ConfluenceNotConfiguredError,
+} from './confluence/confluenceConfig.js';
 
 // Input schemas for each tool
 const GetIssueSchema = z.object({
@@ -77,6 +89,39 @@ const PreparePrReviewPromptSchema = z.object({
   baseBranch: z.string().optional().default('origin/main').describe('Base branch to diff against (default: origin/main)'),
   compareRef: z.string().optional().default('HEAD').describe('Compare ref (default: HEAD)'),
   repoPath: z.string().optional().default('.').describe('Path to the git repository (default: current directory)'),
+});
+
+const ConfluenceSearchRelatedPagesSchema = z.object({
+  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  maxResults: z.number().int().min(1).max(50).optional().default(10).describe('Maximum number of search results (1-50, default: 10)'),
+  spaceKeys: z.array(z.string()).optional().default([]).describe('Confluence space keys to restrict search to (default: all configured spaces)'),
+  includeLowRelevance: z.boolean().optional().default(false).describe('Include low-relevance pages in results (default: false)'),
+});
+
+const ConfluenceGetPageSummarySchema = z.object({
+  pageId: z.string().describe('Confluence page ID'),
+  maxChars: z.number().int().min(1000).max(50000).optional().default(12000).describe('Maximum characters of page body to include (1000-50000, default: 12000)'),
+});
+
+const JiraGetIssueWithConfluenceContextSchema = z.object({
+  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  includeJiraComments: z.boolean().optional().default(true).describe('Include Jira comments (default: true)'),
+  includeParent: z.boolean().optional().default(true).describe('Include parent issue context (default: true)'),
+  includeEpic: z.boolean().optional().default(true).describe('Include epic context (default: true)'),
+  includeLinkedIssues: z.boolean().optional().default(true).describe('Include linked issues (default: true)'),
+  includeSubtasks: z.boolean().optional().default(true).describe('Include subtasks (default: true)'),
+  includeConfluence: z.boolean().optional().default(true).describe('Include Confluence context (default: true)'),
+  confluenceMaxSearchResults: z.number().int().min(1).max(50).optional().describe('Max Confluence search results'),
+  confluenceMaxPagesToRead: z.number().int().min(1).max(20).optional().describe('Max Confluence pages to read'),
+  includeMediumRelevancePages: z.boolean().optional().default(true).describe('Include medium-relevance Confluence pages (default: true)'),
+  includeLowRelevancePages: z.boolean().optional().default(false).describe('Include low-relevance Confluence pages (default: false)'),
+  maxConfluenceChars: z.number().int().min(1000).optional().describe('Max characters per Confluence page'),
+});
+
+const JiraPrepareConfluenceEnrichedWorkPromptSchema = z.object({
+  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  includeConfluence: z.boolean().optional().default(true).describe('Include Confluence context enrichment (default: true)'),
+  confluenceMaxPagesToRead: z.number().int().min(1).max(20).optional().default(5).describe('Max Confluence pages to read (1-20, default: 5)'),
 });
 
 // Tool definitions for MCP list_tools
@@ -185,6 +230,67 @@ const TOOLS = [
       required: ['issueKey'],
     },
   },
+  {
+    name: 'confluence_search_related_pages',
+    description: 'Search Confluence for pages related to a Jira issue. Scores and ranks pages by relevance to help understand the full requirement context.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        maxResults: { type: 'number', description: 'Maximum number of search results (1-50, default: 10)' },
+        spaceKeys: { type: 'array', items: { type: 'string' }, description: 'Confluence space keys to restrict search to (default: all configured spaces)' },
+        includeLowRelevance: { type: 'boolean', description: 'Include low-relevance pages in results (default: false)' },
+      },
+      required: ['issueKey'],
+    },
+  },
+  {
+    name: 'confluence_get_page_summary',
+    description: 'Fetch a Confluence page by ID and return a coding-agent-friendly summary with metadata, key sections, and extracted requirement signals.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        pageId: { type: 'string', description: 'Confluence page ID' },
+        maxChars: { type: 'number', description: 'Maximum characters of page body to include (1000-50000, default: 12000)' },
+      },
+      required: ['pageId'],
+    },
+  },
+  {
+    name: 'jira_get_issue_with_confluence_context',
+    description: 'Fetch a Jira issue with full surrounding context enriched by relevant Confluence documentation. Produces a comprehensive brief with Jira requirements, Confluence insights, conflicts, and a final implementation prompt.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        includeJiraComments: { type: 'boolean', description: 'Include Jira comments (default: true)' },
+        includeParent: { type: 'boolean', description: 'Include parent issue context (default: true)' },
+        includeEpic: { type: 'boolean', description: 'Include epic context (default: true)' },
+        includeLinkedIssues: { type: 'boolean', description: 'Include linked issues (default: true)' },
+        includeSubtasks: { type: 'boolean', description: 'Include subtasks (default: true)' },
+        includeConfluence: { type: 'boolean', description: 'Include Confluence context (default: true)' },
+        confluenceMaxSearchResults: { type: 'number', description: 'Max Confluence search results' },
+        confluenceMaxPagesToRead: { type: 'number', description: 'Max Confluence pages to read' },
+        includeMediumRelevancePages: { type: 'boolean', description: 'Include medium-relevance Confluence pages (default: true)' },
+        includeLowRelevancePages: { type: 'boolean', description: 'Include low-relevance Confluence pages (default: false)' },
+        maxConfluenceChars: { type: 'number', description: 'Max characters per Confluence page' },
+      },
+      required: ['issueKey'],
+    },
+  },
+  {
+    name: 'jira_prepare_confluence_enriched_work_prompt',
+    description: 'Fetch a Jira issue with Confluence context and return only the final implementation prompt enriched with Confluence documentation insights.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        includeConfluence: { type: 'boolean', description: 'Include Confluence context enrichment (default: true)' },
+        confluenceMaxPagesToRead: { type: 'number', description: 'Max Confluence pages to read (1-20, default: 5)' },
+      },
+      required: ['issueKey'],
+    },
+  },
 ];
 
 async function main() {
@@ -250,6 +356,30 @@ async function main() {
           return { content: [{ type: 'text', text: result }] };
         }
 
+        case 'confluence_search_related_pages': {
+          const input = ConfluenceSearchRelatedPagesSchema.parse(args);
+          const result = await confluenceSearchRelatedPages(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'confluence_get_page_summary': {
+          const input = ConfluenceGetPageSummarySchema.parse(args);
+          const result = await confluenceGetPageSummary(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'jira_get_issue_with_confluence_context': {
+          const input = JiraGetIssueWithConfluenceContextSchema.parse(args);
+          const result = await jiraGetIssueWithConfluenceContext(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'jira_prepare_confluence_enriched_work_prompt': {
+          const input = JiraPrepareConfluenceEnrichedWorkPromptSchema.parse(args);
+          const result = await jiraPrepareConfluenceEnrichedWorkPrompt(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
         default:
           return {
             content: [{ type: 'text', text: `Unknown tool: ${name}` }],
@@ -276,6 +406,12 @@ function formatError(err: unknown): string {
   if (err instanceof JiraRateLimitError) return `Rate limited: ${err.message}`;
   if (err instanceof JiraServerError) return `Jira server error: ${err.message}`;
   if (err instanceof JiraNetworkError) return `Network error: ${err.message}`;
+  if (err instanceof ConfluenceNotConfiguredError) return `Confluence not configured: ${err.message}`;
+  if (err instanceof ConfluenceAuthError) return `Confluence authentication error: ${err.message}`;
+  if (err instanceof ConfluenceNotFoundError) return `Confluence not found: ${err.message}`;
+  if (err instanceof ConfluenceRateLimitError) return `Confluence rate limited: ${err.message}`;
+  if (err instanceof ConfluenceServerError) return `Confluence server error: ${err.message}`;
+  if (err instanceof ConfluenceNetworkError) return `Confluence network error: ${err.message}`;
   if (err instanceof z.ZodError) {
     const issues = err.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
     return `Invalid input: ${issues}`;
