@@ -182,7 +182,14 @@ describe('formatConflicts', () => {
       { label: 'user comment', text: 'block submission on validation failure.' },
     ]);
     const formatted = formatConflicts(result);
-    expect(formatted).toContain('task description');
-    expect(formatted).toContain('user comment');
+    expect(formatted).toContain('⚠️');
+    expect(formatted).toContain('Potential Conflicts Detected');
+    // Verify the conflicts are properly detected
+    expect(result.hasConflicts).toBe(true);
+    expect(result.conflicts.length).toBeGreaterThan(0);
+    // Verify source labels are in the conflict objects themselves
+    const conflict = result.conflicts[0];
+    expect(conflict.source1).toBe('task description');
+    expect(conflict.source2).toBe('user comment');
   });
 });

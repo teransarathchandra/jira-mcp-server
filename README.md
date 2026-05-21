@@ -210,6 +210,84 @@ Standard Jira Cloud projects do not need this setting — the server tries the s
 
 Both new tools only read from Jira. They do not create, update, delete, comment on, or transition any Jira issues.
 
+## Requirement Intelligence Layer
+
+The context-aware tools now include a built-in intelligence layer that evaluates Jira context quality before generating the implementation brief. No LLM is used — all logic is deterministic and rule-based.
+
+### What the intelligence layer does
+
+| Component | Purpose |
+|---|---|
+| Authority Ranker | Classifies each information source (description, AC, comments, parent, epic) by authority level |
+| Relevance Scorer | Scores linked issues as High / Medium / Low relevance and filters noise |
+| Readiness Evaluator | Checks if the ticket has enough information to implement (READY / MOSTLY_READY / NEEDS_CLARIFICATION / BLOCKED) |
+| Conflict Detector | Detects contradictions between description, comments, parent, and epic |
+| Clarification Generator | Generates up to 5 specific, implementation-focused questions when the ticket is unclear |
+| Repo Inspection Hint Generator | Produces targeted instructions for Claude Code to inspect the right files before editing |
+| Context Quality Scorer | Produces a 0-100 quality score for the assembled Jira context |
+
+### Updated context brief sections
+
+When using `jira_get_issue_context`, the brief now includes:
+- **Context Quality** — Score and interpretation (0-100)
+- **Requirement Authority** — Which sources are most authoritative
+- **Implementation Readiness** — READY / MOSTLY_READY / NEEDS_CLARIFICATION / BLOCKED with reasons
+- **Relevant Jira Context** — Linked issues ranked by relevance (High / Medium / Omitted)
+- **Conflicts** — Detected contradictions with impact and recommended handling
+- **Suggested Repo Inspection Targets** — Specific instructions for Claude Code
+- **Clarification Needed** — Practical questions (only shown when ticket is unclear or blocked)
+
+### Optional environment variables
+
+Add any of these to `.env` to improve intelligence for your project:
+
+```
+# Identify the custom field used for Epic Links (if standard epic field doesn't work)
+JIRA_EPIC_FIELD_ID=customfield_10014
+
+# Custom field IDs for additional context (optional)
+JIRA_STORY_POINTS_FIELD_ID=customfield_10016
+JIRA_ACCEPTANCE_CRITERIA_FIELD_ID=customfield_10020
+JIRA_TEAM_FIELD_ID=customfield_10018
+
+# Comma-separated emails of high-authority authors (e.g., product owners, tech leads)
+# Comments from these authors are weighted higher in authority ranking
+JIRA_HIGH_AUTHORITY_AUTHOR_EMAILS=product-owner@example.com,tech-lead@example.com
+
+# Comma-separated Jira account IDs of high-authority authors (alternative to email)
+JIRA_HIGH_AUTHORITY_ACCOUNT_IDS=account-id-1,account-id-2
+
+# Maximum characters for the full context output (default: 30000)
+JIRA_MAX_CONTEXT_CHARS=30000
+```
+
+None of these are required. The server works without them.
+
+### Readiness statuses
+
+| Status | Meaning |
+|---|---|
+| READY | Proceed with implementation |
+| MOSTLY_READY | Proceed, but flag any unclear specifics |
+| NEEDS_CLARIFICATION | Seek answers to open questions before or during implementation |
+| BLOCKED | Resolve blocker issues before starting |
+
+### Example Claude Code prompts
+
+```
+# Get the full intelligence-enhanced context brief
+"Fetch full Jira context for CMPI-1234 with authority ranking and readiness evaluation."
+
+# Get the final implementation prompt (intelligence-processed)
+"Use jira_prepare_contextual_work_prompt for CMPI-1234 and implement the confirmed requirements."
+
+# Check if a ticket is ready before starting
+"Use jira_get_issue_context for CMPI-1234. If it is not READY, explain what is unclear."
+
+# Skip epic siblings for a cleaner brief
+"Fetch context for CMPI-1234, disable epic sibling issues."
+```
+
 ## Troubleshooting
 
 | Problem | Cause | Fix |

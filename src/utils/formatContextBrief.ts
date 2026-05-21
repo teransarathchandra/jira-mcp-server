@@ -1,319 +1,435 @@
 import { IssueContext } from '../jira/issueContextService.js';
 import { adfToMarkdown } from './adfToMarkdown.js';
-import { summarizeUsefulComments, JiraCommentInput } from './commentAnalyzer.js';
-import { extractRequirements } from './requirementExtractor.js';
-import { detectConflicts, formatConflicts } from './conflictDetector.js';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+import {
+  rankAuthority,
+  formatAuthoritySection,
+  AuthorityRanking,
+} from './authorityRanker.js';
 
-/**
- * Format ISO date string to YYYY-MM-DD.
- */
-function formatDate(iso: string | null | undefined): string {
-  if (!iso || iso.length < 10) return 'N/A';
-  return iso.slice(0, 10);
+import {
+  scoreLinkedIssues,
+  formatRelevanceSection,
+  RelevanceScoringResult,
+} from './relevanceScorer.js';
+
+import {
+  evaluateReadiness,
+  ReadinessResult,
+} from './readinessEvaluator.js';
+
+import {
+  generateClarificationQuestions,
+  formatClarificationSection,
+} from './clarificationQuestionGenerator.js';
+
+import {
+  generateRepoInspectionHints,
+  formatRepoInspectionSection,
+} from './repoInspectionHintGenerator.js';
+
+import {
+  scoreContextQuality,
+  formatQualitySection,
+} from './contextQualityScorer.js';
+
+import {
+  detectConflicts,
+  formatConflicts,
+  ConflictResult,
+} from './conflictDetector.js';
+
+import {
+  isUsefulComment,
+  extractRequirementSignals,
+  summarizeUsefulComments,
+  JiraCommentInput,
+} from './commentAnalyzer.js';
+
+import {
+  extractRequirements,
+  RequirementSignals,
+} from './requirementExtractor.js';
+
+// ── Internal helpers ───────────────────────────────────────────────────────────
+
+function buildTechnicalSignalsSection(
+  mainReqs: RequirementSignals,
+  epicReqs: RequirementSignals | null,
+): string {
+  const signals = [...new Set([
+    ...mainReqs.technicalSignals.slice(0, 8),
+    ...(epicReqs?.technicalSignals.slice(0, 3) ?? []),
+  ])];
+  const rules = mainReqs.businessRules.slice(0, 3);
+  const roles = mainReqs.userRoles;
+
+  if (signals.length === 0 && rules.length === 0 && roles.length === 0) {
+    return '## Technical Signals\nNo specific technical signals found.';
+  }
+  const lines = ['## Technical Signals'];
+  if (signals.length > 0) lines.push(`**Files/APIs/Components:** ${signals.join(', ')}`);
+  if (rules.length > 0) lines.push(`**Business rules:** ${rules.join(' | ')}`);
+  if (roles.length > 0) lines.push(`**User roles:** ${roles.join(', ')}`);
+  return lines.join('\n\n');
 }
 
-/**
- * Convert JiraComment array (ADF bodies) into JiraCommentInput array.
- */
-function toCommentInputs(
-  comments: Array<{ id: string; author: { displayName: string }; body: unknown; created: string; updated: string }>
-): JiraCommentInput[] {
-  return comments.map((c) => ({
-    id: c.id,
-    author: c.author?.displayName ?? 'Unknown',
-    body: adfToMarkdown(c.body),
-    created: c.created,
-    updated: c.updated,
-  }));
+function buildFinalPrompt(
+  key: string,
+  summary: string,
+  mainDesc: string,
+  mainReqs: RequirementSignals,
+  authorityRanking: AuthorityRanking,
+  readiness: ReadinessResult,
+  usefulCommentsSummary: string,
+  conflictResult: ConflictResult,
+  relevanceResult: RelevanceScoringResult,
+): string {
+  const goal = mainDesc.length > 0 ? mainDesc.slice(0, 400) : summary;
+  const acLines = mainReqs.acceptanceCriteria.slice(0, 5);
+  const primarySources = authorityRanking.primarySources.map(s => `- ${s.label}`).join('\n');
+  const techContext = [
+    ...mainReqs.technicalSignals.slice(0, 5),
+    ...mainReqs.businessRules.slice(0, 2),
+  ].join('; ');
+
+  const contextCount = 1 +
+    (relevanceResult.high.length > 0 ? 1 : 0) +
+    (relevanceResult.medium.length > 0 ? 1 : 0);
+
+  const conflictWarning = conflictResult.hasConflicts
+    ? `\n**⚠️ Conflicts detected:** ${conflictResult.conflicts.length} conflict(s) found. Treat the most recent useful Jira comment as authoritative when sources disagree.\n`
+    : '';
+
+  return `## Final Implementation Prompt for Claude Code
+
+**Task:** ${key} — ${summary}
+**Readiness:** ${readiness.status}
+**Context assembled from:** ${contextCount} Jira source(s).
+
+**Goal:**
+${goal}
+
+**Acceptance Criteria:**
+${acLines.length > 0 ? acLines.join('\n') : 'Derive from description. Do not invent missing criteria.'}
+
+**Highest-authority sources:**
+${primarySources || '- Task description'}
+
+**Important recent comments:**
+${usefulCommentsSummary.slice(0, 300)}
+
+**Key technical context:**
+${techContext || 'See description above.'}
+${conflictWarning}
+**Before implementing:**
+1. Inspect the repository structure before making changes.
+2. Find files/modules related to: ${mainReqs.technicalSignals.slice(0, 3).join(', ') || 'the feature described'}.
+3. Do not guess missing business rules — use existing project conventions or ask.
+4. Follow existing code patterns and naming conventions in the repository.
+5. Prefer a minimal, safe change over a broad refactor.
+6. Add or update tests for any changed behavior.
+7. If you find unresolved ambiguities not answerable by inspecting the repo, mention them before implementing.
+8. Treat the most recent useful Jira comments as higher authority than the original description only when they clearly clarify or change the requirement.
+9. After implementation, summarize the changed files and explain your key decisions.
+10. Do not implement requirements from low-relevance linked tickets unless directly needed.`;
 }
 
-/**
- * Extract acceptance criteria from a markdown string.
- * Combines extracted AC lines into a single formatted string.
- */
-function extractAcText(markdown: string): string {
-  const { acceptanceCriteria } = extractRequirements(markdown);
-  if (acceptanceCriteria.length === 0) return '';
-  return acceptanceCriteria.join('\n');
-}
-
-/**
- * Count total number of unique Jira issues referenced in the context.
- */
-function countIssuesSeen(context: IssueContext): number {
-  let count = 1; // main issue
-  if (context.parentIssue) count++;
-  if (context.epicIssue) count++;
-  count += context.linkedIssues.length;
-  count += context.subtasks.length;
-  return count;
-}
-
-// ── Main formatter ────────────────────────────────────────────────────────────
+// ── Main formatter ─────────────────────────────────────────────────────────────
 
 /**
  * Format a full IssueContext into a structured Markdown context brief,
  * including an implementation prompt section at the end.
  */
 export function formatContextBrief(context: IssueContext): string {
-  const { mainIssue, mainIssueDescription } = context;
-  const { key, fields } = mainIssue;
+  // ── Step 1: Extract basic fields ──────────────────────────────────────────────
+  const { key, fields } = context.mainIssue;
+  const mainDesc = context.mainIssueDescription;
 
-  // ── Header ──────────────────────────────────────────────────────────────────
+  // ── Step 2: Build JiraCommentInput array ──────────────────────────────────────
+  const commentInputs: JiraCommentInput[] = fields.comment.comments.map(c => ({
+    id: c.id,
+    author: c.author.displayName,
+    body: adfToMarkdown(c.body),
+    created: c.created,
+    updated: c.updated,
+  }));
+
+  // ── Step 3: Call all intelligence utilities ───────────────────────────────────
+  const mainReqs = extractRequirements(mainDesc);
+  const epicReqs = context.epicDescription ? extractRequirements(context.epicDescription) : null;
+
+  const conflictSources = [
+    { label: 'task description', text: mainDesc, date: fields.created },
+    ...commentInputs.filter(c => isUsefulComment(c.body)).map(c => ({
+      label: `comment by ${c.author}`,
+      text: c.body,
+      date: c.created,
+    })),
+    ...(context.parentDescription ? [{ label: 'parent issue', text: context.parentDescription }] : []),
+    ...(context.epicDescription ? [{ label: 'epic', text: context.epicDescription }] : []),
+  ];
+  const conflictResult = detectConflicts(conflictSources);
+
+  const hasBlockingIssues = context.linkedIssues.some(l =>
+    l.relationship.toLowerCase().includes('block'),
+  );
+
+  const authorityRanking = rankAuthority({
+    mainDescription: mainDesc,
+    hasExplicitAC: mainReqs.acceptanceCriteria.length > 0,
+    comments: commentInputs.map(c => ({
+      author: c.author,
+      body: c.body,
+      created: c.created,
+      isUseful: isUsefulComment(c.body),
+      hasRequirementSignals: extractRequirementSignals(c.body).length > 0,
+    })),
+    parentDescription: context.parentDescription,
+    epicDescription: context.epicDescription,
+    linkedIssueRelationships: context.linkedIssues.map(l => l.relationship),
+    highAuthorityEmails: [],
+    highAuthorityAccountIds: [],
+  });
+
+  const relevanceResult = scoreLinkedIssues({
+    linkedIssues: context.linkedIssues,
+    mainSummary: fields.summary,
+    mainDescription: mainDesc,
+    mainComponents: fields.components.map(c => c.name),
+    mainLabels: fields.labels,
+    mainTechnicalSignals: mainReqs.technicalSignals,
+  });
+
+  const qualityResult = scoreContextQuality({
+    mainDescription: mainDesc,
+    hasAcceptanceCriteria: mainReqs.acceptanceCriteria.length > 0,
+    acceptanceCriteriaCount: mainReqs.acceptanceCriteria.length,
+    usefulCommentCount: commentInputs.filter(c => isUsefulComment(c.body)).length,
+    technicalSignalCount: mainReqs.technicalSignals.length,
+    hasParentContext: context.parentIssue !== null,
+    hasEpicContext: context.epicIssue !== null,
+    linkedHighRelevanceCount: relevanceResult.high.length,
+    conflictCount: conflictResult.conflicts.length,
+    ambiguityCount: mainReqs.ambiguities.length,
+    hasBlockingIssues,
+  });
+
+  const readinessResult = evaluateReadiness({
+    mainDescription: mainDesc,
+    hasAcceptanceCriteria: mainReqs.acceptanceCriteria.length > 0,
+    acceptanceCriteria: mainReqs.acceptanceCriteria,
+    technicalSignals: mainReqs.technicalSignals,
+    ambiguities: mainReqs.ambiguities,
+    conflictCount: conflictResult.conflicts.length,
+    hasBlockingIssues,
+    blockerDescriptions: context.linkedIssues
+      .filter(l => l.relationship.toLowerCase().includes('block'))
+      .map(l => `${l.key}: ${l.summary}`),
+    usefulCommentCount: commentInputs.filter(c => isUsefulComment(c.body)).length,
+    hasRequirementChangingComment: commentInputs.some(c =>
+      extractRequirementSignals(c.body).some(s => s.type === 'requirement_change'),
+    ),
+    latestCommentIntroducesQuestion: false,
+    businessRules: mainReqs.businessRules,
+    validationRules: mainReqs.validationRules,
+  });
+
+  const clarificationResult = generateClarificationQuestions({
+    readinessStatus: readinessResult.status,
+    ambiguities: mainReqs.ambiguities,
+    conflictDescriptions: conflictResult.conflicts.map(c => c.description),
+    hasBlockingIssues,
+    blockerDescriptions: context.linkedIssues
+      .filter(l => l.relationship.toLowerCase().includes('block'))
+      .map(l => l.summary),
+    mainDescription: mainDesc,
+    acceptanceCriteria: mainReqs.acceptanceCriteria,
+    technicalSignals: mainReqs.technicalSignals,
+    userRoles: mainReqs.userRoles,
+    validationRules: mainReqs.validationRules,
+    businessRules: mainReqs.businessRules,
+    latestCommentIntroducesQuestion: false,
+    latestCommentBody: commentInputs.length > 0 ? commentInputs[commentInputs.length - 1].body : '',
+  });
+
+  const repoHints = generateRepoInspectionHints({
+    technicalSignals: [
+      ...mainReqs.technicalSignals,
+      ...(epicReqs?.technicalSignals ?? []),
+    ],
+    components: fields.components.map(c => c.name),
+    labels: fields.labels,
+    userRoles: mainReqs.userRoles,
+    linkedIssueSummaries: [...relevanceResult.high, ...relevanceResult.medium].map(i => i.summary),
+    mainDescription: mainDesc,
+    summary: fields.summary,
+  });
+
+  const usefulCommentsSummary = summarizeUsefulComments(commentInputs);
+
+  // ── Step 4: Assemble the brief ────────────────────────────────────────────────
+
+  // Header
   const header = `# Jira Context Brief: ${key} - ${fields.summary}`;
 
-  // ── Main Task section ───────────────────────────────────────────────────────
-  const parentLine = context.parentIssue
-    ? `${context.parentIssue.key} - ${context.parentIssue.fields.summary}`
-    : (fields.parent ? `${fields.parent.key} - ${fields.parent.fields?.summary ?? ''}` : 'None');
+  // Main Task section
+  const epicIssue = context.epicIssue;
+  const epicLine = epicIssue
+    ? `${epicIssue.key} - ${epicIssue.fields.summary}`
+    : 'None';
 
-  const epicLine = context.epicIssue
-    ? `${context.epicIssue.key} - ${context.epicIssue.fields.summary}`
+  const parentLine = fields.parent
+    ? `${fields.parent.key} - ${fields.parent.fields?.summary ?? ''}`
     : 'None';
 
   const mainTaskLines = [
     `- **Key:** ${key}`,
-    `- **Type:** ${fields.issuetype?.name ?? 'N/A'}`,
-    `- **Status:** ${fields.status?.name ?? 'N/A'}`,
+    `- **Type:** ${fields.issuetype.name}`,
+    `- **Status:** ${fields.status.name}`,
     `- **Priority:** ${fields.priority?.name ?? 'N/A'}`,
     `- **Assignee:** ${fields.assignee?.displayName ?? 'Unassigned'}`,
     `- **Reporter:** ${fields.reporter?.displayName ?? 'N/A'}`,
     `- **Parent:** ${parentLine}`,
     `- **Epic:** ${epicLine}`,
-    `- **Updated:** ${formatDate(fields.updated)}`,
+    `- **Updated:** ${fields.updated.slice(0, 10)}`,
   ];
 
   const truncationBlock = context.truncationWarnings.length > 0
-    ? '\n' + context.truncationWarnings.map((w) => `⚠️ ${w}`).join('\n')
+    ? '\n' + context.truncationWarnings.map(w => `⚠️ ${w}`).join('\n')
     : '';
 
   const mainTaskSection = `## Main Task\n${mainTaskLines.join('\n')}${truncationBlock}`;
 
-  // ── Core Requirement ─────────────────────────────────────────────────────────
-  const coreReqContent = mainIssueDescription
-    ? mainIssueDescription.slice(0, 600)
-    : 'No description provided.';
-  const coreRequirementSection = `## Core Requirement\n${coreReqContent}`;
+  // Context Quality
+  const qualitySection = formatQualitySection(qualityResult);
 
-  // ── Acceptance Criteria ──────────────────────────────────────────────────────
-  // Try main description first, then combine with epic description if available
-  const combinedForAc = [mainIssueDescription, context.epicDescription ?? '']
-    .filter(Boolean)
-    .join('\n');
-  const acText = extractAcText(combinedForAc);
-  const acContent = acText || 'No explicit acceptance criteria found.';
+  // Requirement Authority
+  const authoritySection = formatAuthoritySection(authorityRanking);
+
+  // Implementation Readiness
+  const readinessSection = [
+    '## Implementation Readiness',
+    `**Status:** ${readinessResult.status}`,
+    '',
+    '**Reasons:**',
+    readinessResult.reasons.map(r => `- ${r}`).join('\n'),
+    '',
+    `**Recommended action:** ${readinessResult.recommendedAction}`,
+  ].join('\n');
+
+  // Core Requirement
+  const coreRequirementSection = `## Core Requirement\n${mainDesc.length > 0 ? mainDesc.slice(0, 600) : 'No description provided.'}`;
+
+  // Acceptance Criteria
+  const acContent = mainReqs.acceptanceCriteria.length > 0
+    ? mainReqs.acceptanceCriteria.join('\n')
+    : 'No explicit acceptance criteria found.';
   const acSection = `## Acceptance Criteria\n${acContent}`;
 
-  // ── Requirement Clarifications from Comments ─────────────────────────────────
-  const rawComments = fields.comment?.comments ?? [];
-  const commentInputs = toCommentInputs(rawComments);
-  const commentSummary = summarizeUsefulComments(commentInputs);
-  const commentsSection = `## Requirement Clarifications from Comments\n${commentSummary}`;
+  // Requirement Clarifications from Comments
+  const commentsSection = `## Requirement Clarifications from Comments\n${usefulCommentsSummary}`;
 
-  // ── Parent / Epic Context ────────────────────────────────────────────────────
+  // Parent / Epic Context
   const parentEpicLines: string[] = [];
-
   if (context.parentIssue) {
     const parentDesc = context.parentDescription
       ? context.parentDescription.slice(0, 400)
       : context.parentIssue.fields.summary;
     parentEpicLines.push(`**Parent (${context.parentIssue.key}):** ${parentDesc}`);
   }
-
-  if (context.epicIssue) {
+  if (epicIssue) {
     const epicDesc = context.epicDescription
       ? context.epicDescription.slice(0, 400)
-      : context.epicIssue.fields.summary;
-    parentEpicLines.push(`**Epic (${context.epicIssue.key}):** ${epicDesc}`);
+      : epicIssue.fields.summary;
+    parentEpicLines.push(`**Epic (${epicIssue.key}):** ${epicDesc}`);
   }
-
   const parentEpicContent = parentEpicLines.length > 0
     ? parentEpicLines.join('\n\n')
     : 'No parent or epic context available.';
   const parentEpicSection = `## Parent / Epic Context\n${parentEpicContent}`;
 
-  // ── Related Issues ───────────────────────────────────────────────────────────
-  let relatedIssuesContent: string;
-  if (context.linkedIssues.length === 0) {
-    relatedIssuesContent = 'No linked issues.';
-  } else {
-    relatedIssuesContent = context.linkedIssues.map((li) => {
-      let line = `- **${li.key}** (${li.relationship}): ${li.summary} — Status: ${li.status} | Type: ${li.type}`;
-      if (li.descriptionSnippet) {
-        const snippet = li.descriptionSnippet.slice(0, 200);
-        line += `\n  ${snippet}`;
-      }
-      return line;
-    }).join('\n');
-  }
-  const relatedIssuesSection = `## Related Issues\n${relatedIssuesContent}`;
+  // Relevant Jira Context (relevance-scored linked issues)
+  const relevanceSection = formatRelevanceSection(relevanceResult);
 
-  // ── Subtasks ──────────────────────────────────────────────────────────────────
-  let subtasksContent: string;
-  if (context.subtasks.length === 0) {
-    subtasksContent = 'No subtasks.';
-  } else {
-    subtasksContent = context.subtasks
-      .map((st) => `- **${st.key}**: ${st.summary} — ${st.status}`)
-      .join('\n');
-  }
+  // Subtasks
+  const subtasksContent = context.subtasks.length > 0
+    ? context.subtasks.map(st => `- **${st.key}**: ${st.summary} — ${st.status}`).join('\n')
+    : 'No subtasks.';
   const subtasksSection = `## Subtasks\n${subtasksContent}`;
 
-  // ── Possible Dependencies / Blockers ─────────────────────────────────────────
-  const BLOCKER_KEYWORDS = ['block', 'depend', 'prerequisite', 'must be done before'];
-
-  const blockerLines: string[] = [];
-
-  // Scan linked issue relationship types
-  for (const li of context.linkedIssues) {
-    const relLower = li.relationship.toLowerCase();
-    if (BLOCKER_KEYWORDS.some((kw) => relLower.includes(kw))) {
-      blockerLines.push(`- **${li.key}** (${li.relationship}): ${li.summary}`);
-    }
-  }
-
-  // Scan comments for blocker signals
-  for (const ci of commentInputs) {
-    const bodyLower = ci.body.toLowerCase();
-    if (
-      bodyLower.includes('block') ||
-      bodyLower.includes('depend') ||
-      bodyLower.includes('prerequisite') ||
-      bodyLower.includes('must be done before')
-    ) {
-      const preview = ci.body.trim().slice(0, 150);
-      blockerLines.push(`- **Comment by ${ci.author}** (${formatDate(ci.created)}): ${preview}`);
-    }
-  }
-
-  const blockersContent = blockerLines.length > 0
-    ? blockerLines.join('\n')
+  // Dependencies / Blockers
+  const blockerIssues = context.linkedIssues.filter(l =>
+    l.relationship.toLowerCase().includes('block'),
+  );
+  const blockersContent = blockerIssues.length > 0
+    ? blockerIssues.map(l => `- **${l.key}** (${l.relationship}): ${l.summary}`).join('\n')
     : 'No explicit blockers or dependencies found.';
-  const blockersSection = `## Possible Dependencies / Blockers\n${blockersContent}`;
+  const blockersSection = `## Dependencies / Blockers\n${blockersContent}`;
 
-  // ── Technical Signals ─────────────────────────────────────────────────────────
-  const combinedForSignals = [mainIssueDescription, context.epicDescription ?? '']
-    .filter(Boolean)
-    .join('\n');
+  // Technical Signals
+  const techSignalsSection = buildTechnicalSignalsSection(mainReqs, epicReqs);
 
-  const reqSignals = extractRequirements(combinedForSignals);
-  const techSignalLines: string[] = [];
+  // Repo Inspection Hints
+  const repoSection = formatRepoInspectionSection(repoHints);
 
-  if (reqSignals.technicalSignals.length > 0) {
-    techSignalLines.push(`**Files/APIs/Components:** ${reqSignals.technicalSignals.slice(0, 5).join(', ')}`);
-  }
-  if (reqSignals.businessRules.length > 0) {
-    techSignalLines.push(`**Business Rules:**`);
-    reqSignals.businessRules.slice(0, 5).forEach((r) => techSignalLines.push(`- ${r}`));
-  }
-  if (reqSignals.userRoles.length > 0) {
-    techSignalLines.push(`**User Roles:** ${reqSignals.userRoles.join(', ')}`);
-  }
-
-  const techSignalsContent = techSignalLines.length > 0
-    ? techSignalLines.join('\n')
-    : 'No specific technical signals found.';
-  const techSignalsSection = `## Technical Signals\n${techSignalsContent}`;
-
-  // ── Risk / Ambiguity ──────────────────────────────────────────────────────────
-  const riskLines: string[] = [];
-
-  // Ambiguities from main description + epic
-  if (reqSignals.ambiguities.length > 0) {
-    riskLines.push('**Ambiguities detected:**');
-    reqSignals.ambiguities.forEach((a) => riskLines.push(`- ${a}`));
-  }
-
-  // Build sources for conflict detection
-  type ConflictSource = { label: string; text: string; date?: string };
-  const conflictSources: ConflictSource[] = [
-    { label: 'main description', text: mainIssueDescription },
-  ];
-  for (const ci of commentInputs) {
-    conflictSources.push({ label: `comment by ${ci.author}`, text: ci.body, date: ci.created });
-  }
-  if (context.parentDescription) {
-    conflictSources.push({ label: 'parent description', text: context.parentDescription });
-  }
-  if (context.epicDescription) {
-    conflictSources.push({ label: 'epic description', text: context.epicDescription });
-  }
-
-  const conflictResult = detectConflicts(conflictSources);
+  // Conflicts
   const conflictsText = formatConflicts(conflictResult);
-  if (conflictsText) {
-    riskLines.push(conflictsText);
-  }
+  const conflictsContent = conflictResult.hasConflicts
+    ? conflictsText
+    : 'No conflicts detected.';
+  const conflictsSection = `## Conflicts\n${conflictsContent}`;
 
-  const riskContent = riskLines.length > 0
-    ? riskLines.join('\n')
-    : 'No ambiguities or conflicts detected.';
+  // Risk / Ambiguity
+  const riskContent = mainReqs.ambiguities.length > 0
+    ? mainReqs.ambiguities.map(a => `- ${a}`).join('\n')
+    : 'No ambiguities detected.';
   const riskSection = `## Risk / Ambiguity\n${riskContent}`;
 
-  // ── Final Implementation Prompt ───────────────────────────────────────────────
-  const totalIssues = countIssuesSeen(context);
+  // Clarification section (only rendered when shouldAsk is true)
+  const clarificationSection = formatClarificationSection(clarificationResult);
 
-  const goalText = mainIssueDescription
-    ? mainIssueDescription.slice(0, 300)
-    : fields.summary;
-
-  const acForPrompt = acText || 'Derive from description above.';
-
-  const technicalSignalsStr = reqSignals.technicalSignals.slice(0, 5).join(', ') || null;
-  const relatedFilesStr = technicalSignalsStr ?? 'the feature described above';
-
-  // Key technical context: business rules + technical signals, first 400 chars
-  const keyTechLines = [
-    ...reqSignals.businessRules.slice(0, 5),
-    ...reqSignals.technicalSignals.slice(0, 5),
-  ].join('; ');
-  const keyTechContext = keyTechLines.slice(0, 400) || 'See description above.';
-
-  const conflictWarning = conflictsText
-    ? `\n${conflictsText}`
-    : '';
-
-  const implementationPrompt = `## Final Implementation Prompt for Claude Code
-
-Implement Jira task ${key}: ${fields.summary}
-
-**Context source:** This brief was assembled from ${totalIssues} Jira issues.
-
-**Goal:**
-${goalText}
-
-**Acceptance Criteria:**
-${acForPrompt}
-
-**Before implementing:**
-1. Inspect the repository structure to understand the codebase.
-2. Find files related to: ${relatedFilesStr}.
-3. Treat the latest useful comments as authoritative if they conflict with the original description.
-4. Do not infer missing business rules — ask for clarification if required details are absent.
-5. Add or update tests for any changed behavior.
-6. After implementation, summarize the changed files.
-
-**Key technical context:**
-${keyTechContext}
-${conflictWarning}`;
+  // Final Implementation Prompt
+  const finalPrompt = buildFinalPrompt(
+    key,
+    fields.summary,
+    mainDesc,
+    mainReqs,
+    authorityRanking,
+    readinessResult,
+    usefulCommentsSummary,
+    conflictResult,
+    relevanceResult,
+  );
 
   // ── Assemble ──────────────────────────────────────────────────────────────────
-  return [
+  const sections: string[] = [
     header,
     mainTaskSection,
+    qualitySection,
+    authoritySection,
+    readinessSection,
     coreRequirementSection,
     acSection,
     commentsSection,
     parentEpicSection,
-    relatedIssuesSection,
+    relevanceSection,
     subtasksSection,
     blockersSection,
     techSignalsSection,
+    repoSection,
+    conflictsSection,
     riskSection,
-    implementationPrompt,
-  ].join('\n\n');
+  ];
+
+  // Only add clarification section when there are questions to ask
+  if (clarificationSection) {
+    sections.push(clarificationSection);
+  }
+
+  sections.push(finalPrompt);
+
+  return sections.join('\n\n');
 }
 
 /**
@@ -321,11 +437,7 @@ ${conflictWarning}`;
  * from a context brief produced by formatContextBrief.
  */
 export function extractContextImplementationPrompt(brief: string): string {
-  const SECTION_HEADING = '## Final Implementation Prompt for Claude Code';
-  const sectionStart = brief.indexOf(SECTION_HEADING);
-  if (sectionStart === -1) {
-    // Fallback: return the entire brief
-    return brief.trim();
-  }
+  const sectionStart = brief.indexOf('## Final Implementation Prompt for Claude Code');
+  if (sectionStart === -1) return brief;
   return brief.slice(sectionStart).trim();
 }
