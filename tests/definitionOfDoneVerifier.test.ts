@@ -683,4 +683,14 @@ describe('verifyDefinitionOfDone', () => {
     expect(conflictsCheck).toBeDefined();
     expect(conflictsCheck?.detail).toBe('3 Confluence-Jira conflict(s) detected');
   });
+
+  it('returns BLOCKED_BY_REQUIREMENT_GAP (not NOT_ENOUGH_EVIDENCE) when changedFileCount===0 AND hasBlockingConflicts===true', () => {
+    const input = baseInput({
+      changedFileCount: 0,
+      hasBlockingConflicts: true,
+    });
+    const result = verifyDefinitionOfDone(input);
+
+    expect(result.overallStatus).toBe('BLOCKED_BY_REQUIREMENT_GAP');
+  });
 });

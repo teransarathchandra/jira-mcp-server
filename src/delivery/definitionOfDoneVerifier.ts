@@ -560,17 +560,17 @@ function determineStatus(
   const failedChecks = checks.filter(c => c.status === 'failed');
   const failedCount = failedChecks.length;
 
-  // NOT_ENOUGH_EVIDENCE
-  if (input.changedFileCount === 0 || input.jiraContextQualityScore < 20) {
-    return 'NOT_ENOUGH_EVIDENCE';
-  }
-
   // BLOCKED_BY_REQUIREMENT_GAP
   if (
     input.hasBlockingConflicts ||
     failedChecks.some(c => c.checkId === 'req_implemented' || c.checkId === 'ac_covered')
   ) {
     return 'BLOCKED_BY_REQUIREMENT_GAP';
+  }
+
+  // NOT_ENOUGH_EVIDENCE
+  if (input.changedFileCount === 0 || input.jiraContextQualityScore < 20) {
+    return 'NOT_ENOUGH_EVIDENCE';
   }
 
   // READY_FOR_REVIEW
