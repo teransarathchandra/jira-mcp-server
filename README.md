@@ -4,13 +4,17 @@ A local stdio MCP (Model Context Protocol) server for Jira Cloud task retrieval 
 
 ## What this MCP server does
 
-This server connects Claude Code (or any MCP-compatible AI agent) to your Jira Cloud instance, giving you three read-only tools:
+This server connects Claude Code (or any MCP-compatible AI agent) to your Jira Cloud instance, giving you seven read-only tools:
 
 | Tool | Description |
 |------|-------------|
 | `jira_get_issue` | Fetch full details of a single Jira issue (summary, description, status, priority, assignee, attachments, labels) |
 | `jira_search_my_open_issues` | List your currently open issues in the configured Jira project |
 | `jira_prepare_work_prompt` | Fetch a Jira issue and return a structured implementation prompt ready for a coding agent |
+| `jira_get_issue_context` | Fetch a Jira issue with full surrounding context (parent, epic, linked issues, subtasks, comments) |
+| `jira_prepare_contextual_work_prompt` | Fetch a Jira issue with full context and return a final implementation prompt |
+| `jira_review_pr_alignment` | Review a PR or local branch against a Jira requirement — produces an evidence-based alignment report with score, matched/missing requirements, and review comments |
+| `jira_prepare_pr_review_prompt` | Prepare a focused Claude Code review prompt for reviewing a PR against a Jira task |
 
 Additional capabilities:
 - Converts Atlassian Document Format (ADF) to clean Markdown so descriptions are readable
@@ -287,6 +291,98 @@ None of these are required. The server works without them.
 # Skip epic siblings for a cleaner brief
 "Fetch context for CMPI-1234, disable epic sibling issues."
 ```
+
+## Reviewing a PR against a Jira task
+
+### Overview
+
+The `jira_review_pr_alignment` tool compares a PR's changes against the Jira requirement to produce an evidence-based alignment report. It does not claim "perfect alignment" — it reports a score, confidence level, matched requirements, missing requirements, unrelated changes, risky changes, and practical review comments.
+
+### Supported modes
+
+**local_diff (default):**
+Compares a local branch against a base branch using git. No GitHub API required.
+
+**github_pr (v2, not yet supported):**
+Will fetch PR data from GitHub using GITHUB_TOKEN. Not available in v1 — use local_diff.
+
+### Tools
+
+#### `jira_review_pr_alignment`
+
+Runs an alignment analysis between a Jira issue and the diff of a local branch.
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `issueKey` | yes | — | Jira issue key, e.g. `CMPI-1234` |
+| `baseBranch` | no | `origin/main` | Base branch to compare against |
+| `compareRef` | no | `HEAD` | Branch, commit SHA, or ref to compare |
+| `repoPath` | no | `.` | Path to the git repository |
+| `maxDiffChars` | no | `50000` | Max characters of diff to analyze |
+
+#### `jira_prepare_pr_review_prompt`
+
+Returns a ready-to-use review prompt that instructs Claude Code to review the PR against the Jira requirement. Useful when you want Claude to do a focused review without calling the full alignment tool.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `issueKey` | yes | Jira issue key, e.g. `CMPI-1234` |
+
+### Usage examples
+
+**Example 1: Review local changes against CMPI-1234**
+```
+Use jira_review_pr_alignment with issueKey: "CMPI-1234"
+```
+This uses the current branch (HEAD) compared against origin/main.
+
+**Example 2: Review a specific branch**
+```
+Use jira_review_pr_alignment with issueKey: "CMPI-1234", baseBranch: "main", compareRef: "feature/my-branch", repoPath: "/path/to/repo"
+```
+
+**Example 3: Prepare a review prompt**
+```
+Use jira_prepare_pr_review_prompt with issueKey: "CMPI-1234"
+```
+Returns a focused review prompt. Pass it to Claude Code to perform the review.
+
+**Example 4: GitHub PR mode (v2 — not yet available)**
+```
+Use jira_review_pr_alignment with issueKey: "CMPI-1234", mode: "github_pr", prNumber: 123
+Requires: GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO environment variables.
+```
+
+### Understanding the alignment score
+
+The score is 0–100, broken down as:
+
+| Points | Component |
+|--------|-----------|
+| 40 | Acceptance criteria coverage (key term matching in diff and file paths) |
+| 20 | Technical signal match (file names, API paths from Jira description) |
+| 15 | Relevant files changed (low unrelated change ratio) |
+| 15 | Tests added or updated |
+| 10 | Low noise (no truncation, no risky files, no ambiguities) |
+
+Possible statuses:
+
+| Status | Score range |
+|--------|-------------|
+| `STRONGLY_ALIGNED` | 80+ |
+| `MOSTLY_ALIGNED` | 65+ |
+| `PARTIALLY_ALIGNED` | 45+ |
+| `WEAKLY_ALIGNED` | 25+ |
+| `NOT_ENOUGH_EVIDENCE` | <25 or no files changed |
+
+### Important limitations
+
+- The score is heuristic — it uses keyword and pattern matching, not semantic understanding.
+- A high score does not guarantee the PR is correct or complete.
+- A low score may result from poor Jira description quality, not poor implementation.
+- **This is not a replacement for human code review.** Use it as a pre-review checklist.
+- The tool never posts PR comments, approves/rejects PRs, or modifies Jira issues.
+- Git access is read-only. Jira access is read-only.
 
 ## Troubleshooting
 
