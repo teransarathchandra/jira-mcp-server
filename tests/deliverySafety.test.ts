@@ -178,6 +178,20 @@ describe('runSafetyChecks', () => {
       const result = runSafetyChecks({ classifiedFiles: emptyClassified() });
       expect(result.warnings.find(w => w.type === 'env_config')).toBeUndefined();
     });
+
+    it('emits both critical and warning when .env and other config files are present', () => {
+      const classified = emptyClassified();
+      classified.configFiles = [makeFile('.env'), makeFile('vitest.config.ts')];
+      const result = runSafetyChecks({ classifiedFiles: classified });
+      const envConfigWarnings = result.warnings.filter(w => w.type === 'env_config');
+      expect(envConfigWarnings).toHaveLength(2);
+      const critical = envConfigWarnings.find(w => w.severity === 'critical');
+      const warning = envConfigWarnings.find(w => w.severity === 'warning');
+      expect(critical).toBeDefined();
+      expect(critical?.detail).toContain('.env');
+      expect(warning).toBeDefined();
+      expect(warning?.detail).toContain('vitest.config.ts');
+    });
   });
 
   // ── auth_security ─────────────────────────────────────────────────────────

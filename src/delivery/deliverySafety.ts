@@ -2,19 +2,14 @@
 // Pure deterministic safety checks. No I/O. No LLM calls.
 
 import type { SafetyWarning, SafetyCheckResult } from './deliveryTypes.js';
-import type { ChangedFile } from '../git/gitDiffService.js';
+import type { DiffResult } from '../git/gitDiffService.js';
 import type { ClassifiedFiles } from '../utils/changedFileClassifier.js';
 import type { RequirementSignals } from '../utils/requirementExtractor.js';
 
 // ── Input type ────────────────────────────────────────────────────────────────
 
 export interface SafetyCheckInput {
-  diffResult?: {
-    changedFiles: ChangedFile[];
-    diffText: string;
-    originalDiffLength: number;
-    truncated: boolean;
-  };
+  diffResult?: Pick<DiffResult, 'changedFiles' | 'diffText' | 'originalDiffLength' | 'truncated'>;
   classifiedFiles?: ClassifiedFiles;
   requirementSignals?: RequirementSignals;
   totalDiffChars?: number;
@@ -88,10 +83,8 @@ function checkMigration(input: SafetyCheckInput): SafetyWarning | null {
   return null;
 }
 
-function checkEnvConfig(input: SafetyCheckInput): SafetyWarning | null {
+function checkEnvFiles(input: SafetyCheckInput): SafetyWarning | null {
   const configFiles = input.classifiedFiles?.configFiles ?? [];
-  if (configFiles.length === 0) return null;
-
   const envFiles = configFiles.filter(f => {
     const name = f.path.split('/').pop()?.toLowerCase() ?? '';
     return name === '.env' || name.startsWith('.env.');
@@ -105,14 +98,25 @@ function checkEnvConfig(input: SafetyCheckInput): SafetyWarning | null {
       detail: envFiles.map(f => f.path).join(', '),
     };
   }
+  return null;
+}
 
-  // Non-env config files
-  return {
-    type: 'env_config',
-    severity: 'warning',
-    message: 'Configuration files changed — review for unintended environment differences.',
-    detail: configFiles.map(f => f.path).join(', '),
-  };
+function checkNonEnvConfigFiles(input: SafetyCheckInput): SafetyWarning | null {
+  const configFiles = input.classifiedFiles?.configFiles ?? [];
+  const nonEnvFiles = configFiles.filter(f => {
+    const name = f.path.split('/').pop()?.toLowerCase() ?? '';
+    return name !== '.env' && !name.startsWith('.env.');
+  });
+
+  if (nonEnvFiles.length > 0) {
+    return {
+      type: 'env_config',
+      severity: 'warning',
+      message: 'Configuration files changed — review for unintended environment differences.',
+      detail: nonEnvFiles.map(f => f.path).join(', '),
+    };
+  }
+  return null;
 }
 
 function checkAuthSecurity(input: SafetyCheckInput): SafetyWarning | null {
@@ -218,7 +222,8 @@ export function runSafetyChecks(input: SafetyCheckInput): SafetyCheckResult {
     checkGeneratedFiles,
     checkLockfile,
     checkMigration,
-    checkEnvConfig,
+    checkEnvFiles,
+    checkNonEnvConfigFiles,
     checkAuthSecurity,
     checkPaymentFinance,
     checkPiiInDiff,
