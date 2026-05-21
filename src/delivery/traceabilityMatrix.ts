@@ -275,8 +275,8 @@ function buildItem(
  * Check if two requirement texts have >70% word overlap (for deduplication).
  */
 function isDuplicateRequirement(textA: string, textB: string): boolean {
-  const wordsA = new Set(textA.toLowerCase().split(/\W+/).filter(w => w.length >= 3));
-  const wordsB = new Set(textB.toLowerCase().split(/\W+/).filter(w => w.length >= 3));
+  const wordsA = new Set(textA.toLowerCase().split(/\W+/).filter(w => w.length >= 4));
+  const wordsB = new Set(textB.toLowerCase().split(/\W+/).filter(w => w.length >= 4));
 
   if (wordsA.size === 0 || wordsB.size === 0) return false;
 

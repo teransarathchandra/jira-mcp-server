@@ -140,6 +140,24 @@ describe('buildTraceabilityMatrix', () => {
     expect(item.confidence).toBe('Low');
   });
 
+  // Test 4b: Truncated diff with non-empty diffText but no matching files/evidence → NOT_ENOUGH_EVIDENCE
+  it('marks AC as NOT_ENOUGH_EVIDENCE when diff is truncated with non-empty diffText but no matching files or evidence', () => {
+    const signals = emptySignals();
+    signals.acceptanceCriteria = ['Export report functionality download button'];
+
+    const matrix = buildTraceabilityMatrix(baseInput({
+      requirementSignals: signals,
+      changedFilePaths: [],
+      diffText: '+  someUnrelatedChange();\n+  anotherUnrelatedLine();\n',
+      diffTruncated: true,
+    }));
+
+    expect(matrix.items).toHaveLength(1);
+    const item = matrix.items[0];
+    expect(item.coverageStatus).toBe('NOT_ENOUGH_EVIDENCE');
+    expect(item.confidence).toBe('Low');
+  });
+
   // Test 5: Confluence signals added as CONF-x items
   it('adds non-duplicate Confluence signals as CONF-x items', () => {
     const signals = emptySignals();

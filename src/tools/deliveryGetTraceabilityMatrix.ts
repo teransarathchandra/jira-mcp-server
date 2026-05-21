@@ -89,6 +89,7 @@ function formatMatrix(matrix: TraceabilityMatrix, noDiffNote?: string): string {
   lines.push(`- Partially covered: ${matrix.partial}`);
   lines.push(`- Missing: ${matrix.missing}`);
   lines.push(`- Not enough evidence: ${matrix.notEnoughEvidence}`);
+  lines.push(`- Not applicable: ${matrix.notApplicable}`);
   lines.push('');
 
   if (matrix.items.length === 0) {
