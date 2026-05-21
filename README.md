@@ -4,7 +4,7 @@ A local stdio MCP (Model Context Protocol) server for Jira Cloud task retrieval 
 
 ## What this MCP server does
 
-This server connects Claude Code (or any MCP-compatible AI agent) to your Jira Cloud instance, giving you seven read-only tools:
+This server connects Claude Code (or any MCP-compatible AI agent) to your Jira Cloud instance, giving you eleven read-only tools:
 
 | Tool | Description |
 |------|-------------|
@@ -15,6 +15,10 @@ This server connects Claude Code (or any MCP-compatible AI agent) to your Jira C
 | `jira_prepare_contextual_work_prompt` | Fetch a Jira issue with full context and return a final implementation prompt |
 | `jira_review_pr_alignment` | Review a PR or local branch against a Jira requirement — produces an evidence-based alignment report with score, matched/missing requirements, and review comments |
 | `jira_prepare_pr_review_prompt` | Prepare a focused Claude Code review prompt for reviewing a PR against a Jira task |
+| `confluence_search_related_pages` | Search Confluence for pages related to a Jira issue, ranked by relevance |
+| `confluence_get_page_summary` | Fetch and summarize a Confluence page by ID with extracted requirement signals |
+| `jira_get_issue_with_confluence_context` | Jira issue + Confluence documentation enrichment in one combined context brief |
+| `jira_prepare_confluence_enriched_work_prompt` | Implementation prompt enriched with relevant Confluence documentation |
 
 Additional capabilities:
 - Converts Atlassian Document Format (ADF) to clean Markdown so descriptions are readable
@@ -383,6 +387,134 @@ Possible statuses:
 - **This is not a replacement for human code review.** Use it as a pre-review checklist.
 - The tool never posts PR comments, approves/rejects PRs, or modifies Jira issues.
 - Git access is read-only. Jira access is read-only.
+
+## Confluence Integration
+
+The Jira MCP server can optionally enrich Jira issue context with relevant Confluence documentation. When configured, it searches Confluence for pages related to a Jira ticket, scores them by relevance, and includes the most useful content in the implementation context.
+
+### What it does
+
+- Searches Confluence for pages related to a Jira ticket using targeted CQL queries
+- Scores pages by relevance to the Jira task (issue key mentions, label matches, technical term matches)
+- Ranks pages by documentation authority (PRD, technical design, architecture docs score higher)
+- Converts Confluence HTML to readable Markdown
+- Extracts requirement signals: business rules, API endpoints, UI screens, validation rules, permissions
+- Detects conflicts between Jira requirements and Confluence documentation
+- Produces a combined implementation brief with Jira + Confluence context
+
+### What it does NOT do
+
+- **Does not write to Confluence**: Read-only access only. No pages are created, edited, or deleted.
+- **Does not update Jira**: Jira data is also read-only.
+- **Does not use an LLM**: All analysis is deterministic and rule-based.
+- **Does not blindly include all Confluence content**: Only relevant pages (relevance score ≥ 25) are included by default.
+
+### Required environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `CONFLUENCE_BASE_URL` | Your Confluence base URL (e.g. `https://your-domain.atlassian.net/wiki`) |
+| `CONFLUENCE_EMAIL` | Your Atlassian account email |
+| `CONFLUENCE_API_TOKEN` | Your Atlassian API token |
+
+The server starts and Jira tools work normally even when these are not set. Confluence-specific tools return a clear error when Confluence is not configured.
+
+### Optional environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CONFLUENCE_SPACE_KEYS` | (all spaces) | Comma-separated space keys to restrict search |
+| `CONFLUENCE_MAX_SEARCH_RESULTS` | `10` | Max pages to return from Confluence search |
+| `CONFLUENCE_MAX_PAGES_TO_READ` | `5` | Max pages to read full body content for |
+| `CONFLUENCE_MAX_PAGE_CHARS` | `12000` | Max characters per page body |
+| `CONFLUENCE_ENABLED` | `true` | Set to `false` to disable even if credentials are set |
+| `CONFLUENCE_LABEL_BOOSTS` | `requirements,prd,technical-design,...` | Labels that boost relevance score |
+| `CONFLUENCE_EXCLUDE_LABELS` | `deprecated,archive,draft` | Labels that penalize relevance score |
+| `CONFLUENCE_TITLE_BOOST_TERMS` | `requirement,prd,design,spec,...` | Title keywords for authority detection |
+
+### How Confluence search works
+
+The server builds multiple targeted CQL queries from the Jira ticket context:
+
+1. **Jira key search**: Find pages that mention the exact issue key (e.g. `CMPI-1234`)
+2. **Epic/parent search**: Find pages mentioning the epic or parent issue key
+3. **Summary phrase search**: Find pages whose titles contain key words from the Jira summary
+4. **Technical terms search**: Find pages mentioning API names, module names, or other technical signals
+
+Results are deduplicated by page ID and scored for relevance before any page body is read.
+
+### Why pages are relevance-scored
+
+Blindly including all Confluence search results would produce noisy, token-heavy context. Instead, the server scores each page:
+
+- +40: Page body mentions the exact Jira issue key
+- +30: Page is directly linked from the Jira description or comments
+- +25: Page mentions the epic or parent issue key
+- +20: Page title contains keywords from the Jira summary
+- -30: Page is stale, deprecated, or archived
+
+Only pages scoring ≥ 25 are included by default.
+
+### Jira and Confluence authority model
+
+Jira is always the primary source of truth:
+
+- **Jira acceptance criteria and latest comments**: Primary authority. Always followed.
+- **Directly-linked Confluence pages**: Supporting/authoritative. Followed unless they conflict with Jira.
+- **Keyword-matched Confluence pages**: Background context only. Used for additional understanding, not as requirements.
+- **Stale/deprecated Confluence pages**: Marked with warnings. Never treated as authoritative.
+
+### How conflicts are reported
+
+When Jira and Confluence disagree, the conflict is reported clearly:
+
+```
+⚠️ Jira vs Confluence Conflicts:
+- [high] Jira Confluence Behavior Conflict: One source says "optional"...
+  - Impact: Incorrect validation logic
+  - Handling: Jira latest comments and confirmed acceptance criteria take priority...
+```
+
+### Avoiding token-heavy context
+
+- Set `CONFLUENCE_MAX_PAGES_TO_READ=3` to read fewer pages
+- Set `CONFLUENCE_MAX_PAGE_CHARS=6000` to limit per-page content
+- Set `CONFLUENCE_SPACE_KEYS` to restrict to relevant spaces
+- Use `jira_prepare_confluence_enriched_work_prompt` instead of `jira_get_issue_with_confluence_context` when you only need the final prompt
+
+### Example usage
+
+**Example 1: Prepare an implementation prompt with Confluence context**
+```
+Use jira_prepare_confluence_enriched_work_prompt for CMPI-1234
+```
+
+**Example 2: Search for related Confluence pages**
+```
+Use confluence_search_related_pages for CMPI-1234 and explain which pages are most relevant
+```
+
+**Example 3: Full Jira + Confluence context brief**
+```
+Use jira_get_issue_with_confluence_context for CMPI-1234, then inspect this repo and implement the confirmed requirement
+```
+
+**Example 4: Summarise a specific Confluence page**
+```
+Use confluence_get_page_summary with pageId: "123456789"
+```
+
+### Troubleshooting Confluence
+
+| Problem | Fix |
+|---------|-----|
+| `401 Unauthorized` | Check `CONFLUENCE_EMAIL` and `CONFLUENCE_API_TOKEN`. Generate a new token at https://id.atlassian.com/manage-profile/security/api-tokens |
+| `403 Restricted page` | The page exists but your account lacks permission. Grant your Atlassian account viewer access to the Confluence space |
+| `404 Page not found` | The page ID is invalid or the page was deleted. Verify the page ID from the Confluence URL |
+| `429 Rate limited` | Wait a few seconds and retry. Reduce `CONFLUENCE_MAX_SEARCH_RESULTS` to make fewer API calls |
+| No relevant pages found | Set `CONFLUENCE_SPACE_KEYS` to the spaces where your docs live. The ticket may genuinely have no related Confluence documentation |
+| Broad/noisy results | Set `CONFLUENCE_SPACE_KEYS` to restrict search. Reduce `CONFLUENCE_MAX_SEARCH_RESULTS` |
+| Confluence not configured | Set `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL`, and `CONFLUENCE_API_TOKEN`. Jira-only tools continue to work without these |
 
 ## Troubleshooting
 
