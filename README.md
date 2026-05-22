@@ -686,3 +686,122 @@ Tests live in `tests/` and are run with [Vitest](https://vitest.dev).
 - API tokens are stored only in environment variables, never hardcoded
 - The server never writes to Jira (read-only v1)
 - No Jira data is persisted to disk
+
+## Security Model
+
+This MCP server is designed as a **read-only** intelligence layer.
+
+### What it will never do
+- Write to Jira (no issue creation, updates, transitions, or comments)
+- Write to Confluence (no page creation or edits)
+- Post PR comments automatically
+- Approve or reject pull requests
+- Execute arbitrary shell commands
+- Use an LLM internally
+
+### How secrets are handled
+- All credentials are read from environment variables only
+- API tokens are never logged or included in error messages
+- Authorization headers are redacted from all logs and error output
+- The `redactSecrets()` function sanitizes all logged data
+
+### External content is untrusted
+Jira descriptions, Confluence pages, PR descriptions, comments, and code diffs are treated as **untrusted content**:
+- Content is wrapped in `<UNTRUSTED_CONTENT>` blocks in prompts
+- Prompt-injection patterns are detected and flagged with warnings
+- Instructions found inside Jira/Confluence content are never executed
+
+### Safe Git execution
+- Git commands use `execFile` with argument arrays (never shell strings)
+- Git refs are validated before use (no shell metacharacters allowed)
+- All git commands have a 15-second timeout
+- Huge diffs are truncated; binary, generated, and lockfiles are skipped
+
+### Rate-limit and retry safety
+- HTTP calls use exponential backoff with jitter
+- 401/403/404 responses are never retried
+- `Retry-After` headers are respected on 429 responses
+- Maximum 3 retries by default
+
+### Cache behavior
+- In-memory only — nothing persisted to disk by default
+- Cache keys never include raw API tokens
+- Short TTLs (5 min for Jira, 10 min for Confluence)
+- Disabled via `MCP_CACHE_ENABLED=false`
+
+## Performance Settings
+
+All settings can be configured via environment variables:
+
+### HTTP Timeouts and Retries
+| Variable | Default | Description |
+|---|---|---|
+| `MCP_HTTP_TIMEOUT_MS` | `15000` | HTTP request timeout in milliseconds |
+| `MCP_HTTP_MAX_RETRIES` | `3` | Maximum retry attempts for GET requests |
+| `MCP_HTTP_INITIAL_BACKOFF_MS` | `500` | Initial backoff delay in milliseconds |
+| `MCP_HTTP_MAX_BACKOFF_MS` | `10000` | Maximum backoff delay in milliseconds |
+| `MCP_RATE_LIMIT_RESPECT_RETRY_AFTER` | `true` | Respect `Retry-After` header on 429 |
+
+### Caching
+| Variable | Default | Description |
+|---|---|---|
+| `MCP_CACHE_ENABLED` | `true` | Enable/disable in-memory cache |
+| `MCP_CACHE_TTL_JIRA_SECONDS` | `300` | Jira issue cache TTL (5 minutes) |
+| `MCP_CACHE_TTL_CONFLUENCE_SECONDS` | `600` | Confluence cache TTL (10 minutes) |
+| `MCP_CACHE_MAX_ITEMS` | `500` | Maximum cached items before eviction |
+
+### Concurrency
+| Variable | Default | Description |
+|---|---|---|
+| `MCP_MAX_CONCURRENT_JIRA_REQUESTS` | `3` | Max parallel Jira API calls |
+| `MCP_MAX_CONCURRENT_CONFLUENCE_REQUESTS` | `3` | Max parallel Confluence API calls |
+| `MCP_MAX_CONCURRENT_GITHUB_REQUESTS` | `2` | Max parallel GitHub API calls |
+
+### Output Budgets
+| Variable | Default | Description |
+|---|---|---|
+| `MCP_MAX_OUTPUT_CHARS` | `60000` | Maximum total output characters |
+| `MCP_MAX_SECTION_CHARS` | `12000` | Maximum characters per section |
+| `MCP_MAX_DIFF_CHARS` | `50000` | Maximum diff characters |
+| `MCP_MAX_CONFLUENCE_CHARS` | `30000` | Maximum Confluence content characters |
+
+### Debug and Profiling
+| Variable | Default | Description |
+|---|---|---|
+| `MCP_DEBUG` | `false` | Enable debug-level logging |
+| `MCP_LOG_LEVEL` | `info` | Log level: error, warn, info, debug |
+| `MCP_LOG_REDACT_SECRETS` | `true` | Redact secrets from log output |
+| `MCP_PERFORMANCE_LOGGING` | `false` | Include performance summary in output |
+
+## Troubleshooting
+
+### Slow Confluence search
+Confluence CQL search can be slow on large instances. Options:
+- Set `CONFLUENCE_SPACE_KEYS` to restrict search to specific spaces
+- Reduce `CONFLUENCE_MAX_SEARCH_RESULTS` (default 10)
+- Enable caching: `MCP_CACHE_ENABLED=true`
+
+### Jira or Confluence 429 (rate limit)
+The server automatically retries with exponential backoff. If you hit limits frequently:
+- Reduce `MCP_MAX_CONCURRENT_JIRA_REQUESTS` or `MCP_MAX_CONCURRENT_CONFLUENCE_REQUESTS`
+- Increase `MCP_HTTP_INITIAL_BACKOFF_MS`
+
+### Git diff too large
+If the diff output is truncated:
+- Increase `MCP_MAX_DIFF_CHARS` (default 50000)
+- Generated files, lockfiles, and binary files are automatically skipped
+
+### Output truncated
+If context output is cut off:
+- Increase `MCP_MAX_OUTPUT_CHARS` (default 60000)
+- Security warnings are always preserved even when truncating
+
+### Cache stale
+To clear the cache mid-session, use the `mcp_clear_cache` tool with `{ "scope": "all" }`.
+You can also disable caching entirely with `MCP_CACHE_ENABLED=false`.
+
+### Restricted Confluence pages
+If a Confluence page returns 403, the server continues with available pages and adds a warning to the output. Only pages you have permission to access are included.
+
+### Missing required config
+If a required variable is missing (JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN), the server will fail with a clear error message listing the missing variables. Optional integrations (Confluence, GitHub) are silently disabled when not configured.

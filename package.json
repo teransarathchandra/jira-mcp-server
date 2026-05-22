@@ -8,7 +8,9 @@
     "build": "tsc",
     "dev": "node --env-file=.env dist/index.js",
     "test": "vitest run",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "security:audit": "npm audit --audit-level=moderate"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
