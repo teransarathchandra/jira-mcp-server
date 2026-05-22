@@ -210,7 +210,7 @@ export function parseNameStatusLine(line: string): ChangedFile | null {
 export async function isGitRepository(repoPath: string): Promise<boolean> {
   const resolved = resolveRepoPath(repoPath);
   try {
-    await execFile('git', ['-C', resolved, 'rev-parse', '--git-dir']);
+    await execFile('git', ['-C', resolved, 'rev-parse', '--git-dir'], { timeout: 15_000 });
     return true;
   } catch {
     return false;
@@ -222,7 +222,7 @@ export async function isGitRepository(repoPath: string): Promise<boolean> {
  */
 export async function getCurrentBranch(repoPath: string): Promise<string> {
   const resolved = resolveRepoPath(repoPath);
-  const { stdout } = await execFile('git', ['-C', resolved, 'rev-parse', '--abbrev-ref', 'HEAD']);
+  const { stdout } = await execFile('git', ['-C', resolved, 'rev-parse', '--abbrev-ref', 'HEAD'], { timeout: 15_000 });
   return stdout.trim();
 }
 
@@ -323,7 +323,7 @@ export async function getDiffStats(
     'diff',
     '--stat',
     `${baseBranch}...${compareRef}`,
-  ]);
+  ], { timeout: 15_000 });
 
   return stdout.trim();
 }
