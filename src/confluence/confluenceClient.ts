@@ -6,6 +6,8 @@ import {
   ConfluenceServerError,
   ConfluenceNetworkError,
 } from "./confluenceConfig.js";
+import { MemoryCache, isCacheEnabled } from "../cache/memoryCache.js";
+import { confluencePageKey, confluenceSearchKey } from "../cache/cacheKeys.js";
 
 // ── Confluence API response interfaces ────────────────────────────────────────
 
@@ -69,6 +71,8 @@ export interface ConfluenceSearchResult {
 export class ConfluenceClient {
   private readonly baseUrl: string;
   private readonly authHeader: string;
+  private readonly _pageCache: MemoryCache<ConfluencePage>;
+  private readonly _searchCache: MemoryCache<ConfluenceSearchResult>;
 
   constructor(config: ConfluenceConfig) {
     // Trim trailing slash so we can always append paths with a leading slash.
@@ -78,7 +82,15 @@ export class ConfluenceClient {
       `${config.email}:${config.apiToken}`
     ).toString("base64");
     this.authHeader = `Basic ${credentials}`;
+
+    const pageTtlMs = (parseInt(process.env.MCP_CACHE_TTL_CONFLUENCE_SECONDS ?? "600", 10) || 600) * 1000;
+    this._pageCache = new MemoryCache<ConfluencePage>({ ttlMs: pageTtlMs });
+    this._searchCache = new MemoryCache<ConfluenceSearchResult>({ ttlMs: pageTtlMs });
   }
+
+  /** Expose caches so external tools (e.g. mcp_clear_cache) can clear them. */
+  get pageCache(): MemoryCache<ConfluencePage> { return this._pageCache; }
+  get searchCache(): MemoryCache<ConfluenceSearchResult> { return this._searchCache; }
 
   // ── Private helpers ──────────────────────────────────────────────────────────
 
@@ -151,6 +163,12 @@ export class ConfluenceClient {
     cql: string,
     limit: number
   ): Promise<ConfluenceSearchResult> {
+    const cacheKey = confluenceSearchKey(cql, [], limit);
+    if (isCacheEnabled()) {
+      const cached = this._searchCache.get(cacheKey);
+      if (cached !== undefined) return cached;
+    }
+
     const params = new URLSearchParams({
       cql,
       limit: String(limit),
@@ -185,7 +203,11 @@ export class ConfluenceClient {
       await this.handleErrorResponse(response);
     }
 
-    return response.json() as Promise<ConfluenceSearchResult>;
+    const result = await response.json() as ConfluenceSearchResult;
+    if (isCacheEnabled()) {
+      this._searchCache.set(cacheKey, result);
+    }
+    return result;
   }
 
   /**
@@ -193,6 +215,12 @@ export class ConfluenceClient {
    * GET {baseUrl}/rest/api/content/{pageId}?expand=metadata.labels,space,version,ancestors,body.view
    */
   async getPageById(pageId: string): Promise<ConfluencePage> {
+    const cacheKey = confluencePageKey(pageId);
+    if (isCacheEnabled()) {
+      const cached = this._pageCache.get(cacheKey);
+      if (cached !== undefined) return cached;
+    }
+
     const params = new URLSearchParams({
       expand: "metadata.labels,space,version,ancestors,body.view",
     });
@@ -225,7 +253,11 @@ export class ConfluenceClient {
       await this.handleErrorResponse(response, pageId);
     }
 
-    return response.json() as Promise<ConfluencePage>;
+    const page = await response.json() as ConfluencePage;
+    if (isCacheEnabled()) {
+      this._pageCache.set(cacheKey, page);
+    }
+    return page;
   }
 
   /**

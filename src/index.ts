@@ -227,6 +227,10 @@ const DeliveryExportTaskReportSchema = z.object({
   overwrite: z.boolean().optional().default(false),
 });
 
+const McpClearCacheSchema = z.object({
+  scope: z.literal('all').optional().default('all'),
+});
+
 // Tool definitions for MCP list_tools
 const TOOLS = [
   {
@@ -563,6 +567,17 @@ const TOOLS = [
       required: ['issueKey'],
     },
   },
+  {
+    name: 'mcp_clear_cache',
+    description: 'Clear all in-memory caches (Jira issues, Jira search, Confluence pages, Confluence search). Use this to force fresh data on the next request.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        scope: { type: 'string', enum: ['all'], description: 'Cache scope to clear (default: all)' },
+      },
+      required: [],
+    },
+  },
 ];
 
 async function main() {
@@ -722,6 +737,19 @@ async function main() {
           const input = DeliveryExportTaskReportSchema.parse(args);
           const result = await deliveryExportTaskReport(input, client, config);
           return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'mcp_clear_cache': {
+          McpClearCacheSchema.parse(args);
+          client.issueCache.clear();
+          client.minimalCache.clear();
+          client.searchCache.clear();
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({ cleared: true, message: 'Cache cleared.' }),
+            }],
+          };
         }
 
         default:

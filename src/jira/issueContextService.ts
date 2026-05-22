@@ -5,9 +5,11 @@ import {
   JiraMinimalIssue,
   JiraIssueLink,
   JiraNotFoundError,
+  JiraAuthError,
 } from "../jiraClient.js";
 import { adfToMarkdown } from "../utils/adfToMarkdown.js";
 import { validateIssueKey } from "../utils/issueKey.js";
+import { logger } from "../logging/logger.js";
 
 // ── Output types ──────────────────────────────────────────────────────────────
 
@@ -125,8 +127,12 @@ export async function fetchIssueContext(
       } catch (err) {
         if (err instanceof JiraNotFoundError) {
           // Skip silently — parent no longer exists
-        } else {
+        } else if (err instanceof JiraAuthError) {
           throw err;
+        } else {
+          const message = err instanceof Error ? err.message : String(err);
+          logger.warn(`[issueContext] Failed to fetch parent issue ${parentKey}: ${message}`, { parentKey });
+          truncationWarnings.push(`Parent issue ${parentKey} could not be fetched: ${message}`);
         }
       }
     }
@@ -166,8 +172,12 @@ export async function fetchIssueContext(
     } catch (err) {
       if (err instanceof JiraNotFoundError) {
         // Skip silently
-      } else {
+      } else if (err instanceof JiraAuthError) {
         throw err;
+      } else {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.warn(`[issueContext] Failed to fetch epic issue ${epicKey}: ${message}`, { epicKey });
+        truncationWarnings.push(`Epic issue ${epicKey} could not be fetched: ${message}`);
       }
     }
   }
@@ -213,8 +223,14 @@ export async function fetchIssueContext(
       } catch (err) {
         if (err instanceof JiraNotFoundError) {
           // Skip silently — linked issue may have been deleted
-        } else {
+        } else if (err instanceof JiraAuthError) {
+          // Auth errors should propagate — don't swallow them
           throw err;
+        } else {
+          // Network errors, server errors, etc. — log and continue
+          const message = err instanceof Error ? err.message : String(err);
+          logger.warn(`[issueContext] Failed to fetch linked issue ${key}: ${message}`, { key });
+          truncationWarnings.push(`Linked issue ${key} could not be fetched: ${message}`);
         }
       }
     }
@@ -276,8 +292,12 @@ export async function fetchIssueContext(
     } catch (err) {
       if (err instanceof JiraNotFoundError) {
         // No siblings found — skip silently
-      } else {
+      } else if (err instanceof JiraAuthError) {
         throw err;
+      } else {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.warn(`[issueContext] Failed to fetch epic siblings for ${epicKey}: ${message}`, { epicKey });
+        truncationWarnings.push(`Epic siblings for ${epicKey} could not be fetched: ${message}`);
       }
     }
   }
