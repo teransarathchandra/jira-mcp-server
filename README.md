@@ -4,7 +4,7 @@ A local stdio MCP (Model Context Protocol) server for Jira Cloud task retrieval 
 
 ## What this MCP server does
 
-This server connects Claude Code (or any MCP-compatible AI agent) to your Jira Cloud instance, giving you eleven read-only tools:
+This server connects Claude Code (or any MCP-compatible AI agent) to your Jira Cloud instance, giving you twenty-three read-only tools:
 
 | Tool | Description |
 |------|-------------|
@@ -19,6 +19,18 @@ This server connects Claude Code (or any MCP-compatible AI agent) to your Jira C
 | `confluence_get_page_summary` | Fetch and summarize a Confluence page by ID with extracted requirement signals |
 | `jira_get_issue_with_confluence_context` | Jira issue + Confluence documentation enrichment in one combined context brief |
 | `jira_prepare_confluence_enriched_work_prompt` | Implementation prompt enriched with relevant Confluence documentation |
+| `delivery_get_traceability_matrix` | Generate a requirement-to-code traceability matrix for a Jira task |
+| `delivery_verify_definition_of_done` | Verify Definition of Done (14 checks) and return merge-readiness verdict with score |
+| `delivery_analyze_implementation_impact` | Analyze predicted implementation impact before coding begins |
+| `delivery_generate_test_strategy` | Generate a practical test strategy with unit, integration, E2E, and manual QA scenarios |
+| `delivery_generate_reviewer_report` | Generate a role-specific review report (product, frontend, backend, QA, security, release) |
+| `delivery_generate_qa_handoff` | Generate a QA handoff document with test cases, regression areas, and known risks |
+| `delivery_generate_release_notes` | Generate release notes with audience variants (internal, qa, product, customer_safe) |
+| `delivery_generate_claude_workflow_pack` | Generate Claude Code workflow assets (.claude/skills/ and .claude/commands/) for Jira workflows |
+| `delivery_scan_project_patterns` | Scan local repo for technical patterns (tech stack, module names, naming conventions) |
+| `delivery_get_project_patterns` | Get saved local project patterns from pattern memory |
+| `delivery_clear_project_patterns` | Clear local project pattern memory |
+| `delivery_export_task_report` | Export a complete multi-section delivery report to a markdown file |
 
 Additional capabilities:
 - Converts Atlassian Document Format (ADF) to clean Markdown so descriptions are readable
@@ -515,6 +527,135 @@ Use confluence_get_page_summary with pageId: "123456789"
 | No relevant pages found | Set `CONFLUENCE_SPACE_KEYS` to the spaces where your docs live. The ticket may genuinely have no related Confluence documentation |
 | Broad/noisy results | Set `CONFLUENCE_SPACE_KEYS` to restrict search. Reduce `CONFLUENCE_MAX_SEARCH_RESULTS` |
 | Confluence not configured | Set `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL`, and `CONFLUENCE_API_TOKEN`. Jira-only tools continue to work without these |
+
+## Delivery Intelligence Workflows
+
+The delivery intelligence layer turns the MCP server into a full engineering delivery assistant. Use these tools from Claude Code to improve requirement traceability, testing, review discipline, and delivery quality.
+
+### 1. Requirement-to-Code Traceability Matrix
+
+Maps each Jira acceptance criterion and business rule to implementation evidence in the PR diff.
+
+```
+Use Jira MCP to generate a traceability matrix for CMPI-1234.
+```
+
+Tool: `delivery_get_traceability_matrix`
+
+### 2. Definition of Done Verification
+
+Runs 14 automated checks to determine merge-readiness: test coverage, AC coverage, risky file detection, conflict detection, and more.
+
+```
+Use Jira MCP to verify Definition of Done for CMPI-1234 against the current branch.
+```
+
+Tool: `delivery_verify_definition_of_done`
+
+### 3. Implementation Impact Analysis
+
+Predicts affected areas (frontend, backend, API, database, auth, validation) from the Jira requirement before coding begins.
+
+```
+Use Jira MCP to analyze implementation impact for CMPI-1234.
+```
+
+Tool: `delivery_analyze_implementation_impact`
+
+### 4. Test Strategy Generation
+
+Generates specific test scenarios (unit, integration, E2E, manual QA, negative, permission tests) from the Jira requirement.
+
+```
+Use Jira MCP to generate a test strategy for CMPI-1234.
+```
+
+Tool: `delivery_generate_test_strategy`
+
+### 5. Reviewer Persona Reports
+
+Generates role-specific review reports from the same Jira/Confluence/PR context. Personas: product, frontend, backend, QA, security, release.
+
+```
+Use Jira MCP to generate a QA reviewer report for CMPI-1234.
+```
+
+Tool: `delivery_generate_reviewer_report` (with `persona` parameter)
+
+### 6. QA Handoff
+
+Generates a QA-readable handoff document with what to test, what not to test, test data, happy path, negative cases, and regression areas.
+
+```
+Use Jira MCP to generate a QA handoff for CMPI-1234.
+```
+
+Tool: `delivery_generate_qa_handoff`
+
+### 7. Release Note Generation
+
+Generates audience-aware release notes. Audiences: `internal`, `qa`, `product`, `customer_safe`.
+
+```
+Use Jira MCP to generate a release note for CMPI-1234.
+```
+
+Tool: `delivery_generate_release_notes`
+
+### 8. Claude Code Workflow Pack
+
+Generates `.claude/skills/` and `.claude/commands/` files that turn Jira delivery workflows into reusable slash commands.
+
+```
+Use Jira MCP to generate the Claude Code workflow pack.
+```
+
+Tool: `delivery_generate_claude_workflow_pack`
+
+Generated slash commands (after running the workflow pack):
+- `/jira-plan CMPI-1234` — Implementation plan
+- `/jira-review-pr CMPI-1234` — PR alignment review
+- `/jira-dod CMPI-1234` — Definition of Done check
+- `/jira-qa CMPI-1234` — QA handoff
+
+### 9. Optional Local Project Pattern Memory
+
+Capture non-sensitive technical patterns from the local repo (module names, test locations, tech stack, naming conventions). Disabled by default.
+
+Enable by setting `DELIVERY_PATTERN_MEMORY_ENABLED=true` in your `.env`.
+
+Tools:
+- `delivery_scan_project_patterns` — Scan and optionally persist patterns
+- `delivery_get_project_patterns` — Retrieve saved patterns
+- `delivery_clear_project_patterns` — Delete the pattern file
+
+**Security note:** Pattern memory never stores Jira descriptions, Confluence content, or any client-sensitive text — only derived structural metadata.
+
+Add `.mcp-project-patterns.json` to your `.gitignore` if you enable pattern memory.
+
+### 10. Delivery Report Export
+
+Combine multiple analysis sections into a single markdown document.
+
+```
+Use Jira MCP to export a complete delivery report for CMPI-1234.
+```
+
+Tool: `delivery_export_task_report`
+
+Sections: `context`, `impact`, `traceability`, `pr_alignment`, `definition_of_done`, `test_strategy`, `qa_handoff`, `release_notes`
+
+## MCP Prompts
+
+The server exposes five named prompts for direct use in MCP-compatible clients:
+
+| Prompt | Description |
+|--------|-------------|
+| `jira_implementation_prompt` | Generate an implementation prompt for a Jira task |
+| `jira_pr_review_prompt` | Generate a PR review prompt for a Jira task |
+| `jira_qa_handoff_prompt` | Generate a QA handoff prompt for a Jira task |
+| `jira_definition_of_done_prompt` | Generate a Definition of Done verification prompt |
+| `jira_release_note_prompt` | Generate a release note prompt for a Jira task |
 
 ## Troubleshooting
 
