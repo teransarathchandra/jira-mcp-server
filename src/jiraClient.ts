@@ -1,4 +1,6 @@
 import { Config } from "./config.js";
+import { MemoryCache, isCacheEnabled } from "./cache/memoryCache.js";
+import { jiraIssueKey, jiraSearchKey } from "./cache/cacheKeys.js";
 
 // ── Custom error classes ──────────────────────────────────────────────────────
 
@@ -208,6 +210,9 @@ const MINIMAL_ISSUE_FIELDS = [
 export class JiraClient {
   private readonly baseUrl: string;
   private readonly authHeader: string;
+  private readonly _issueCache: MemoryCache<JiraIssue>;
+  private readonly _minimalCache: MemoryCache<JiraMinimalIssue>;
+  private readonly _searchCache: MemoryCache<JiraSearchResult>;
 
   constructor(config: Config) {
     // Trim trailing slash so we can always append paths with a leading slash.
@@ -217,7 +222,17 @@ export class JiraClient {
       `${config.email}:${config.apiToken}`
     ).toString("base64");
     this.authHeader = `Basic ${credentials}`;
+
+    const issueTtlMs = (parseInt(process.env.MCP_CACHE_TTL_JIRA_SECONDS ?? "300", 10) || 300) * 1000;
+    this._issueCache = new MemoryCache<JiraIssue>({ ttlMs: issueTtlMs });
+    this._minimalCache = new MemoryCache<JiraMinimalIssue>({ ttlMs: issueTtlMs });
+    this._searchCache = new MemoryCache<JiraSearchResult>({ ttlMs: issueTtlMs });
   }
+
+  /** Expose caches so external tools (e.g. mcp_clear_cache) can clear them. */
+  get issueCache(): MemoryCache<JiraIssue> { return this._issueCache; }
+  get minimalCache(): MemoryCache<JiraMinimalIssue> { return this._minimalCache; }
+  get searchCache(): MemoryCache<JiraSearchResult> { return this._searchCache; }
 
   // ── Private helpers ─────────────────────────────────────────────────────────
 
@@ -270,6 +285,11 @@ export class JiraClient {
   // ── Public API ──────────────────────────────────────────────────────────────
 
   async getIssue(issueKey: string): Promise<JiraIssue> {
+    if (isCacheEnabled()) {
+      const cached = this._issueCache.get(jiraIssueKey(issueKey));
+      if (cached !== undefined) return cached;
+    }
+
     const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=${ISSUE_FIELDS}`;
 
     const controller = new AbortController();
@@ -297,10 +317,20 @@ export class JiraClient {
       await this.handleErrorResponse(response, issueKey);
     }
 
-    return response.json() as Promise<JiraIssue>;
+    const issue = await response.json() as JiraIssue;
+    if (isCacheEnabled()) {
+      this._issueCache.set(jiraIssueKey(issueKey), issue);
+    }
+    return issue;
   }
 
   async getIssueMinimal(issueKey: string): Promise<JiraMinimalIssue> {
+    const cacheKey = jiraIssueKey(issueKey + ':minimal');
+    if (isCacheEnabled()) {
+      const cached = this._minimalCache.get(cacheKey);
+      if (cached !== undefined) return cached;
+    }
+
     const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=${MINIMAL_ISSUE_FIELDS}`;
 
     const controller = new AbortController();
@@ -328,7 +358,11 @@ export class JiraClient {
       await this.handleErrorResponse(response, issueKey);
     }
 
-    return response.json() as Promise<JiraMinimalIssue>;
+    const issue = await response.json() as JiraMinimalIssue;
+    if (isCacheEnabled()) {
+      this._minimalCache.set(cacheKey, issue);
+    }
+    return issue;
   }
 
   async searchIssues(
@@ -336,6 +370,12 @@ export class JiraClient {
     fields: string[],
     maxResults: number
   ): Promise<JiraSearchResult> {
+    const cacheKey = jiraSearchKey(jql, maxResults);
+    if (isCacheEnabled()) {
+      const cached = this._searchCache.get(cacheKey);
+      if (cached !== undefined) return cached;
+    }
+
     const url = `${this.baseUrl}/rest/api/3/issue/search`;
 
     const controller = new AbortController();
@@ -367,6 +407,10 @@ export class JiraClient {
       await this.handleErrorResponse(response);
     }
 
-    return response.json() as Promise<JiraSearchResult>;
+    const result = await response.json() as JiraSearchResult;
+    if (isCacheEnabled()) {
+      this._searchCache.set(cacheKey, result);
+    }
+    return result;
   }
 }

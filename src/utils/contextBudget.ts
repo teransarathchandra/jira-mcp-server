@@ -2,6 +2,176 @@
 // Pure utilities for controlling context size and preventing token explosion.
 // No LLM calls — all deterministic string/array manipulation.
 
+// ── Global output budget limits (read from env with defaults) ─────────────────
+export const MAX_OUTPUT_CHARS: number = parseInt(
+  process.env.MCP_MAX_OUTPUT_CHARS ?? "60000",
+  10
+);
+export const MAX_SECTION_CHARS: number = parseInt(
+  process.env.MCP_MAX_SECTION_CHARS ?? "12000",
+  10
+);
+export const MAX_DIFF_CHARS: number = parseInt(
+  process.env.MCP_MAX_DIFF_CHARS ?? "50000",
+  10
+);
+export const MAX_CONFLUENCE_CHARS: number = parseInt(
+  process.env.MCP_MAX_CONFLUENCE_CHARS ?? "30000",
+  10
+);
+
+// ── Priority-based section budget ─────────────────────────────────────────────
+export type ContentPriority = "critical" | "high" | "medium" | "low";
+
+export interface ContentSection {
+  content: string;
+  priority: ContentPriority;
+  label?: string;
+}
+
+const PRIORITY_ORDER: ContentPriority[] = ["critical", "high", "medium", "low"];
+
+/**
+ * Given a list of sections and a total budget, fit as many sections as
+ * possible in priority order (critical → high → medium → low).
+ * Within the same priority, first-in wins (order preserved).
+ * Critical sections are always included even if they exceed the budget.
+ * A non-critical section that would exceed remaining budget is omitted entirely.
+ * Returns the assembled content, a list of omitted section labels, and a
+ * truncated flag.
+ */
+export function fitSections(
+  sections: ContentSection[],
+  budgetChars: number,
+  separator = "\n\n"
+): { content: string; omitted: string[]; truncated: boolean } {
+  const included: ContentSection[] = [];
+  const omitted: string[] = [];
+  let remaining = budgetChars;
+
+  for (const priority of PRIORITY_ORDER) {
+    const group = sections.filter((s) => s.priority === priority);
+    for (const section of group) {
+      const sectionLen =
+        section.content.length +
+        (included.length > 0 ? separator.length : 0);
+
+      if (priority === "critical") {
+        // Critical sections always included, even over budget.
+        included.push(section);
+        remaining -= sectionLen;
+      } else if (sectionLen <= remaining) {
+        included.push(section);
+        remaining -= sectionLen;
+      } else {
+        if (section.label !== undefined) {
+          omitted.push(section.label);
+        }
+      }
+    }
+  }
+
+  const content = included.map((s) => s.content).join(separator);
+  return { content, omitted, truncated: omitted.length > 0 };
+}
+
+// ── Priority-aware truncation ─────────────────────────────────────────────────
+const WARNING_PREFIXES = ["⚠️", "❌", "🔴"];
+
+function isWarningLine(line: string): boolean {
+  return WARNING_PREFIXES.some((prefix) => line.startsWith(prefix));
+}
+
+/**
+ * Truncate content to maxChars, but always preserve lines that start with
+ * ⚠️, ❌, or 🔴. Other lines are truncated from the end.
+ * Returns content that ends at a newline boundary when possible.
+ */
+export function truncatePreservingWarnings(
+  content: string,
+  maxChars: number
+): string {
+  if (content.length <= maxChars) {
+    return content;
+  }
+
+  const lines = content.split("\n");
+  const warningLines: string[] = [];
+  const normalLines: string[] = [];
+
+  for (const line of lines) {
+    if (isWarningLine(line)) {
+      warningLines.push(line);
+    } else {
+      normalLines.push(line);
+    }
+  }
+
+  // Start with all warning lines joined.
+  const warningBlock = warningLines.join("\n");
+  const warningChars = warningBlock.length;
+
+  // Budget for normal lines (account for separator newline if both blocks exist).
+  const separatorLen = warningLines.length > 0 && normalLines.length > 0 ? 1 : 0;
+  const normalBudget = maxChars - warningChars - separatorLen;
+
+  let normalBlock = "";
+  if (normalBudget > 0 && normalLines.length > 0) {
+    // Join normal lines, then trim to budget at newline boundary.
+    const joined = normalLines.join("\n");
+    if (joined.length <= normalBudget) {
+      normalBlock = joined;
+    } else {
+      // Trim at last newline within budget.
+      const candidate = joined.slice(0, normalBudget);
+      const lastNewline = candidate.lastIndexOf("\n");
+      normalBlock =
+        lastNewline > 0 ? candidate.slice(0, lastNewline) : candidate;
+    }
+  }
+
+  if (warningLines.length > 0 && normalBlock.length > 0) {
+    return warningBlock + "\n" + normalBlock;
+  } else if (warningLines.length > 0) {
+    return warningBlock;
+  } else {
+    return normalBlock;
+  }
+}
+
+// ── Omission summary ──────────────────────────────────────────────────────────
+/**
+ * Generate an omission notice listing what was dropped.
+ * Returns '' if nothing was omitted.
+ * Example: "⚠️ Omitted sections (budget exceeded): linked issues, epic siblings"
+ */
+export function formatOmissionSummary(omitted: string[]): string {
+  if (omitted.length === 0) {
+    return "";
+  }
+  return `⚠️ Omitted sections (budget exceeded): ${omitted.join(", ")}`;
+}
+
+// ── Final prompt budget check ─────────────────────────────────────────────────
+/**
+ * Check if a final assembled prompt exceeds MCP_MAX_OUTPUT_CHARS.
+ * Returns the prompt unchanged if within budget.
+ * If over budget, truncates using truncatePreservingWarnings and appends an
+ * omission notice.
+ */
+export function enforceFinalBudget(prompt: string): string {
+  if (prompt.length <= MAX_OUTPUT_CHARS) {
+    return prompt;
+  }
+  // Reserve space for the omission notice.
+  const notice = "\n\n⚠️ Output truncated to fit budget.";
+  const truncated = truncatePreservingWarnings(
+    prompt,
+    MAX_OUTPUT_CHARS - notice.length
+  );
+  return truncated + notice;
+}
+
 /**
  * Truncate a string to maxChars, appending "... [truncated]" if cut.
  */
