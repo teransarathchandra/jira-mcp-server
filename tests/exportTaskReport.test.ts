@@ -69,6 +69,9 @@ describe('exportTaskReport', () => {
 
     expect(result.content).toContain('# Delivery Report: CMPI-1234');
     expect(result.content).toContain('CMPI-1234');
+    expect(result.content).toContain('Test issue summary');
+    expect(result.content).toContain('> Generated:');
+    expect(result.content).toContain('> Sections:');
   });
 
   it('warning message always present', () => {
