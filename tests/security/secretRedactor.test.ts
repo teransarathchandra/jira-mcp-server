@@ -163,3 +163,51 @@ describe('isLikelySecret', () => {
     expect(isLikelySecret('/rest/api/2/issue')).toBe(false);
   });
 });
+
+describe('redactSecrets — circular references', () => {
+  it('does not crash on a circular object and returns [Circular] placeholder', () => {
+    const obj: Record<string, unknown> = { a: 1 };
+    obj['self'] = obj;
+    expect(() => redactSecrets(obj)).not.toThrow();
+    const result = redactSecrets(obj) as Record<string, unknown>;
+    expect(result['self']).toBe('[Circular]');
+  });
+
+  it('does not crash on a circular array and returns [Circular] placeholder', () => {
+    const arr: unknown[] = [1, 2];
+    arr.push(arr);
+    expect(() => redactSecrets(arr)).not.toThrow();
+    const result = redactSecrets(arr) as unknown[];
+    expect(result[2]).toBe('[Circular]');
+  });
+
+  it('still redacts non-circular parts of a circular object', () => {
+    const obj: Record<string, unknown> = { token: 'JIRA_API_TOKEN=supersecret' };
+    obj['self'] = obj;
+    const result = redactSecrets(obj) as Record<string, unknown>;
+    expect(result['token']).toBe('JIRA_API_TOKEN=[REDACTED]');
+  });
+});
+
+describe('redactUrl — password query param', () => {
+  it('removes password query param', () => {
+    const url = 'https://api.example.com/data?user=alice&password=s3cr3t';
+    expect(redactUrl(url)).toBe('https://api.example.com/data?user=alice');
+  });
+});
+
+describe('redactSecrets — URL embedded credentials', () => {
+  it('redacts user:password credentials embedded in a URL string', () => {
+    const input = 'https://user:mysecretpassword@host.example.com/path';
+    const result = redactSecrets(input) as string;
+    expect(result).toContain('[REDACTED]@');
+    expect(result).not.toContain('mysecretpassword');
+  });
+
+  it('redacts credentials in HTTP URLs as well', () => {
+    const input = 'http://admin:topsecret@internal.company.com/api';
+    const result = redactSecrets(input) as string;
+    expect(result).toContain('[REDACTED]@');
+    expect(result).not.toContain('topsecret');
+  });
+});

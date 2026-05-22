@@ -1,4 +1,5 @@
 const SECRET_PATTERNS: Array<[RegExp, string]> = [
+  [/(https?:\/\/)[^:@\s]+:[^@\s]+@/gi, '$1[REDACTED]@'],
   [/Authorization:\s*Basic\s+\S+/gi, 'Authorization: [REDACTED]'],
   [/Authorization:\s*Bearer\s+\S+/gi, 'Authorization: [REDACTED]'],
   [/Bearer\s+\S{8,}/g, 'Bearer [REDACTED]'],
@@ -39,13 +40,17 @@ export function redactString(value: string): string {
   return result;
 }
 
-export function redactSecrets(input: unknown): unknown {
+function redactSecretsInner(input: unknown, seen: WeakSet<object>): unknown {
   if (typeof input === 'string') {
     return redactString(input);
   }
 
   if (Array.isArray(input)) {
-    return input.map(redactSecrets);
+    if (seen.has(input)) return '[Circular]';
+    seen.add(input);
+    const result = input.map((item) => redactSecretsInner(item, seen));
+    seen.delete(input);
+    return result;
   }
 
   if (input instanceof Error) {
@@ -57,18 +62,25 @@ export function redactSecrets(input: unknown): unknown {
   }
 
   if (input !== null && typeof input === 'object') {
+    if (seen.has(input)) return '[Circular]';
+    seen.add(input);
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
-      out[k] = redactSecrets(v);
+      out[k] = redactSecretsInner(v, seen);
     }
+    seen.delete(input);
     return out;
   }
 
   return input;
 }
 
+export function redactSecrets(input: unknown): unknown {
+  return redactSecretsInner(input, new WeakSet());
+}
+
 export function redactUrl(url: string): string {
-  const SENSITIVE_PARAMS = new Set(['token', 'api_key', 'secret', 'key']);
+  const SENSITIVE_PARAMS = new Set(['token', 'api_key', 'secret', 'key', 'password']);
   try {
     const parsed = new URL(url);
     const toDelete: string[] = [];

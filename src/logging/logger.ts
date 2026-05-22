@@ -14,6 +14,11 @@ function resolveLevel(): LogLevel {
   if (raw === 'error' || raw === 'warn' || raw === 'info' || raw === 'debug') {
     return raw;
   }
+  if (raw !== undefined) {
+    process.stderr.write(
+      `[logger] Unrecognized MCP_LOG_LEVEL value "${raw}", falling back to "info"\n`,
+    );
+  }
   return 'info';
 }
 
@@ -32,18 +37,31 @@ export class Logger {
     if (LEVEL_ORDER[level] > LEVEL_ORDER[this.level]) return;
 
     const redact = shouldRedact();
-    const entry: Record<string, unknown> = {
+    const processedMeta = meta
+      ? (redact ? (redactSecrets(meta) as Record<string, unknown>) : meta)
+      : undefined;
+
+    const entry = {
       level,
       time: new Date().toISOString(),
       message: redact ? (redactSecrets(message) as string) : message,
+      ...(processedMeta !== undefined ? { meta: processedMeta } : {}),
     };
 
-    if (meta) {
-      const processedMeta = redact ? redactSecrets(meta) : meta;
-      Object.assign(entry, processedMeta);
+    let output: string;
+    try {
+      output = JSON.stringify(entry) + '\n';
+    } catch {
+      output =
+        JSON.stringify({
+          level: 'error',
+          time: new Date().toISOString(),
+          message: entry.message,
+          meta: '[unserializable]',
+        }) + '\n';
     }
 
-    process.stderr.write(JSON.stringify(entry) + '\n');
+    process.stderr.write(output);
   }
 
   error(message: string, meta?: Record<string, unknown>): void {
