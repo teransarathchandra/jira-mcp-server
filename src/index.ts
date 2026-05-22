@@ -33,6 +33,7 @@ import { deliveryGenerateQaHandoff } from './tools/deliveryGenerateQaHandoff.js'
 import { deliveryGenerateReleaseNotes } from './tools/deliveryGenerateReleaseNotes.js';
 import { deliveryGenerateClaudeWorkflowPack } from './tools/deliveryGenerateClaudeWorkflowPack.js';
 import { deliveryGenerateGenericPromptPack } from './tools/deliveryGenerateGenericPromptPack.js';
+import { deliveryGenerateCodexPromptPack } from './tools/deliveryGenerateCodexPromptPack.js';
 import {
   deliveryScanProjectPatterns,
   deliveryGetProjectPatterns,
@@ -210,6 +211,11 @@ const DeliveryGenerateClaudeWorkflowPackSchema = z.object({
 });
 
 const DeliveryGenerateGenericPromptPackSchema = z.object({
+  repoPath: z.string().optional().default('.'),
+  overwrite: z.boolean().optional().default(false),
+});
+
+const DeliveryGenerateCodexPromptPackSchema = z.object({
   repoPath: z.string().optional().default('.'),
   overwrite: z.boolean().optional().default(false),
 });
@@ -548,6 +554,18 @@ function buildTools(config: Config) {
     },
   },
   {
+    name: 'delivery_generate_codex_prompt_pack',
+    description: 'Generate Codex CLI-friendly prompt files (.codex-prompts/) for Jira delivery workflows. Each file contains a ready-to-use Codex prompt for implementing, reviewing, or verifying a Jira task. Safe — will not overwrite existing files unless overwrite=true.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+        overwrite: { type: 'boolean', description: 'Overwrite existing files (default: false)' },
+      },
+      required: [],
+    },
+  },
+  {
     name: 'delivery_scan_project_patterns',
     description: 'Scan the local repository for technical patterns (module names, test locations, tech stack, naming conventions). Optionally persists to local pattern memory if DELIVERY_PATTERN_MEMORY_ENABLED=true.',
     inputSchema: {
@@ -781,6 +799,12 @@ async function main() {
         case 'delivery_generate_generic_prompt_pack': {
           const input = DeliveryGenerateGenericPromptPackSchema.parse(args);
           const result = await deliveryGenerateGenericPromptPack(input);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'delivery_generate_codex_prompt_pack': {
+          const input = DeliveryGenerateCodexPromptPackSchema.parse(args);
+          const result = await deliveryGenerateCodexPromptPack(input);
           return { content: [{ type: 'text', text: result }] };
         }
 
