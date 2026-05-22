@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 const SECRET_PATTERNS: Array<[RegExp, string]> = [
   [/Authorization:\s*Basic\s+\S+/gi, 'Authorization: [REDACTED]'],
   [/Authorization:\s*Bearer\s+\S+/gi, 'Authorization: [REDACTED]'],
