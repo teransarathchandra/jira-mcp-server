@@ -30,7 +30,7 @@ export interface MatchInput {
   repoInspectionHints: RepoInspectionHint[];
   classifiedFiles: ClassifiedFiles;
   diffText: string;
-  issueKey: string;       // e.g. "CMPI-1234"
+  issueKey: string;       // e.g. "PROJ-123"
   issueSummary: string;   // e.g. "Add payment validation"
 }
 

@@ -331,8 +331,8 @@ ${acForPrompt}
 /**
  * Format a list of Jira search result issues as a Markdown table.
  */
-export function formatSearchResult(issues: JiraSearchIssue[], projectKey: string = 'CMPI'): string {
-  const header = `## My Open ${projectKey} Issues`;
+export function formatSearchResult(issues: JiraSearchIssue[], projectKey?: string): string {
+  const header = projectKey ? `## My Open ${projectKey} Issues` : `## My Open Issues`;
   const tableHeader = "| Key | Summary | Status | Priority | Updated |";
   const separator = "|-----|---------|--------|----------|---------|";
 

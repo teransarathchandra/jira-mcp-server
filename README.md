@@ -4,12 +4,13 @@ A local stdio MCP (Model Context Protocol) server for Jira Cloud task retrieval 
 
 ## What this MCP server does
 
-This server connects Claude Code (or any MCP-compatible AI agent) to your Jira Cloud instance, giving you twenty-three read-only tools:
+This server connects Claude Code (or any MCP-compatible AI agent) to your Jira Cloud instance and supports any Jira project key. It provides twenty-four read-only tools:
 
 | Tool | Description |
 |------|-------------|
 | `jira_get_issue` | Fetch full details of a single Jira issue (summary, description, status, priority, assignee, attachments, labels) |
-| `jira_search_my_open_issues` | List your currently open issues in the configured Jira project |
+| `jira_search_my_open_issues` | List your currently open issues in the configured Jira projects (supports project filtering) |
+| `jira_list_configured_projects` | Show which Jira projects this server is configured to support |
 | `jira_prepare_work_prompt` | Fetch a Jira issue and return a structured implementation prompt ready for a coding agent |
 | `jira_get_issue_context` | Fetch a Jira issue with full surrounding context (parent, epic, linked issues, subtasks, comments) |
 | `jira_prepare_contextual_work_prompt` | Fetch a Jira issue with full context and return a final implementation prompt |
@@ -74,15 +75,52 @@ Create or edit `.env` with your Jira credentials:
 JIRA_BASE_URL=https://your-domain.atlassian.net
 JIRA_EMAIL=your-email@example.com
 JIRA_API_TOKEN=your-api-token
-JIRA_PROJECT_KEY=CMPI
+
+# Optional: configure your Jira project(s)
+JIRA_DEFAULT_PROJECT_KEY=ENG
+JIRA_ALLOWED_PROJECT_KEYS=ENG,DATA,OPS
+JIRA_STRICT_PROJECT_ALLOWLIST=true
 ```
 
-| Variable | Description |
-|----------|-------------|
-| `JIRA_BASE_URL` | Your Jira Cloud base URL (no trailing slash) |
-| `JIRA_EMAIL` | The email address of your Atlassian account |
-| `JIRA_API_TOKEN` | The API token you created above |
-| `JIRA_PROJECT_KEY` | The Jira project key (e.g. `CMPI`) |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `JIRA_BASE_URL` | Yes | Your Jira Cloud base URL (no trailing slash) |
+| `JIRA_EMAIL` | Yes | The email address of your Atlassian account |
+| `JIRA_API_TOKEN` | Yes | The API token you created above |
+| `JIRA_DEFAULT_PROJECT_KEY` | No | Default project key for searches (e.g. `ENG`, `CMPI`) |
+| `JIRA_ALLOWED_PROJECT_KEYS` | No | Comma-separated allowed project keys (e.g. `ENG,DATA,OPS`) |
+| `JIRA_STRICT_PROJECT_ALLOWLIST` | No | If `true`, only allow project keys in `JIRA_ALLOWED_PROJECT_KEYS` |
+| `JIRA_ISSUE_KEY_PATTERN` | No | Custom regex for issue key validation (default: `^[A-Z][A-Z0-9]+-\d+$`) |
+| `JIRA_EXAMPLE_ISSUE_KEY` | No | Example issue key shown in tool hints (auto-derived if not set) |
+| `JIRA_PROJECT_KEY` | No | **Deprecated** — use `JIRA_DEFAULT_PROJECT_KEY` instead |
+
+### Multi-team Configuration Examples
+
+**Single team (e.g. engineering):**
+```env
+JIRA_DEFAULT_PROJECT_KEY=ENG
+JIRA_ALLOWED_PROJECT_KEYS=ENG
+JIRA_STRICT_PROJECT_ALLOWLIST=true
+```
+
+**Multiple teams sharing one server:**
+```env
+JIRA_DEFAULT_PROJECT_KEY=ENG
+JIRA_ALLOWED_PROJECT_KEYS=ENG,DATA,OPS
+JIRA_STRICT_PROJECT_ALLOWLIST=true
+```
+
+**Open access — all Jira projects:**
+```env
+JIRA_STRICT_PROJECT_ALLOWLIST=false
+```
+
+**Backward-compatible CMPI config:**
+```env
+JIRA_DEFAULT_PROJECT_KEY=CMPI
+JIRA_ALLOWED_PROJECT_KEYS=CMPI
+JIRA_STRICT_PROJECT_ALLOWLIST=true
+```
 
 ## Running locally
 

@@ -56,20 +56,20 @@ describe('validateIssueKey', () => {
     expect(validateIssueKey('  CMPI-1234  ')).toBe('CMPI-1234');
   });
 
-  it('rejects EVIL-9999 (wrong project)', () => {
-    expect(() => validateIssueKey('EVIL-9999')).toThrow(McpInputError);
+  it('accepts EVIL-9999 (any project allowed without config)', () => {
+    expect(validateIssueKey('EVIL-9999')).toBe('EVIL-9999');
   });
 
   it('rejects a plain string "invalid"', () => {
     expect(() => validateIssueKey('invalid')).toThrow(McpInputError);
   });
 
-  it('rejects CMPI-12345 (five digits)', () => {
-    expect(() => validateIssueKey('CMPI-12345')).toThrow(McpInputError);
+  it('accepts CMPI-12345 (five digits allowed by flexible pattern)', () => {
+    expect(validateIssueKey('CMPI-12345')).toBe('CMPI-12345');
   });
 
-  it('rejects CMPI-123 (three digits)', () => {
-    expect(() => validateIssueKey('CMPI-123')).toThrow(McpInputError);
+  it('accepts CMPI-123 (three digits allowed by flexible pattern)', () => {
+    expect(validateIssueKey('CMPI-123')).toBe('CMPI-123');
   });
 
   it('rejects a non-string value', () => {
@@ -80,8 +80,8 @@ describe('validateIssueKey', () => {
     expect(() => validateIssueKey(null)).toThrow(McpInputError);
   });
 
-  it('rejects lowercase cmpi-1234', () => {
-    expect(() => validateIssueKey('cmpi-1234')).toThrow(McpInputError);
+  it('normalizes lowercase cmpi-1234 to uppercase CMPI-1234', () => {
+    expect(validateIssueKey('cmpi-1234')).toBe('CMPI-1234');
   });
 });
 

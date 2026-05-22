@@ -11,6 +11,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { getConfig } from './config.js';
+import type { Config } from './config.js';
 import { JiraClient } from './jiraClient.js';
 import { getIssue } from './tools/getIssue.js';
 import { searchMyIssues } from './tools/searchMyIssues.js';
@@ -37,6 +38,7 @@ import {
   deliveryClearProjectPatterns,
 } from './tools/deliveryScanProjectPatterns.js';
 import { deliveryExportTaskReport } from './tools/deliveryExportTaskReport.js';
+import { listConfiguredProjects } from './tools/jiraListConfiguredProjects.js';
 import {
   JiraAuthError,
   JiraNotFoundError,
@@ -55,21 +57,22 @@ import {
 
 // Input schemas for each tool
 const GetIssueSchema = z.object({
-  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  issueKey: z.string().describe('Jira issue key (e.g., PROJ-123)'),
   includeComments: z.boolean().optional().default(true).describe('Include comments in the brief'),
   includeAttachments: z.boolean().optional().default(true).describe('Include attachment list in the brief'),
 });
 
 const SearchMyIssuesSchema = z.object({
+  projectKey: z.string().optional().describe('Optional project key to filter issues'),
   maxResults: z.number().int().min(1).max(50).optional().default(10).describe('Maximum number of issues to return'),
 });
 
 const PrepareWorkPromptSchema = z.object({
-  issueKey: z.string().describe('Jira issue key to prepare implementation prompt for (e.g., CMPI-1234)'),
+  issueKey: z.string().describe('Jira issue key to prepare implementation prompt for (e.g., PROJ-123)'),
 });
 
 const GetIssueContextSchema = z.object({
-  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  issueKey: z.string().describe('Jira issue key (e.g., PROJ-123)'),
   includeComments: z.boolean().optional().default(true),
   includeParent: z.boolean().optional().default(true),
   includeEpic: z.boolean().optional().default(true),
@@ -83,7 +86,7 @@ const GetIssueContextSchema = z.object({
 });
 
 const PrepareContextualWorkPromptSchema = z.object({
-  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  issueKey: z.string().describe('Jira issue key (e.g., PROJ-123)'),
   includeComments: z.boolean().optional().default(true),
   includeParent: z.boolean().optional().default(true),
   includeEpic: z.boolean().optional().default(true),
@@ -93,7 +96,7 @@ const PrepareContextualWorkPromptSchema = z.object({
 });
 
 const ReviewPrAlignmentSchema = z.object({
-  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  issueKey: z.string().describe('Jira issue key (e.g., PROJ-123)'),
   mode: z.enum(['local_diff', 'github_pr']).optional().default('local_diff').describe('Diff mode: local_diff (default) or github_pr'),
   baseBranch: z.string().optional().default('origin/main').describe('Base branch to diff against (default: origin/main)'),
   compareRef: z.string().optional().default('HEAD').describe('Compare ref (branch name or commit SHA, default: HEAD)'),
@@ -103,14 +106,14 @@ const ReviewPrAlignmentSchema = z.object({
 });
 
 const PreparePrReviewPromptSchema = z.object({
-  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  issueKey: z.string().describe('Jira issue key (e.g., PROJ-123)'),
   baseBranch: z.string().optional().default('origin/main').describe('Base branch to diff against (default: origin/main)'),
   compareRef: z.string().optional().default('HEAD').describe('Compare ref (default: HEAD)'),
   repoPath: z.string().optional().default('.').describe('Path to the git repository (default: current directory)'),
 });
 
 const ConfluenceSearchRelatedPagesSchema = z.object({
-  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  issueKey: z.string().describe('Jira issue key (e.g., PROJ-123)'),
   maxResults: z.number().int().min(1).max(50).optional().default(10).describe('Maximum number of search results (1-50, default: 10)'),
   spaceKeys: z.array(z.string()).optional().default([]).describe('Confluence space keys to restrict search to (default: all configured spaces)'),
   includeLowRelevance: z.boolean().optional().default(false).describe('Include low-relevance pages in results (default: false)'),
@@ -122,7 +125,7 @@ const ConfluenceGetPageSummarySchema = z.object({
 });
 
 const JiraGetIssueWithConfluenceContextSchema = z.object({
-  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  issueKey: z.string().describe('Jira issue key (e.g., PROJ-123)'),
   includeJiraComments: z.boolean().optional().default(true).describe('Include Jira comments (default: true)'),
   includeParent: z.boolean().optional().default(true).describe('Include parent issue context (default: true)'),
   includeEpic: z.boolean().optional().default(true).describe('Include epic context (default: true)'),
@@ -137,7 +140,7 @@ const JiraGetIssueWithConfluenceContextSchema = z.object({
 });
 
 const JiraPrepareConfluenceEnrichedWorkPromptSchema = z.object({
-  issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
+  issueKey: z.string().describe('Jira issue key (e.g., PROJ-123)'),
   includeConfluence: z.boolean().optional().default(true).describe('Include Confluence context enrichment (default: true)'),
   confluenceMaxPagesToRead: z.number().int().min(1).max(20).optional().default(5).describe('Max Confluence pages to read (1-20, default: 5)'),
 });
@@ -232,14 +235,15 @@ const McpClearCacheSchema = z.object({
 });
 
 // Tool definitions for MCP list_tools
-const TOOLS = [
+function buildTools(config: Config) {
+  return [
   {
     name: 'jira_get_issue',
     description: 'Fetch a Jira issue by key and return a clean, developer-friendly task brief with description, acceptance criteria, technical notes, comments, and an implementation prompt.',
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         includeComments: { type: 'boolean', description: 'Include comments (default: true)' },
         includeAttachments: { type: 'boolean', description: 'Include attachments (default: true)' },
       },
@@ -248,10 +252,11 @@ const TOOLS = [
   },
   {
     name: 'jira_search_my_open_issues',
-    description: 'Search for open Jira CMPI issues assigned to the authenticated user.',
+    description: 'Search for open Jira issues assigned to the authenticated user.',
     inputSchema: {
       type: 'object' as const,
       properties: {
+        projectKey: { type: 'string', description: 'Optional project key to search (e.g., ENG). Defaults to configured default project.' },
         maxResults: { type: 'number', description: 'Max results to return (1-50, default: 10)' },
       },
       required: [],
@@ -263,7 +268,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
       },
       required: ['issueKey'],
     },
@@ -274,7 +279,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         includeComments: { type: 'boolean', description: 'Include analyzed comments (default: true)' },
         includeParent: { type: 'boolean', description: 'Include parent issue context (default: true)' },
         includeEpic: { type: 'boolean', description: 'Include epic context (default: true)' },
@@ -295,7 +300,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         includeComments: { type: 'boolean', description: 'Include comments (default: true)' },
         includeParent: { type: 'boolean', description: 'Include parent context (default: true)' },
         includeEpic: { type: 'boolean', description: 'Include epic context (default: true)' },
@@ -312,7 +317,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         mode: { type: 'string', enum: ['local_diff', 'github_pr'], description: 'Diff mode (default: local_diff)' },
         baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
         compareRef: { type: 'string', description: 'Compare ref — branch name or commit SHA (default: HEAD)' },
@@ -329,7 +334,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
         compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
         repoPath: { type: 'string', description: 'Path to the git repository (default: current directory)' },
@@ -343,7 +348,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         maxResults: { type: 'number', description: 'Maximum number of search results (1-50, default: 10)' },
         spaceKeys: { type: 'array', items: { type: 'string' }, description: 'Confluence space keys to restrict search to (default: all configured spaces)' },
         includeLowRelevance: { type: 'boolean', description: 'Include low-relevance pages in results (default: false)' },
@@ -369,7 +374,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         includeJiraComments: { type: 'boolean', description: 'Include Jira comments (default: true)' },
         includeParent: { type: 'boolean', description: 'Include parent issue context (default: true)' },
         includeEpic: { type: 'boolean', description: 'Include epic context (default: true)' },
@@ -391,7 +396,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         includeConfluence: { type: 'boolean', description: 'Include Confluence context enrichment (default: true)' },
         confluenceMaxPagesToRead: { type: 'number', description: 'Max Confluence pages to read (1-20, default: 5)' },
       },
@@ -404,7 +409,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
         compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
         repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
@@ -420,7 +425,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
         compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
         repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
@@ -435,7 +440,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         includeConfluence: { type: 'boolean', description: 'Include Confluence context (default: true)' },
       },
       required: ['issueKey'],
@@ -447,7 +452,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         includeConfluence: { type: 'boolean', description: 'Include Confluence context (default: true)' },
         includePrDiff: { type: 'boolean', description: 'Include PR diff analysis (default: false)' },
         baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
@@ -463,7 +468,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         persona: { type: 'string', enum: ['product_reviewer', 'frontend_reviewer', 'backend_reviewer', 'qa_reviewer', 'security_reviewer', 'release_reviewer'], description: 'Reviewer persona' },
         baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
         compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
@@ -479,7 +484,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
         compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
         repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
@@ -494,7 +499,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         audience: { type: 'string', enum: ['internal', 'qa', 'product', 'customer_safe'], description: 'Release notes audience (default: internal)' },
         baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
         compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
@@ -555,7 +560,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        issueKey: { type: 'string', description: `Jira issue key (e.g., ${config.projectConfig.exampleIssueKey})` },
         baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
         compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
         repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
@@ -565,6 +570,15 @@ const TOOLS = [
         overwrite: { type: 'boolean', description: 'Overwrite existing file (default: false)' },
       },
       required: ['issueKey'],
+    },
+  },
+  {
+    name: 'jira_list_configured_projects',
+    description: 'List the Jira projects this MCP server is configured to support. Shows default project, allowed projects, and validation settings.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {},
+      required: [],
     },
   },
   {
@@ -578,7 +592,8 @@ const TOOLS = [
       required: [],
     },
   },
-];
+  ];
+}
 
 async function main() {
   // Validate env vars at startup — fail fast with clear error
@@ -592,7 +607,7 @@ async function main() {
 
   // list_tools handler
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: TOOLS,
+    tools: buildTools(config),
   }));
 
   // call_tool handler
@@ -736,6 +751,11 @@ async function main() {
         case 'delivery_export_task_report': {
           const input = DeliveryExportTaskReportSchema.parse(args);
           const result = await deliveryExportTaskReport(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'jira_list_configured_projects': {
+          const result = listConfiguredProjects(config.projectConfig);
           return { content: [{ type: 'text', text: result }] };
         }
 

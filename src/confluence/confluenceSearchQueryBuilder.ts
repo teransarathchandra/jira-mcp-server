@@ -1,8 +1,8 @@
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface JiraSearchSignals {
-  issueKey: string;             // e.g. "CMPI-1234"
-  epicKey?: string;             // e.g. "CMPI-1000"
+  issueKey: string;             // e.g. "PROJ-123"
+  epicKey?: string;             // e.g. "PROJ-100"
   parentKey?: string;
   summary: string;
   labels: string[];

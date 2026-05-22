@@ -1,7 +1,8 @@
 import path from 'node:path';
 import fs from 'node:fs';
-import { ISSUE_KEY_REGEX } from '../utils/issueKey.js';
+import { validateIssueKeyOrThrow } from '../utils/issueKey.js';
 import { validateGitRef as gitSafetyValidateGitRef } from '../utils/gitSafety.js';
+import type { JiraProjectConfig } from '../config.js';
 
 // ── McpInputError ──────────────────────────────────────────────────────────────
 
@@ -17,22 +18,16 @@ export class McpInputError extends Error {
 
 // ── Issue Key ──────────────────────────────────────────────────────────────────
 
-/**
- * Validates and returns the cleaned issue key.
- * Throws McpInputError if the value does not match CMPI-XXXX pattern.
- */
-export function validateIssueKey(value: unknown): string {
+export function validateIssueKey(value: unknown, config?: JiraProjectConfig): string {
   if (typeof value !== 'string') {
     throw new McpInputError('Issue key must be a string', 'issueKey');
   }
-  const trimmed = value.trim();
-  if (!ISSUE_KEY_REGEX.test(trimmed)) {
-    throw new McpInputError(
-      `Invalid issue key: must match CMPI-XXXX format (e.g., CMPI-1234)`,
-      'issueKey'
-    );
+  try {
+    return validateIssueKeyOrThrow(value, config);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new McpInputError(msg, 'issueKey');
   }
-  return trimmed;
 }
 
 // ── Page ID ────────────────────────────────────────────────────────────────────

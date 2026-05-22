@@ -96,7 +96,7 @@ Use after implementation is complete and before QA hand-off.
 Generate an implementation plan for a Jira task.
 
 ## Usage
-/jira-plan CMPI-1234
+/jira-plan <JIRA-ISSUE-KEY>
 
 ## What This Does
 1. Fetches the Jira issue with Confluence context
@@ -112,7 +112,7 @@ Generate an implementation plan for a Jira task.
 Review PR alignment against a Jira task.
 
 ## Usage
-/jira-review-pr CMPI-1234
+/jira-review-pr <JIRA-ISSUE-KEY>
 
 ## What This Does
 1. Fetches the Jira requirement
@@ -128,7 +128,7 @@ Review PR alignment against a Jira task.
 Generate a QA handoff document for a Jira task.
 
 ## Usage
-/jira-qa CMPI-1234
+/jira-qa <JIRA-ISSUE-KEY>
 
 ## What This Does
 1. Fetches the Jira issue
@@ -143,7 +143,7 @@ Generate a QA handoff document for a Jira task.
 Verify Definition of Done for a Jira task.
 
 ## Usage
-/jira-dod CMPI-1234
+/jira-dod <JIRA-ISSUE-KEY>
 
 ## What This Does
 1. Fetches the Jira issue and current diff
@@ -180,11 +180,11 @@ export function generateWorkflowPack(input: WorkflowPackInput): WorkflowPackResu
   }
 
   const usageExamples = [
-    '/jira-plan CMPI-1234 — Generate implementation plan',
-    '/jira-review-pr CMPI-1234 — Review PR alignment',
-    '/jira-dod CMPI-1234 — Verify Definition of Done',
-    '/jira-qa CMPI-1234 — Generate QA handoff',
-    '/jira-release-note CMPI-1234 — Generate release notes (via delivery_generate_release_notes tool)',
+    '/jira-plan <JIRA-ISSUE-KEY> — Generate implementation plan',
+    '/jira-review-pr <JIRA-ISSUE-KEY> — Review PR alignment',
+    '/jira-dod <JIRA-ISSUE-KEY> — Verify Definition of Done',
+    '/jira-qa <JIRA-ISSUE-KEY> — Generate QA handoff',
+    '/jira-release-note <JIRA-ISSUE-KEY> — Generate release notes (via delivery_generate_release_notes tool)',
   ];
 
   return { generated, skipped, usageExamples };
