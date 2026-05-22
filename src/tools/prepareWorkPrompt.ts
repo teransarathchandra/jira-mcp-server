@@ -16,7 +16,7 @@ export async function prepareWorkPrompt(input: PrepareWorkPromptInput, client: J
   const issue = await client.getIssue(input.issueKey);
   const brief = formatIssueBrief(issue);
 
-  // 3. Extract ONLY the "Implementation Prompt for Claude Code" section
+  // 3. Extract ONLY the "Implementation Prompt" section
   const promptSection = extractImplementationPrompt(brief, input.issueKey, issue.fields.summary);
 
   // 4. Wrap the Jira issue description content with untrusted content guard
@@ -46,8 +46,8 @@ export async function prepareWorkPrompt(input: PrepareWorkPromptInput, client: J
 }
 
 function extractImplementationPrompt(brief: string, issueKey: string, summary: string): string {
-  // Find the "## Implementation Prompt for Claude Code" section
-  const sectionStart = brief.indexOf('## Implementation Prompt for Claude Code');
+  // Find the "## Implementation Prompt" section
+  const sectionStart = brief.indexOf('## Implementation Prompt');
   if (sectionStart === -1) {
     // Fallback: minimal prompt
     return `Implement Jira task ${issueKey}: ${summary}\n\nPlease inspect the repository before making changes.`;
