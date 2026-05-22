@@ -52,7 +52,7 @@ export function validatePageId(value: unknown): string {
     throw new McpInputError('Page ID must be a numeric string or number', 'pageId');
   }
   const trimmed = value.trim();
-  if (!/^\d+$/.test(trimmed) || trimmed === '0') {
+  if (!/^[1-9]\d*$/.test(trimmed)) {
     throw new McpInputError('Page ID must be a positive numeric string', 'pageId');
   }
   return trimmed;
@@ -65,6 +65,11 @@ export function validatePageId(value: unknown): string {
  * Throws McpInputError on failure.
  */
 export function validatePrNumber(value: unknown): number {
+  if (typeof value === 'string') {
+    if (!/^\d+$/.test(value)) {
+      throw new McpInputError('PR number must be a positive integer', 'prNumber');
+    }
+  }
   const num = typeof value === 'string' ? Number(value) : value;
   if (typeof num !== 'number' || !Number.isInteger(num) || num <= 0) {
     throw new McpInputError('PR number must be a positive integer', 'prNumber');
@@ -207,6 +212,11 @@ export function validateIntInRange(
   min: number,
   max: number
 ): number {
+  if (typeof value === 'string') {
+    if (!/^-?\d+$/.test(value)) {
+      throw new McpInputError(`${name} must be an integer`, name);
+    }
+  }
   const num = typeof value === 'string' ? Number(value) : value;
   if (typeof num !== 'number' || !Number.isInteger(num) || !isFinite(num)) {
     throw new McpInputError(`${name} must be an integer`, name);

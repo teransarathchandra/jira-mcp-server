@@ -135,6 +135,16 @@ describe('detectPromptInjectionSignals — clean text', () => {
   it('returns an empty array for empty string', () => {
     expect(detectPromptInjectionSignals('')).toHaveLength(0);
   });
+
+  it('does NOT flag "sprint environment setup" as print env signal', () => {
+    const signals = detectPromptInjectionSignals('sprint environment setup for next quarter');
+    expect(signals.some((s) => s.pattern === 'print env')).toBe(false);
+  });
+
+  it('does NOT flag "soft-delete all records" as delete file signal', () => {
+    const signals = detectPromptInjectionSignals('soft-delete all records in the archive table');
+    expect(signals.some((s) => s.pattern === 'delete file')).toBe(false);
+  });
 });
 
 describe('detectPromptInjectionSignals — excerpt format', () => {

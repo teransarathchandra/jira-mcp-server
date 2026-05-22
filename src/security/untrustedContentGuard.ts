@@ -36,7 +36,7 @@ const DETECTION_RULES: DetectionRule[] = [
 
   // High severity — env/shell exfil
   {
-    regex: /print\s+env(ironment)?|echo\s+env|cat\s+\.env|show\s+env/i,
+    regex: /\bprint\s+env(ironment)?\b|echo\s+env|cat\s+\.env|show\s+env/i,
     pattern: 'print env',
     severity: 'high',
   },
@@ -50,7 +50,7 @@ const DETECTION_RULES: DetectionRule[] = [
 
   // High severity — file deletion
   {
-    regex: /delete\s+(file|all)|rm\s+-rf/i,
+    regex: /(?<![a-zA-Z-])delete\s+(all\b|file)|rm\s+-rf/i,
     pattern: 'delete file',
     severity: 'high',
   },
@@ -78,21 +78,21 @@ const DETECTION_RULES: DetectionRule[] = [
 
   // Medium severity — PR approval
   {
-    regex: /approve\s+.*(pr|pull\s+request)|merge\s+.*pr/i,
+    regex: /\bapprove\b.{0,30}\b(pr|pull\s+request)\b|merge\s+.*\bpr\b/i,
     pattern: 'approve.*pr',
     severity: 'medium',
   },
 
   // Medium severity — comment posting
   {
-    regex: /post\s+.*comment|add\s+.*comment.*jira|post\s+.*jira/i,
+    regex: /\bpost\b.{0,30}\bcomment\b|add\s+.*comment.*jira|post\s+.*jira/i,
     pattern: 'post.*comment',
     severity: 'medium',
   },
 
   // Medium severity — ticket transitions
   {
-    regex: /transition\s+.*jira|close\s+.*ticket|resolve\s+.*ticket/i,
+    regex: /transition\s+.*jira|\bclose\b.{0,30}\bticket\b|resolve\s+.*ticket/i,
     pattern: 'transition.*jira',
     severity: 'medium',
   },

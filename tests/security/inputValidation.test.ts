@@ -115,6 +115,14 @@ describe('validatePageId', () => {
   it('rejects float', () => {
     expect(() => validatePageId(1.5)).toThrow(McpInputError);
   });
+
+  it('rejects zero-padded "00"', () => {
+    expect(() => validatePageId('00')).toThrow(McpInputError);
+  });
+
+  it('rejects zero-padded "007"', () => {
+    expect(() => validatePageId('007')).toThrow(McpInputError);
+  });
 });
 
 // ── validatePrNumber ──────────────────────────────────────────────────────────
@@ -146,6 +154,14 @@ describe('validatePrNumber', () => {
 
   it('rejects null', () => {
     expect(() => validatePrNumber(null)).toThrow(McpInputError);
+  });
+
+  it('rejects hex literal string "0x5"', () => {
+    expect(() => validatePrNumber('0x5')).toThrow(McpInputError);
+  });
+
+  it('rejects empty string', () => {
+    expect(() => validatePrNumber('')).toThrow(McpInputError);
   });
 });
 
@@ -358,6 +374,14 @@ describe('validateIntInRange', () => {
 
   it('accepts maxPagesToRead at 20', () => {
     expect(validateIntInRange(20, 'maxPagesToRead', 1, 20)).toBe(20);
+  });
+
+  it('rejects empty string', () => {
+    expect(() => validateIntInRange('', 'field', 0, 100)).toThrow(McpInputError);
+  });
+
+  it('rejects hex literal string "0x10"', () => {
+    expect(() => validateIntInRange('0x10', 'field', 0, 100)).toThrow(McpInputError);
   });
 });
 
