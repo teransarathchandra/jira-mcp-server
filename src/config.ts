@@ -1,3 +1,11 @@
+export interface JiraProjectConfig {
+  defaultProjectKey?: string;
+  allowedProjectKeys: string[];
+  issueKeyPattern: RegExp;
+  strictProjectAllowlist: boolean;
+  exampleIssueKey: string;
+}
+
 export interface Config {
   baseUrl: string;
   email: string;
@@ -11,6 +19,49 @@ export interface Config {
   highAuthorityEmails: string[];            // JIRA_HIGH_AUTHORITY_AUTHOR_EMAILS (comma-separated)
   highAuthorityAccountIds: string[];        // JIRA_HIGH_AUTHORITY_ACCOUNT_IDS (comma-separated)
   maxContextChars: number;                  // JIRA_MAX_CONTEXT_CHARS (default: 30000)
+  projectConfig: JiraProjectConfig;
+}
+
+export function getProjectConfig(): JiraProjectConfig {
+  const defaultProjectKeyRaw =
+    process.env.JIRA_DEFAULT_PROJECT_KEY?.trim().toUpperCase() ||
+    process.env.JIRA_PROJECT_KEY?.trim().toUpperCase() ||
+    undefined;
+
+  const allowedProjectKeysRaw = process.env.JIRA_ALLOWED_PROJECT_KEYS?.trim() || '';
+  const allowedProjectKeys = allowedProjectKeysRaw
+    ? allowedProjectKeysRaw.split(',').map(k => k.trim().toUpperCase()).filter(Boolean)
+    : [];
+
+  let issueKeyPattern: RegExp;
+  const patternRaw = process.env.JIRA_ISSUE_KEY_PATTERN?.trim();
+  if (patternRaw) {
+    try {
+      issueKeyPattern = new RegExp(patternRaw);
+    } catch (e) {
+      throw new Error(`JIRA_ISSUE_KEY_PATTERN is not a valid regex: ${e}`);
+    }
+  } else {
+    issueKeyPattern = /^[A-Z][A-Z0-9]+-\d+$/;
+  }
+
+  const strictRaw = process.env.JIRA_STRICT_PROJECT_ALLOWLIST?.trim();
+  const strictProjectAllowlist = strictRaw === 'true' || strictRaw === '1';
+
+  const exampleIssueKeyRaw = process.env.JIRA_EXAMPLE_ISSUE_KEY?.trim().toUpperCase();
+  const exampleIssueKey = exampleIssueKeyRaw
+    ? exampleIssueKeyRaw
+    : defaultProjectKeyRaw
+      ? `${defaultProjectKeyRaw}-123`
+      : 'PROJ-123';
+
+  return {
+    defaultProjectKey: defaultProjectKeyRaw,
+    allowedProjectKeys,
+    issueKeyPattern,
+    strictProjectAllowlist,
+    exampleIssueKey,
+  };
 }
 
 export function getConfig(): Config {
@@ -67,5 +118,6 @@ export function getConfig(): Config {
     highAuthorityEmails,
     highAuthorityAccountIds,
     maxContextChars,
+    projectConfig: getProjectConfig(),
   };
 }

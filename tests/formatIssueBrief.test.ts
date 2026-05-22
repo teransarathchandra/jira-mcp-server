@@ -448,9 +448,10 @@ describe('formatSearchResult', () => {
     expect(result).toContain('2024-01-20');
   });
 
-  it('uses default project key CMPI in the header', () => {
+  it('uses generic header when no project key provided', () => {
     const result = formatSearchResult([]);
-    expect(result).toContain('CMPI');
+    expect(result).toContain('My Open Issues');
+    expect(result).not.toContain('CMPI');
   });
 
   it('uses custom project key in the header when provided', () => {
