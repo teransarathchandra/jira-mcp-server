@@ -4,6 +4,10 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { getConfig } from './config.js';
@@ -19,6 +23,20 @@ import { confluenceSearchRelatedPages } from './tools/confluenceSearchRelatedPag
 import { confluenceGetPageSummary } from './tools/confluenceGetPageSummary.js';
 import { jiraGetIssueWithConfluenceContext } from './tools/jiraGetIssueWithConfluenceContext.js';
 import { jiraPrepareConfluenceEnrichedWorkPrompt } from './tools/jiraPrepareConfluenceEnrichedWorkPrompt.js';
+import { deliveryGetTraceabilityMatrix } from './tools/deliveryGetTraceabilityMatrix.js';
+import { deliveryVerifyDefinitionOfDone } from './tools/deliveryVerifyDefinitionOfDone.js';
+import { deliveryAnalyzeImplementationImpact } from './tools/deliveryAnalyzeImplementationImpact.js';
+import { deliveryGenerateTestStrategy } from './tools/deliveryGenerateTestStrategy.js';
+import { deliveryGenerateReviewerReport } from './tools/deliveryGenerateReviewerReport.js';
+import { deliveryGenerateQaHandoff } from './tools/deliveryGenerateQaHandoff.js';
+import { deliveryGenerateReleaseNotes } from './tools/deliveryGenerateReleaseNotes.js';
+import { deliveryGenerateClaudeWorkflowPack } from './tools/deliveryGenerateClaudeWorkflowPack.js';
+import {
+  deliveryScanProjectPatterns,
+  deliveryGetProjectPatterns,
+  deliveryClearProjectPatterns,
+} from './tools/deliveryScanProjectPatterns.js';
+import { deliveryExportTaskReport } from './tools/deliveryExportTaskReport.js';
 import {
   JiraAuthError,
   JiraNotFoundError,
@@ -122,6 +140,91 @@ const JiraPrepareConfluenceEnrichedWorkPromptSchema = z.object({
   issueKey: z.string().describe('Jira issue key (e.g., CMPI-1234)'),
   includeConfluence: z.boolean().optional().default(true).describe('Include Confluence context enrichment (default: true)'),
   confluenceMaxPagesToRead: z.number().int().min(1).max(20).optional().default(5).describe('Max Confluence pages to read (1-20, default: 5)'),
+});
+
+const DeliveryGetTraceabilityMatrixSchema = z.object({
+  issueKey: z.string(),
+  baseBranch: z.string().optional().default('origin/main'),
+  compareRef: z.string().optional().default('HEAD'),
+  repoPath: z.string().optional().default('.'),
+  includeConfluence: z.boolean().optional().default(true),
+  includePrDiff: z.boolean().optional().default(true),
+});
+
+const DeliveryVerifyDefinitionOfDoneSchema = z.object({
+  issueKey: z.string(),
+  baseBranch: z.string().optional().default('origin/main'),
+  compareRef: z.string().optional().default('HEAD'),
+  repoPath: z.string().optional().default('.'),
+  includeConfluence: z.boolean().optional().default(true),
+});
+
+const DeliveryAnalyzeImplementationImpactSchema = z.object({
+  issueKey: z.string(),
+  includeConfluence: z.boolean().optional().default(true),
+});
+
+const DeliveryGenerateTestStrategySchema = z.object({
+  issueKey: z.string(),
+  includeConfluence: z.boolean().optional().default(true),
+  includePrDiff: z.boolean().optional().default(false),
+  baseBranch: z.string().optional().default('origin/main'),
+  compareRef: z.string().optional().default('HEAD'),
+  repoPath: z.string().optional().default('.'),
+});
+
+const DeliveryGenerateReviewerReportSchema = z.object({
+  issueKey: z.string(),
+  persona: z.enum(['product_reviewer', 'frontend_reviewer', 'backend_reviewer', 'qa_reviewer', 'security_reviewer', 'release_reviewer']),
+  baseBranch: z.string().optional().default('origin/main'),
+  compareRef: z.string().optional().default('HEAD'),
+  repoPath: z.string().optional().default('.'),
+  includeConfluence: z.boolean().optional().default(true),
+});
+
+const DeliveryGenerateQaHandoffSchema = z.object({
+  issueKey: z.string(),
+  baseBranch: z.string().optional().default('origin/main'),
+  compareRef: z.string().optional().default('HEAD'),
+  repoPath: z.string().optional().default('.'),
+  includeConfluence: z.boolean().optional().default(true),
+});
+
+const DeliveryGenerateReleaseNotesSchema = z.object({
+  issueKey: z.string(),
+  audience: z.enum(['internal', 'qa', 'product', 'customer_safe']).optional().default('internal'),
+  baseBranch: z.string().optional().default('origin/main'),
+  compareRef: z.string().optional().default('HEAD'),
+  repoPath: z.string().optional().default('.'),
+  includeConfluence: z.boolean().optional().default(true),
+});
+
+const DeliveryGenerateClaudeWorkflowPackSchema = z.object({
+  repoPath: z.string().optional().default('.'),
+  overwrite: z.boolean().optional().default(false),
+});
+
+const DeliveryScanProjectPatternsSchema = z.object({
+  repoPath: z.string().optional().default('.'),
+});
+
+const DeliveryGetProjectPatternsSchema = z.object({
+  repoPath: z.string().optional().default('.'),
+});
+
+const DeliveryClearProjectPatternsSchema = z.object({
+  repoPath: z.string().optional().default('.'),
+});
+
+const DeliveryExportTaskReportSchema = z.object({
+  issueKey: z.string(),
+  baseBranch: z.string().optional().default('origin/main'),
+  compareRef: z.string().optional().default('HEAD'),
+  repoPath: z.string().optional().default('.'),
+  includeConfluence: z.boolean().optional().default(true),
+  sections: z.array(z.string()).optional().default(['context', 'impact', 'traceability', 'definition_of_done', 'test_strategy', 'qa_handoff']),
+  outputPath: z.string().optional(),
+  overwrite: z.boolean().optional().default(false),
 });
 
 // Tool definitions for MCP list_tools
@@ -291,6 +394,175 @@ const TOOLS = [
       required: ['issueKey'],
     },
   },
+  {
+    name: 'delivery_get_traceability_matrix',
+    description: 'Generate a requirement-to-code traceability matrix for a Jira task. Maps each acceptance criterion and business rule to implementation evidence in the PR diff.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
+        compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+        includeConfluence: { type: 'boolean', description: 'Include Confluence context (default: true)' },
+        includePrDiff: { type: 'boolean', description: 'Include PR diff analysis (default: true)' },
+      },
+      required: ['issueKey'],
+    },
+  },
+  {
+    name: 'delivery_verify_definition_of_done',
+    description: 'Verify Definition of Done for a Jira task. Runs 14 checks and returns a merge-readiness verdict with score and required fixes.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
+        compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+        includeConfluence: { type: 'boolean', description: 'Include Confluence context (default: true)' },
+      },
+      required: ['issueKey'],
+    },
+  },
+  {
+    name: 'delivery_analyze_implementation_impact',
+    description: 'Analyze the likely implementation impact of a Jira task before coding begins. Predicts affected frontend, backend, API, database, auth, and validation areas.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        includeConfluence: { type: 'boolean', description: 'Include Confluence context (default: true)' },
+      },
+      required: ['issueKey'],
+    },
+  },
+  {
+    name: 'delivery_generate_test_strategy',
+    description: 'Generate a practical test strategy for a Jira task. Produces unit, integration, E2E, manual QA, and negative test scenarios specific to the requirement.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        includeConfluence: { type: 'boolean', description: 'Include Confluence context (default: true)' },
+        includePrDiff: { type: 'boolean', description: 'Include PR diff analysis (default: false)' },
+        baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
+        compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+      },
+      required: ['issueKey'],
+    },
+  },
+  {
+    name: 'delivery_generate_reviewer_report',
+    description: 'Generate a role-specific review report for a Jira task. Personas: product_reviewer, frontend_reviewer, backend_reviewer, qa_reviewer, security_reviewer, release_reviewer.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        persona: { type: 'string', enum: ['product_reviewer', 'frontend_reviewer', 'backend_reviewer', 'qa_reviewer', 'security_reviewer', 'release_reviewer'], description: 'Reviewer persona' },
+        baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
+        compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+        includeConfluence: { type: 'boolean', description: 'Include Confluence context (default: true)' },
+      },
+      required: ['issueKey', 'persona'],
+    },
+  },
+  {
+    name: 'delivery_generate_qa_handoff',
+    description: 'Generate a QA handoff document from a Jira task and current branch. Includes what to test, what not to test, test data, happy path, negative cases, and regression areas.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
+        compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+        includeConfluence: { type: 'boolean', description: 'Include Confluence context (default: true)' },
+      },
+      required: ['issueKey'],
+    },
+  },
+  {
+    name: 'delivery_generate_release_notes',
+    description: 'Generate release notes for a Jira task. Audience: internal, qa, product, customer_safe.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        audience: { type: 'string', enum: ['internal', 'qa', 'product', 'customer_safe'], description: 'Release notes audience (default: internal)' },
+        baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
+        compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+        includeConfluence: { type: 'boolean', description: 'Include Confluence context (default: true)' },
+      },
+      required: ['issueKey'],
+    },
+  },
+  {
+    name: 'delivery_generate_claude_workflow_pack',
+    description: 'Generate Claude Code workflow assets (.claude/skills/ and .claude/commands/) for Jira delivery workflows. Safe — will not overwrite existing files unless overwrite=true.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+        overwrite: { type: 'boolean', description: 'Overwrite existing files (default: false)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'delivery_scan_project_patterns',
+    description: 'Scan the local repository for technical patterns (module names, test locations, tech stack, naming conventions). Optionally persists to local pattern memory if DELIVERY_PATTERN_MEMORY_ENABLED=true.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'delivery_get_project_patterns',
+    description: 'Get previously saved project patterns from local pattern memory. Returns null if pattern memory is disabled.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'delivery_clear_project_patterns',
+    description: 'Clear local project pattern memory file.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'delivery_export_task_report',
+    description: 'Export a complete delivery report for a Jira task combining multiple analysis sections into a single markdown document.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        issueKey: { type: 'string', description: 'Jira issue key (e.g., CMPI-1234)' },
+        baseBranch: { type: 'string', description: 'Base branch to diff against (default: origin/main)' },
+        compareRef: { type: 'string', description: 'Compare ref (default: HEAD)' },
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+        includeConfluence: { type: 'boolean', description: 'Include Confluence context (default: true)' },
+        sections: { type: 'array', items: { type: 'string' }, description: 'Sections to include (default: context, impact, traceability, definition_of_done, test_strategy, qa_handoff)' },
+        outputPath: { type: 'string', description: 'Path to write the report file (optional)' },
+        overwrite: { type: 'boolean', description: 'Overwrite existing file (default: false)' },
+      },
+      required: ['issueKey'],
+    },
+  },
 ];
 
 async function main() {
@@ -300,7 +572,7 @@ async function main() {
 
   const server = new Server(
     { name: 'jira-mcp-server', version: '1.0.0' },
-    { capabilities: { tools: {} } },
+    { capabilities: { tools: {}, prompts: {}, resources: {} } },
   );
 
   // list_tools handler
@@ -380,6 +652,78 @@ async function main() {
           return { content: [{ type: 'text', text: result }] };
         }
 
+        case 'delivery_get_traceability_matrix': {
+          const input = DeliveryGetTraceabilityMatrixSchema.parse(args);
+          const result = await deliveryGetTraceabilityMatrix(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'delivery_verify_definition_of_done': {
+          const input = DeliveryVerifyDefinitionOfDoneSchema.parse(args);
+          const result = await deliveryVerifyDefinitionOfDone(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'delivery_analyze_implementation_impact': {
+          const input = DeliveryAnalyzeImplementationImpactSchema.parse(args);
+          const result = await deliveryAnalyzeImplementationImpact(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'delivery_generate_test_strategy': {
+          const input = DeliveryGenerateTestStrategySchema.parse(args);
+          const result = await deliveryGenerateTestStrategy(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'delivery_generate_reviewer_report': {
+          const input = DeliveryGenerateReviewerReportSchema.parse(args);
+          const result = await deliveryGenerateReviewerReport(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'delivery_generate_qa_handoff': {
+          const input = DeliveryGenerateQaHandoffSchema.parse(args);
+          const result = await deliveryGenerateQaHandoff(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'delivery_generate_release_notes': {
+          const input = DeliveryGenerateReleaseNotesSchema.parse(args);
+          const result = await deliveryGenerateReleaseNotes(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'delivery_generate_claude_workflow_pack': {
+          const input = DeliveryGenerateClaudeWorkflowPackSchema.parse(args);
+          const result = await deliveryGenerateClaudeWorkflowPack(input);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'delivery_scan_project_patterns': {
+          const input = DeliveryScanProjectPatternsSchema.parse(args);
+          const result = await deliveryScanProjectPatterns(input);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'delivery_get_project_patterns': {
+          const input = DeliveryGetProjectPatternsSchema.parse(args);
+          const result = await deliveryGetProjectPatterns(input);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'delivery_clear_project_patterns': {
+          const input = DeliveryClearProjectPatternsSchema.parse(args);
+          const result = await deliveryClearProjectPatterns(input);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'delivery_export_task_report': {
+          const input = DeliveryExportTaskReportSchema.parse(args);
+          const result = await deliveryExportTaskReport(input, client, config);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
         default:
           return {
             content: [{ type: 'text', text: `Unknown tool: ${name}` }],
@@ -394,6 +738,130 @@ async function main() {
         isError: true,
       };
     }
+  });
+
+  // MCP Prompts — list_prompts handler
+  const PROMPTS = [
+    {
+      name: 'jira_implementation_prompt',
+      description: 'Generate an implementation prompt for a Jira task',
+      arguments: [{ name: 'issueKey', description: 'Jira issue key', required: true }],
+    },
+    {
+      name: 'jira_pr_review_prompt',
+      description: 'Generate a PR review prompt for a Jira task',
+      arguments: [{ name: 'issueKey', description: 'Jira issue key', required: true }],
+    },
+    {
+      name: 'jira_qa_handoff_prompt',
+      description: 'Generate a QA handoff prompt for a Jira task',
+      arguments: [{ name: 'issueKey', description: 'Jira issue key', required: true }],
+    },
+    {
+      name: 'jira_definition_of_done_prompt',
+      description: 'Generate a Definition of Done verification prompt',
+      arguments: [{ name: 'issueKey', description: 'Jira issue key', required: true }],
+    },
+    {
+      name: 'jira_release_note_prompt',
+      description: 'Generate a release note prompt for a Jira task',
+      arguments: [{ name: 'issueKey', description: 'Jira issue key', required: true }],
+    },
+  ];
+
+  server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+    prompts: PROMPTS,
+  }));
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const { name, arguments: promptArgs } = request.params;
+    const issueKey = (promptArgs as Record<string, string> | undefined)?.issueKey ?? '';
+
+    switch (name) {
+      case 'jira_implementation_prompt':
+        return {
+          messages: [{
+            role: 'user' as const,
+            content: { type: 'text' as const, text: `Use the Jira MCP server to fetch ${issueKey} and prepare a full implementation prompt with Confluence context.` },
+          }],
+        };
+      case 'jira_pr_review_prompt':
+        return {
+          messages: [{
+            role: 'user' as const,
+            content: { type: 'text' as const, text: `Use the Jira MCP server to review the current branch PR alignment for ${issueKey} and verify Definition of Done.` },
+          }],
+        };
+      case 'jira_qa_handoff_prompt':
+        return {
+          messages: [{
+            role: 'user' as const,
+            content: { type: 'text' as const, text: `Use the Jira MCP server to generate a QA handoff for ${issueKey} based on the current branch.` },
+          }],
+        };
+      case 'jira_definition_of_done_prompt':
+        return {
+          messages: [{
+            role: 'user' as const,
+            content: { type: 'text' as const, text: `Use the Jira MCP server to verify Definition of Done for ${issueKey} and return a verdict with score.` },
+          }],
+        };
+      case 'jira_release_note_prompt':
+        return {
+          messages: [{
+            role: 'user' as const,
+            content: { type: 'text' as const, text: `Use the Jira MCP server to generate release notes for ${issueKey} with internal audience.` },
+          }],
+        };
+      default:
+        throw new Error(`Unknown prompt: ${name}`);
+    }
+  });
+
+  // MCP Resources — list_resources handler
+  server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+    resources: [
+      {
+        uri: 'jira://{issueKey}/context',
+        name: 'Jira Issue Context',
+        description: 'Full Jira issue context enriched with Confluence documentation. Replace {issueKey} with the issue key.',
+        mimeType: 'text/plain',
+      },
+      {
+        uri: 'jira://{issueKey}/traceability',
+        name: 'Jira Traceability Matrix',
+        description: 'Requirement-to-code traceability matrix for a Jira task. Use the delivery_get_traceability_matrix tool for full analysis.',
+        mimeType: 'text/plain',
+      },
+    ],
+  }));
+
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    const uri = request.params.uri;
+    const match = uri.match(/^jira:\/\/([^/]+)\/(\w+)$/);
+    if (!match) {
+      return { contents: [{ uri, mimeType: 'text/plain', text: `Unknown resource URI: ${uri}` }] };
+    }
+    const [, issueKey, resourceType] = match;
+    if (resourceType === 'context') {
+      return {
+        contents: [{
+          uri,
+          mimeType: 'text/plain',
+          text: `To fetch full context for ${issueKey}, use the jira_get_issue_with_confluence_context tool with issueKey="${issueKey}".`,
+        }],
+      };
+    }
+    if (resourceType === 'traceability') {
+      return {
+        contents: [{
+          uri,
+          mimeType: 'text/plain',
+          text: `To generate the traceability matrix for ${issueKey}, use the delivery_get_traceability_matrix tool with issueKey="${issueKey}".`,
+        }],
+      };
+    }
+    return { contents: [{ uri, mimeType: 'text/plain', text: `Unknown resource type: ${resourceType}` }] };
   });
 
   const transport = new StdioServerTransport();
