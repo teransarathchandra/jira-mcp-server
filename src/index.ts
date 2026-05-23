@@ -32,6 +32,8 @@ import { deliveryGenerateReviewerReport } from './tools/deliveryGenerateReviewer
 import { deliveryGenerateQaHandoff } from './tools/deliveryGenerateQaHandoff.js';
 import { deliveryGenerateReleaseNotes } from './tools/deliveryGenerateReleaseNotes.js';
 import { deliveryGenerateClaudeWorkflowPack } from './tools/deliveryGenerateClaudeWorkflowPack.js';
+import { deliveryGenerateGenericPromptPack } from './tools/deliveryGenerateGenericPromptPack.js';
+import { deliveryGenerateCodexPromptPack } from './tools/deliveryGenerateCodexPromptPack.js';
 import {
   deliveryScanProjectPatterns,
   deliveryGetProjectPatterns,
@@ -39,6 +41,7 @@ import {
 } from './tools/deliveryScanProjectPatterns.js';
 import { deliveryExportTaskReport } from './tools/deliveryExportTaskReport.js';
 import { listConfiguredProjects } from './tools/jiraListConfiguredProjects.js';
+import { mcpGetClientSetupInstructions } from './tools/mcpGetClientSetupInstructions.js';
 import {
   JiraAuthError,
   JiraNotFoundError,
@@ -207,6 +210,16 @@ const DeliveryGenerateClaudeWorkflowPackSchema = z.object({
   overwrite: z.boolean().optional().default(false),
 });
 
+const DeliveryGenerateGenericPromptPackSchema = z.object({
+  repoPath: z.string().optional().default('.'),
+  overwrite: z.boolean().optional().default(false),
+});
+
+const DeliveryGenerateCodexPromptPackSchema = z.object({
+  repoPath: z.string().optional().default('.'),
+  overwrite: z.boolean().optional().default(false),
+});
+
 const DeliveryScanProjectPatternsSchema = z.object({
   repoPath: z.string().optional().default('.'),
 });
@@ -232,6 +245,13 @@ const DeliveryExportTaskReportSchema = z.object({
 
 const McpClearCacheSchema = z.object({
   scope: z.literal('all').optional().default('all'),
+});
+
+const McpGetClientSetupInstructionsSchema = z.object({
+  client: z.string().optional(),
+  serverName: z.string().optional(),
+  serverCommand: z.string().optional(),
+  serverArgs: z.array(z.string()).optional(),
 });
 
 // Tool definitions for MCP list_tools
@@ -264,7 +284,7 @@ function buildTools(config: Config) {
   },
   {
     name: 'jira_prepare_work_prompt',
-    description: 'Fetch a Jira issue and return only the implementation prompt suitable for pasting directly into Claude Code or Codex.',
+    description: 'Fetch a Jira issue and return only the implementation prompt suitable for pasting directly into any AI coding agent.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -296,7 +316,7 @@ function buildTools(config: Config) {
   },
   {
     name: 'jira_prepare_contextual_work_prompt',
-    description: 'Fetch a Jira issue with full surrounding context and return only the final implementation prompt suitable for pasting directly into Claude Code or Codex.',
+    description: 'Fetch a Jira issue with full surrounding context and return only the final implementation prompt suitable for pasting directly into any AI coding agent.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -330,7 +350,7 @@ function buildTools(config: Config) {
   },
   {
     name: 'jira_prepare_pr_review_prompt',
-    description: 'Prepare a focused Claude Code review prompt for reviewing a PR against a Jira task requirement. The prompt includes the Jira requirement summary, acceptance criteria, changed files, and review instructions.',
+    description: 'Prepare a focused PR review prompt for an AI coding agent to review a PR against a Jira task requirement. The prompt includes the Jira requirement summary, acceptance criteria, changed files, and review instructions.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -511,7 +531,31 @@ function buildTools(config: Config) {
   },
   {
     name: 'delivery_generate_claude_workflow_pack',
-    description: 'Generate Claude Code workflow assets (.claude/skills/ and .claude/commands/) for Jira delivery workflows. Safe — will not overwrite existing files unless overwrite=true.',
+    description: 'Generate workflow prompt pack assets (.claude/skills/ and .claude/commands/) for Jira delivery workflows. Safe — will not overwrite existing files unless overwrite=true.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+        overwrite: { type: 'boolean', description: 'Overwrite existing files (default: false)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'delivery_generate_generic_prompt_pack',
+    description: 'Generate client-agnostic prompt template files (.mcp-prompts/) for all major Jira delivery workflows. Works with any MCP-compatible coding agent. Safe — will not overwrite existing files unless overwrite=true.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        repoPath: { type: 'string', description: 'Path to git repository (default: .)' },
+        overwrite: { type: 'boolean', description: 'Overwrite existing files (default: false)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'delivery_generate_codex_prompt_pack',
+    description: 'Generate Codex CLI-friendly prompt files (.codex-prompts/) for Jira delivery workflows. Each file contains a ready-to-use Codex prompt for implementing, reviewing, or verifying a Jira task. Safe — will not overwrite existing files unless overwrite=true.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -588,6 +632,28 @@ function buildTools(config: Config) {
       type: 'object' as const,
       properties: {
         scope: { type: 'string', enum: ['all'], description: 'Cache scope to clear (default: all)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'mcp_get_client_setup_instructions',
+    description: 'Return setup instructions for configuring this MCP server with a specific MCP-compatible client (Claude Code, Claude Desktop, Codex CLI, Cursor, Windsurf, VS Code, or generic stdio).',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        client: {
+          type: 'string',
+          enum: ['generic', 'claude-code', 'claude-desktop', 'codex-cli', 'cursor', 'windsurf', 'vscode'],
+          description: 'MCP client to generate setup instructions for (default: generic)',
+        },
+        serverName: { type: 'string', description: 'Name to register for the MCP server (default: jira-delivery-mcp)' },
+        serverCommand: { type: 'string', description: 'Command to launch the MCP server (default: node)' },
+        serverArgs: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Arguments for the server command (default: ["/path/to/dist/index.js"])',
+        },
       },
       required: [],
     },
@@ -730,6 +796,18 @@ async function main() {
           return { content: [{ type: 'text', text: result }] };
         }
 
+        case 'delivery_generate_generic_prompt_pack': {
+          const input = DeliveryGenerateGenericPromptPackSchema.parse(args);
+          const result = await deliveryGenerateGenericPromptPack(input);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'delivery_generate_codex_prompt_pack': {
+          const input = DeliveryGenerateCodexPromptPackSchema.parse(args);
+          const result = await deliveryGenerateCodexPromptPack(input);
+          return { content: [{ type: 'text', text: result }] };
+        }
+
         case 'delivery_scan_project_patterns': {
           const input = DeliveryScanProjectPatternsSchema.parse(args);
           const result = await deliveryScanProjectPatterns(input);
@@ -770,6 +848,11 @@ async function main() {
               text: JSON.stringify({ cleared: true, message: 'Cache cleared.' }),
             }],
           };
+        }
+
+        case 'mcp_get_client_setup_instructions': {
+          const input = McpGetClientSetupInstructionsSchema.parse(args);
+          return { content: [{ type: 'text', text: mcpGetClientSetupInstructions(input) }] };
         }
 
         default:

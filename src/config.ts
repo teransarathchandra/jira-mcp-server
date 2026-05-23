@@ -1,3 +1,6 @@
+import { McpClientProfile } from './clientProfiles/clientProfile.js';
+import { parseClientProfile } from './clientProfiles/clientProfileConfig.js';
+
 export interface JiraProjectConfig {
   defaultProjectKey?: string;
   allowedProjectKeys: string[];
@@ -20,6 +23,7 @@ export interface Config {
   highAuthorityAccountIds: string[];        // JIRA_HIGH_AUTHORITY_ACCOUNT_IDS (comma-separated)
   maxContextChars: number;                  // JIRA_MAX_CONTEXT_CHARS (default: 30000)
   projectConfig: JiraProjectConfig;
+  clientProfile: McpClientProfile;
 }
 
 export function getProjectConfig(): JiraProjectConfig {
@@ -88,6 +92,8 @@ export function getConfig(): Config {
   const maxContextCharsRaw = process.env.JIRA_MAX_CONTEXT_CHARS?.trim();
   const maxContextChars = maxContextCharsRaw ? Math.max(5000, parseInt(maxContextCharsRaw, 10) || 30000) : 30000;
 
+  const clientProfile = parseClientProfile(process.env.MCP_CLIENT_PROFILE);
+
   const errors: string[] = [];
 
   if (!baseUrl) {
@@ -119,5 +125,6 @@ export function getConfig(): Config {
     highAuthorityAccountIds,
     maxContextChars,
     projectConfig: getProjectConfig(),
+    clientProfile,
   };
 }

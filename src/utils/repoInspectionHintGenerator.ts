@@ -190,7 +190,7 @@ export function formatRepoInspectionSection(result: RepoInspectionResult): strin
   const lines: string[] = [
     '## Suggested Repo Inspection Targets',
     '',
-    'Before making changes, Claude Code should:',
+    'Before making changes, the coding agent should:',
   ];
 
   for (const hint of result.hints) {

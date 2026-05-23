@@ -297,7 +297,7 @@ export function formatIssueBrief(issue: JiraIssue): string {
     ? allRefs.slice(0, 5).join(", ")
     : "the feature described above";
 
-  const implementationPrompt = `## Implementation Prompt for Claude Code
+  const implementationPrompt = `## Implementation Prompt
 
 **Goal:** ${goal}
 

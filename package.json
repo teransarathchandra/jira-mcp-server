@@ -1,7 +1,7 @@
 {
-  "name": "jira-mcp-server",
+  "name": "jira-delivery-mcp",
   "version": "1.0.0",
-  "description": "Local MCP server for Jira CMPI task retrieval and developer workflow automation",
+  "description": "Client-agnostic MCP server for Jira and Confluence — delivery intelligence, implementation prompts, and workflow automation for any AI coding agent",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

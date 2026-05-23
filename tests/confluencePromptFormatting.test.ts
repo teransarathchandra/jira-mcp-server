@@ -233,7 +233,7 @@ describe('formatJiraConfluenceContextBrief', () => {
     expect(output).toContain('## Suggested Repo Inspection Targets');
     expect(output).toContain('## Risks / Ambiguity');
     expect(output).toContain('## Clarification Needed');
-    expect(output).toContain('## Final Implementation Prompt for Claude Code');
+    expect(output).toContain('## Final Implementation Prompt');
   });
 
   it('renders issue metadata in Main Jira Task section', () => {
@@ -294,7 +294,7 @@ describe('formatJiraConfluenceContextBrief', () => {
 
     const output = formatJiraConfluenceContextBrief(jiraContext, confluenceContext, conflicts);
 
-    const promptSection = output.slice(output.indexOf('## Final Implementation Prompt for Claude Code'));
+    const promptSection = output.slice(output.indexOf('## Final Implementation Prompt'));
     expect(promptSection).toContain('Authentication PRD');
     expect(promptSection).toContain('https://example.atlassian.net/wiki');
   });

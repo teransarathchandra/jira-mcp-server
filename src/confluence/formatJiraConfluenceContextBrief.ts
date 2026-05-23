@@ -305,7 +305,7 @@ export function formatJiraConfluenceContextBrief(
   lines.push('');
 
   // ── Final Implementation Prompt ───────────────────────────────────────────────
-  lines.push('## Final Implementation Prompt for Claude Code');
+  lines.push('## Final Implementation Prompt');
   lines.push('');
   lines.push(`You are implementing ${issueKey}: ${summary}`);
   lines.push('');

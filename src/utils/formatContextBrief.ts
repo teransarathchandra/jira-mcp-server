@@ -101,7 +101,7 @@ function buildFinalPrompt(
     ? `\n**⚠️ Conflicts detected:** ${conflictResult.conflicts.length} conflict(s) found. Treat the most recent useful Jira comment as authoritative when sources disagree.\n`
     : '';
 
-  return `## Final Implementation Prompt for Claude Code
+  return `## Final Implementation Prompt
 
 **Task:** ${key} — ${summary}
 **Readiness:** ${readiness.status}
@@ -433,11 +433,11 @@ export function formatContextBrief(context: IssueContext): string {
 }
 
 /**
- * Extracts just the "## Final Implementation Prompt for Claude Code" section
+ * Extracts just the "## Final Implementation Prompt" section
  * from a context brief produced by formatContextBrief.
  */
 export function extractContextImplementationPrompt(brief: string): string {
-  const sectionStart = brief.indexOf('## Final Implementation Prompt for Claude Code');
+  const sectionStart = brief.indexOf('## Final Implementation Prompt');
   if (sectionStart === -1) return brief;
   return brief.slice(sectionStart).trim();
 }

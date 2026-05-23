@@ -27,8 +27,8 @@ export async function jiraPrepareConfluenceEnrichedWorkPrompt(
 
   const fullOutput = await jiraGetIssueWithConfluenceContext(contextInput, client, config);
 
-  // Extract only the "Final Implementation Prompt for Claude Code" section
-  const sectionHeading = '## Final Implementation Prompt for Claude Code';
+  // Extract only the "Final Implementation Prompt" section
+  const sectionHeading = '## Final Implementation Prompt';
   const sectionStart = fullOutput.indexOf(sectionHeading);
 
   if (sectionStart === -1) {

@@ -221,14 +221,14 @@ describe('generateRepoInspectionHints – max 10 hints', () => {
 // ── formatRepoInspectionSection ───────────────────────────────────────────────
 
 describe('formatRepoInspectionSection', () => {
-  it('section contains "Before making changes, Claude Code should:"', () => {
+  it('section contains "Before making changes, the coding agent should:"', () => {
     const result = generateRepoInspectionHints({
       ...DEFAULT_PARAMS,
       technicalSignals: ['auth.ts'],
     });
 
     const formatted = formatRepoInspectionSection(result);
-    expect(formatted).toContain('Before making changes, Claude Code should:');
+    expect(formatted).toContain('Before making changes, the coding agent should:');
   });
 
   it('section contains ## Suggested Repo Inspection Targets heading', () => {

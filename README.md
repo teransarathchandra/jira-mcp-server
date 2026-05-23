@@ -1,10 +1,12 @@
-# Jira MCP Server
+# Jira Delivery MCP
 
-A local stdio MCP (Model Context Protocol) server for Jira Cloud task retrieval and developer workflow automation.
+A local stdio MCP (Model Context Protocol) server for Jira Cloud task retrieval and developer workflow automation. Works with any MCP-compatible AI coding agent or client.
+
+**Supported clients:** Claude Code, Claude Desktop, Codex CLI, Cursor, Windsurf, VS Code MCP extensions, and any stdio-based MCP client.
 
 ## What this MCP server does
 
-This server connects Claude Code (or any MCP-compatible AI agent) to your Jira Cloud instance and supports any Jira project key. It provides twenty-four read-only tools:
+This server connects your AI coding agent to your Jira Cloud instance. It supports any Jira project key and provides twenty-seven read-only tools:
 
 | Tool | Description |
 |------|-------------|
@@ -15,7 +17,7 @@ This server connects Claude Code (or any MCP-compatible AI agent) to your Jira C
 | `jira_get_issue_context` | Fetch a Jira issue with full surrounding context (parent, epic, linked issues, subtasks, comments) |
 | `jira_prepare_contextual_work_prompt` | Fetch a Jira issue with full context and return a final implementation prompt |
 | `jira_review_pr_alignment` | Review a PR or local branch against a Jira requirement — produces an evidence-based alignment report with score, matched/missing requirements, and review comments |
-| `jira_prepare_pr_review_prompt` | Prepare a focused Claude Code review prompt for reviewing a PR against a Jira task |
+| `jira_prepare_pr_review_prompt` | Prepare a focused PR review prompt for an AI coding agent to review a PR against a Jira task |
 | `confluence_search_related_pages` | Search Confluence for pages related to a Jira issue, ranked by relevance |
 | `confluence_get_page_summary` | Fetch and summarize a Confluence page by ID with extracted requirement signals |
 | `jira_get_issue_with_confluence_context` | Jira issue + Confluence documentation enrichment in one combined context brief |
@@ -28,23 +30,29 @@ This server connects Claude Code (or any MCP-compatible AI agent) to your Jira C
 | `delivery_generate_qa_handoff` | Generate a QA handoff document with test cases, regression areas, and known risks |
 | `delivery_generate_release_notes` | Generate release notes with audience variants (internal, qa, product, customer_safe) |
 | `delivery_generate_claude_workflow_pack` | Generate Claude Code workflow assets (.claude/skills/ and .claude/commands/) for Jira workflows |
+| `delivery_generate_generic_prompt_pack` | Generate client-agnostic prompt templates (.mcp-prompts/) for all major delivery workflows |
+| `delivery_generate_codex_prompt_pack` | Generate Codex CLI-ready prompt files (.codex-prompts/) for Jira delivery workflows |
 | `delivery_scan_project_patterns` | Scan local repo for technical patterns (tech stack, module names, naming conventions) |
 | `delivery_get_project_patterns` | Get saved local project patterns from pattern memory |
 | `delivery_clear_project_patterns` | Clear local project pattern memory |
 | `delivery_export_task_report` | Export a complete multi-section delivery report to a markdown file |
+| `mcp_get_client_setup_instructions` | Return setup instructions for configuring this server with a specific MCP-compatible client |
+| `mcp_clear_cache` | Clear the in-memory Jira/Confluence cache |
 
 Additional capabilities:
 - Converts Atlassian Document Format (ADF) to clean Markdown so descriptions are readable
 - Generates structured implementation prompts for coding agents based on issue content
 - Surfaces attachment filenames and URLs so you know what files are attached (without downloading them)
 
-## What v1 does NOT do
+## What this server does NOT do
 
 - Does not create, edit, or delete Jira issues
 - Does not add comments to Jira
 - Does not transition issue statuses
 - Does not download attachments — it lists filenames and URLs only
 - Does not support pagination beyond the first page (max 50 results for search)
+- Does not write to Confluence
+- Does not use an LLM internally — all logic is deterministic and rule-based
 
 ## Prerequisites
 
@@ -55,7 +63,7 @@ Additional capabilities:
 
 1. Go to https://id.atlassian.com/manage-profile/security/api-tokens
 2. Click **Create API token**
-3. Give it a descriptive name (e.g. `jira-mcp-server`) and click **Create**
+3. Give it a descriptive name (e.g. `jira-delivery-mcp`) and click **Create**
 4. Copy the token immediately — it is only shown once
 
 ## Installation and configuration
@@ -80,6 +88,10 @@ JIRA_API_TOKEN=your-api-token
 JIRA_DEFAULT_PROJECT_KEY=ENG
 JIRA_ALLOWED_PROJECT_KEYS=ENG,DATA,OPS
 JIRA_STRICT_PROJECT_ALLOWLIST=true
+
+# Optional: MCP client profile (affects setup instructions and generated examples)
+# Supported: generic, claude-code, claude-desktop, codex-cli, cursor, windsurf, vscode
+MCP_CLIENT_PROFILE=generic
 ```
 
 | Variable | Required | Description |
@@ -93,6 +105,7 @@ JIRA_STRICT_PROJECT_ALLOWLIST=true
 | `JIRA_ISSUE_KEY_PATTERN` | No | Custom regex for issue key validation (default: `^[A-Z][A-Z0-9]+-\d+$`) |
 | `JIRA_EXAMPLE_ISSUE_KEY` | No | Example issue key shown in tool hints (auto-derived if not set) |
 | `JIRA_PROJECT_KEY` | No | **Deprecated** — use `JIRA_DEFAULT_PROJECT_KEY` instead |
+| `MCP_CLIENT_PROFILE` | No | Client profile for setup instructions (default: `generic`) |
 
 ### Multi-team Configuration Examples
 
@@ -115,13 +128,6 @@ JIRA_STRICT_PROJECT_ALLOWLIST=true
 JIRA_STRICT_PROJECT_ALLOWLIST=false
 ```
 
-**Backward-compatible CMPI config:**
-```env
-JIRA_DEFAULT_PROJECT_KEY=CMPI
-JIRA_ALLOWED_PROJECT_KEYS=CMPI
-JIRA_STRICT_PROJECT_ALLOWLIST=true
-```
-
 ## Running locally
 
 ```bash
@@ -134,77 +140,227 @@ node dist/index.js
 
 The server communicates over stdio and produces no output until an MCP client connects.
 
-## Registering with Claude Code
+## Client Setup
 
-Use `claude mcp add` to register the server. Replace the path with the absolute path to your local clone:
+---
+
+### Using with Claude Code
+
+Register the server using the `claude mcp add` command. Replace the path with the absolute path to your local clone:
 
 ```bash
-claude mcp add --transport stdio jira-cmpi -- node /absolute/path/to/dist/index.js
+claude mcp add --transport stdio jira-delivery-mcp -- node /absolute/path/to/dist/index.js
 ```
 
-For this project at its default location:
+#### Passing environment variables
 
 ```bash
-claude mcp add --transport stdio jira-cmpi -- node /Users/teransarathchandra/Development/MCP_Servers/jira-mcp-server/dist/index.js
-```
-
-### Passing environment variables
-
-The server reads credentials from the environment. If they are not already set in your shell, pass them explicitly with `--env`:
-
-```bash
-claude mcp add --transport stdio jira-cmpi \
+claude mcp add --transport stdio jira-delivery-mcp \
   --env JIRA_BASE_URL=https://your-domain.atlassian.net \
   --env JIRA_EMAIL=your-email@example.com \
   --env JIRA_API_TOKEN=your-api-token \
-  --env JIRA_PROJECT_KEY=CMPI \
-  -- node /Users/teransarathchandra/Development/MCP_Servers/jira-mcp-server/dist/index.js
+  --env JIRA_DEFAULT_PROJECT_KEY=ENG \
+  --env MCP_CLIENT_PROFILE=claude-code \
+  -- node /absolute/path/to/dist/index.js
 ```
 
-### Verify registration
+#### Verify registration
 
 ```bash
 claude mcp list
 ```
 
-You should see `jira-cmpi` in the output.
+You should see `jira-delivery-mcp` in the output.
 
-## Example Claude Code usage
+#### Example Claude Code prompts
 
-After registering the server, you can use these prompts inside Claude Code:
-
-- "Use the Jira MCP server to fetch CMPI-1234 and prepare an implementation plan."
-- "Fetch CMPI-1234 from Jira, inspect this repo, and implement the task carefully."
-- "Show my open CMPI Jira issues."
-- "Get the work prompt for CMPI-5678 and use it to implement the feature."
-- "What are my current open Jira tasks?"
-
-### Direct tool usage
+After registering, use these prompts in Claude Code:
 
 ```
-# Get full issue brief
-jira_get_issue({"issueKey": "CMPI-1234"})
+Use the Jira MCP server to fetch ENG-123 and prepare an implementation plan.
+Fetch ENG-123 from Jira, inspect this repo, and implement the task carefully.
+Show my open Jira issues.
+Use jira_prepare_pr_review_prompt for ENG-123 and review my current branch.
+Use Jira MCP to verify Definition of Done for ENG-123.
+Use Jira MCP to generate the Claude Code workflow pack.
+```
 
-# Get just the implementation prompt
-jira_prepare_work_prompt({"issueKey": "CMPI-1234"})
+#### Claude Code workflow pack (Claude-specific)
 
-# List your open issues
+The `delivery_generate_claude_workflow_pack` tool generates `.claude/skills/` and `.claude/commands/` files that turn Jira delivery workflows into reusable slash commands in Claude Code:
+
+```
+Use Jira MCP to generate the Claude Code workflow pack.
+```
+
+Generated slash commands (after running the workflow pack):
+- `/jira-plan ENG-123` — Implementation plan
+- `/jira-review-pr ENG-123` — PR alignment review
+- `/jira-dod ENG-123` — Definition of Done check
+- `/jira-qa ENG-123` — QA handoff
+
+---
+
+### Using with Codex CLI
+
+#### Prerequisites
+
+- Codex CLI installed and authenticated
+- MCP server built: `npm run build`
+
+#### Configuration
+
+Add the server to your Codex CLI MCP configuration. Codex CLI supports MCP servers configured via `~/.codex/config.toml` (or the equivalent Codex CLI config path for your installation):
+
+```toml
+# ~/.codex/config.toml
+
+[mcp_servers.jira-delivery-mcp]
+command = "node"
+args = ["/absolute/path/to/dist/index.js"]
+env = { JIRA_BASE_URL = "https://your-domain.atlassian.net", JIRA_EMAIL = "your-email@example.com", JIRA_API_TOKEN = "your-api-token", MCP_CLIENT_PROFILE = "codex-cli" }
+```
+
+> **Note:** Codex CLI MCP configuration paths and syntax may vary by version. Check `codex --help` or the Codex CLI documentation for the exact format supported by your installation.
+
+#### Generate a Codex CLI prompt pack
+
+The `delivery_generate_codex_prompt_pack` tool creates `.codex-prompts/` files with ready-to-use Codex prompts:
+
+```
+Use Jira MCP to generate the Codex CLI prompt pack.
+```
+
+Generated files:
+- `.codex-prompts/implement-jira-task.md`
+- `.codex-prompts/review-pr-against-jira.md`
+- `.codex-prompts/generate-test-strategy.md`
+- `.codex-prompts/verify-definition-of-done.md`
+
+Use them in Codex CLI:
+
+```bash
+codex "$(cat .codex-prompts/implement-jira-task.md)"
+```
+
+#### Example Codex CLI prompts
+
+```
+Use the Jira Delivery MCP server to fetch ENG-123 and prepare an implementation plan.
+Use the Jira Delivery MCP server to review my current branch against ENG-123.
+Use the Jira Delivery MCP server to generate a test strategy for ENG-123.
+```
+
+#### Security note (Codex CLI)
+
+- Keep the server local and read-only.
+- Do not expose Jira or Confluence credentials in prompts.
+- Store credentials in environment variables or the Codex CLI config file, not in plain text prompts.
+
+---
+
+### Using with Cursor, Windsurf, or VS Code
+
+Most MCP-compatible editors support stdio-based servers. The general configuration pattern is:
+
+**Server name:** `jira-delivery-mcp`
+**Command:** `node`
+**Args:** `["/absolute/path/to/dist/index.js"]`
+**Environment:** `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`
+
+For Cursor:
+1. Open Cursor Settings → Features → MCP → Add Server
+2. Enter the command and args
+3. Pass credentials via the environment section
+
+For Windsurf:
+1. Open Windsurf Settings → MCP Servers → Add
+2. Enter the server command and args
+
+For VS Code:
+1. Configure the server in your VS Code MCP extension settings
+2. Pass credentials via environment variables
+
+After adding the server, use `mcp_get_client_setup_instructions` with your client profile to get tailored instructions:
+
+```
+Use mcp_get_client_setup_instructions with client: "cursor"
+```
+
+---
+
+### Generic stdio MCP client
+
+Any MCP client that supports stdio transport can connect to this server. The standard configuration pattern is:
+
+```json
+{
+  "mcpServers": {
+    "jira-delivery-mcp": {
+      "command": "node",
+      "args": ["/absolute/path/to/dist/index.js"],
+      "env": {
+        "JIRA_BASE_URL": "https://your-domain.atlassian.net",
+        "JIRA_EMAIL": "your-email@example.com",
+        "JIRA_API_TOKEN": "your-api-token"
+      }
+    }
+  }
+}
+```
+
+Refer to your client's documentation for where to place this configuration.
+
+#### Getting client-specific setup instructions
+
+The `mcp_get_client_setup_instructions` tool returns setup instructions for any supported client:
+
+```json
+{
+  "client": "codex-cli",
+  "serverName": "jira-delivery-mcp",
+  "serverCommand": "node",
+  "serverArgs": ["/absolute/path/to/dist/index.js"]
+}
+```
+
+Supported client values: `generic`, `claude-code`, `claude-desktop`, `codex-cli`, `cursor`, `windsurf`, `vscode`
+
+---
+
+## Example usage
+
+These prompts work with any MCP-compatible AI coding agent:
+
+```
+Fetch ENG-123 from Jira and prepare an implementation plan.
+Show my open Jira issues.
+Review my current branch against ENG-123.
+Verify Definition of Done for ENG-123.
+Generate a QA handoff for ENG-123.
+Generate a test strategy for ENG-123.
+Generate release notes for ENG-123.
+```
+
+Direct tool usage:
+```
+jira_get_issue({"issueKey": "ENG-123"})
+jira_prepare_work_prompt({"issueKey": "ENG-123"})
 jira_search_my_open_issues({"maxResults": 10})
+delivery_verify_definition_of_done({"issueKey": "ENG-123"})
 ```
 
 ## Context-aware Jira task fetching
 
 The server includes two advanced tools that gather surrounding context from Jira — parent issues, epics, linked issues, subtasks, and analyzed comments — to produce a richer brief for implementing complex requirements.
 
-### New tools
-
-#### `jira_get_issue_context`
+### `jira_get_issue_context`
 
 Fetches an issue and its surrounding Jira context, producing a comprehensive developer brief.
 
 ```json
 {
-  "issueKey": "CMPI-1234",
+  "issueKey": "ENG-123",
   "includeComments": true,
   "includeParent": true,
   "includeEpic": true,
@@ -220,13 +376,13 @@ Fetches an issue and its surrounding Jira context, producing a comprehensive dev
 
 Output includes: Main Task metadata, Core Requirement, Acceptance Criteria, Requirement Clarifications from Comments, Parent/Epic Context, Related Issues, Subtasks, Possible Dependencies/Blockers, Technical Signals, Risk/Ambiguity, and a Final Implementation Prompt.
 
-#### `jira_prepare_contextual_work_prompt`
+### `jira_prepare_contextual_work_prompt`
 
-Same as `jira_get_issue_context` but returns only the final implementation prompt — ready to paste directly into Claude Code or Codex.
+Same as `jira_get_issue_context` but returns only the final implementation prompt — ready to paste directly into any AI coding agent.
 
 ```json
 {
-  "issueKey": "CMPI-1234",
+  "issueKey": "ENG-123",
   "includeComments": true,
   "includeParent": true,
   "includeEpic": true,
@@ -235,17 +391,6 @@ Same as `jira_get_issue_context` but returns only the final implementation promp
   "includeEpicSiblings": false
 }
 ```
-
-### Example Claude Code prompts
-
-**Example 1 — Full context brief:**
-> Use Jira MCP to fetch full context for CMPI-1234 including comments, parent, epic, linked issues, and subtasks.
-
-**Example 2 — Contextual work prompt:**
-> Use Jira MCP to prepare a contextual implementation prompt for CMPI-1234. Then inspect this repository and implement only the confirmed requirements.
-
-**Example 3 — Without epic siblings:**
-> Use Jira MCP to fetch CMPI-1234 but do not include epic sibling issues.
 
 ### Optional: Epic field configuration
 
@@ -266,11 +411,11 @@ Standard Jira Cloud projects do not need this setting — the server tries the s
 
 ### Why these tools are still read-only
 
-Both new tools only read from Jira. They do not create, update, delete, comment on, or transition any Jira issues.
+Both tools only read from Jira. They do not create, update, delete, comment on, or transition any Jira issues.
 
 ## Requirement Intelligence Layer
 
-The context-aware tools now include a built-in intelligence layer that evaluates Jira context quality before generating the implementation brief. No LLM is used — all logic is deterministic and rule-based.
+The context-aware tools include a built-in intelligence layer that evaluates Jira context quality before generating the implementation brief. No LLM is used — all logic is deterministic and rule-based.
 
 ### What the intelligence layer does
 
@@ -281,23 +426,21 @@ The context-aware tools now include a built-in intelligence layer that evaluates
 | Readiness Evaluator | Checks if the ticket has enough information to implement (READY / MOSTLY_READY / NEEDS_CLARIFICATION / BLOCKED) |
 | Conflict Detector | Detects contradictions between description, comments, parent, and epic |
 | Clarification Generator | Generates up to 5 specific, implementation-focused questions when the ticket is unclear |
-| Repo Inspection Hint Generator | Produces targeted instructions for Claude Code to inspect the right files before editing |
+| Repo Inspection Hint Generator | Produces targeted instructions for the coding agent to inspect the right files before editing |
 | Context Quality Scorer | Produces a 0-100 quality score for the assembled Jira context |
 
 ### Updated context brief sections
 
-When using `jira_get_issue_context`, the brief now includes:
+When using `jira_get_issue_context`, the brief includes:
 - **Context Quality** — Score and interpretation (0-100)
 - **Requirement Authority** — Which sources are most authoritative
 - **Implementation Readiness** — READY / MOSTLY_READY / NEEDS_CLARIFICATION / BLOCKED with reasons
 - **Relevant Jira Context** — Linked issues ranked by relevance (High / Medium / Omitted)
 - **Conflicts** — Detected contradictions with impact and recommended handling
-- **Suggested Repo Inspection Targets** — Specific instructions for Claude Code
+- **Suggested Repo Inspection Targets** — Specific instructions for the coding agent
 - **Clarification Needed** — Practical questions (only shown when ticket is unclear or blocked)
 
 ### Optional environment variables
-
-Add any of these to `.env` to improve intelligence for your project:
 
 ```
 # Identify the custom field used for Epic Links (if standard epic field doesn't work)
@@ -309,7 +452,6 @@ JIRA_ACCEPTANCE_CRITERIA_FIELD_ID=customfield_10020
 JIRA_TEAM_FIELD_ID=customfield_10018
 
 # Comma-separated emails of high-authority authors (e.g., product owners, tech leads)
-# Comments from these authors are weighted higher in authority ranking
 JIRA_HIGH_AUTHORITY_AUTHOR_EMAILS=product-owner@example.com,tech-lead@example.com
 
 # Comma-separated Jira account IDs of high-authority authors (alternative to email)
@@ -318,8 +460,6 @@ JIRA_HIGH_AUTHORITY_ACCOUNT_IDS=account-id-1,account-id-2
 # Maximum characters for the full context output (default: 30000)
 JIRA_MAX_CONTEXT_CHARS=30000
 ```
-
-None of these are required. The server works without them.
 
 ### Readiness statuses
 
@@ -330,27 +470,11 @@ None of these are required. The server works without them.
 | NEEDS_CLARIFICATION | Seek answers to open questions before or during implementation |
 | BLOCKED | Resolve blocker issues before starting |
 
-### Example Claude Code prompts
-
-```
-# Get the full intelligence-enhanced context brief
-"Fetch full Jira context for CMPI-1234 with authority ranking and readiness evaluation."
-
-# Get the final implementation prompt (intelligence-processed)
-"Use jira_prepare_contextual_work_prompt for CMPI-1234 and implement the confirmed requirements."
-
-# Check if a ticket is ready before starting
-"Use jira_get_issue_context for CMPI-1234. If it is not READY, explain what is unclear."
-
-# Skip epic siblings for a cleaner brief
-"Fetch context for CMPI-1234, disable epic sibling issues."
-```
-
 ## Reviewing a PR against a Jira task
 
 ### Overview
 
-The `jira_review_pr_alignment` tool compares a PR's changes against the Jira requirement to produce an evidence-based alignment report. It does not claim "perfect alignment" — it reports a score, confidence level, matched requirements, missing requirements, unrelated changes, risky changes, and practical review comments.
+The `jira_review_pr_alignment` tool compares a PR's changes against the Jira requirement to produce an evidence-based alignment report. It reports a score, confidence level, matched requirements, missing requirements, unrelated changes, risky changes, and practical review comments.
 
 ### Supported modes
 
@@ -360,51 +484,35 @@ Compares a local branch against a base branch using git. No GitHub API required.
 **github_pr (v2, not yet supported):**
 Will fetch PR data from GitHub using GITHUB_TOKEN. Not available in v1 — use local_diff.
 
-### Tools
-
-#### `jira_review_pr_alignment`
-
-Runs an alignment analysis between a Jira issue and the diff of a local branch.
+### `jira_review_pr_alignment`
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `issueKey` | yes | — | Jira issue key, e.g. `CMPI-1234` |
+| `issueKey` | yes | — | Jira issue key, e.g. `ENG-123` |
 | `baseBranch` | no | `origin/main` | Base branch to compare against |
 | `compareRef` | no | `HEAD` | Branch, commit SHA, or ref to compare |
 | `repoPath` | no | `.` | Path to the git repository |
 | `maxDiffChars` | no | `50000` | Max characters of diff to analyze |
 
-#### `jira_prepare_pr_review_prompt`
+### `jira_prepare_pr_review_prompt`
 
-Returns a ready-to-use review prompt that instructs Claude Code to review the PR against the Jira requirement. Useful when you want Claude to do a focused review without calling the full alignment tool.
+Returns a ready-to-use review prompt for an AI coding agent to review the PR against the Jira requirement.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `issueKey` | yes | Jira issue key, e.g. `CMPI-1234` |
+| `issueKey` | yes | Jira issue key, e.g. `ENG-123` |
 
 ### Usage examples
 
-**Example 1: Review local changes against CMPI-1234**
 ```
-Use jira_review_pr_alignment with issueKey: "CMPI-1234"
-```
-This uses the current branch (HEAD) compared against origin/main.
+# Review local changes against ENG-123
+Use jira_review_pr_alignment with issueKey: "ENG-123"
 
-**Example 2: Review a specific branch**
-```
-Use jira_review_pr_alignment with issueKey: "CMPI-1234", baseBranch: "main", compareRef: "feature/my-branch", repoPath: "/path/to/repo"
-```
+# Review a specific branch
+Use jira_review_pr_alignment with issueKey: "ENG-123", baseBranch: "main", compareRef: "feature/my-branch"
 
-**Example 3: Prepare a review prompt**
-```
-Use jira_prepare_pr_review_prompt with issueKey: "CMPI-1234"
-```
-Returns a focused review prompt. Pass it to Claude Code to perform the review.
-
-**Example 4: GitHub PR mode (v2 — not yet available)**
-```
-Use jira_review_pr_alignment with issueKey: "CMPI-1234", mode: "github_pr", prNumber: 123
-Requires: GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO environment variables.
+# Prepare a review prompt
+Use jira_prepare_pr_review_prompt with issueKey: "ENG-123"
 ```
 
 ### Understanding the alignment score
@@ -440,7 +548,7 @@ Possible statuses:
 
 ## Confluence Integration
 
-The Jira MCP server can optionally enrich Jira issue context with relevant Confluence documentation. When configured, it searches Confluence for pages related to a Jira ticket, scores them by relevance, and includes the most useful content in the implementation context.
+The server can optionally enrich Jira issue context with relevant Confluence documentation. When configured, it searches Confluence for pages related to a Jira ticket, scores them by relevance, and includes the most useful content in the implementation context.
 
 ### What it does
 
@@ -486,16 +594,14 @@ The server starts and Jira tools work normally even when these are not set. Conf
 
 The server builds multiple targeted CQL queries from the Jira ticket context:
 
-1. **Jira key search**: Find pages that mention the exact issue key (e.g. `CMPI-1234`)
+1. **Jira key search**: Find pages that mention the exact issue key (e.g. `ENG-123`)
 2. **Epic/parent search**: Find pages mentioning the epic or parent issue key
 3. **Summary phrase search**: Find pages whose titles contain key words from the Jira summary
 4. **Technical terms search**: Find pages mentioning API names, module names, or other technical signals
 
 Results are deduplicated by page ID and scored for relevance before any page body is read.
 
-### Why pages are relevance-scored
-
-Blindly including all Confluence search results would produce noisy, token-heavy context. Instead, the server scores each page:
+### Relevance scoring
 
 - +40: Page body mentions the exact Jira issue key
 - +30: Page is directly linked from the Jira description or comments
@@ -514,43 +620,12 @@ Jira is always the primary source of truth:
 - **Keyword-matched Confluence pages**: Background context only. Used for additional understanding, not as requirements.
 - **Stale/deprecated Confluence pages**: Marked with warnings. Never treated as authoritative.
 
-### How conflicts are reported
-
-When Jira and Confluence disagree, the conflict is reported clearly:
-
-```
-⚠️ Jira vs Confluence Conflicts:
-- [high] Jira Confluence Behavior Conflict: One source says "optional"...
-  - Impact: Incorrect validation logic
-  - Handling: Jira latest comments and confirmed acceptance criteria take priority...
-```
-
-### Avoiding token-heavy context
-
-- Set `CONFLUENCE_MAX_PAGES_TO_READ=3` to read fewer pages
-- Set `CONFLUENCE_MAX_PAGE_CHARS=6000` to limit per-page content
-- Set `CONFLUENCE_SPACE_KEYS` to restrict to relevant spaces
-- Use `jira_prepare_confluence_enriched_work_prompt` instead of `jira_get_issue_with_confluence_context` when you only need the final prompt
-
 ### Example usage
 
-**Example 1: Prepare an implementation prompt with Confluence context**
 ```
-Use jira_prepare_confluence_enriched_work_prompt for CMPI-1234
-```
-
-**Example 2: Search for related Confluence pages**
-```
-Use confluence_search_related_pages for CMPI-1234 and explain which pages are most relevant
-```
-
-**Example 3: Full Jira + Confluence context brief**
-```
-Use jira_get_issue_with_confluence_context for CMPI-1234, then inspect this repo and implement the confirmed requirement
-```
-
-**Example 4: Summarise a specific Confluence page**
-```
+Use jira_prepare_confluence_enriched_work_prompt for ENG-123
+Use confluence_search_related_pages for ENG-123 and explain which pages are most relevant
+Use jira_get_issue_with_confluence_context for ENG-123, then inspect this repo and implement the confirmed requirement
 Use confluence_get_page_summary with pageId: "123456789"
 ```
 
@@ -568,14 +643,14 @@ Use confluence_get_page_summary with pageId: "123456789"
 
 ## Delivery Intelligence Workflows
 
-The delivery intelligence layer turns the MCP server into a full engineering delivery assistant. Use these tools from Claude Code to improve requirement traceability, testing, review discipline, and delivery quality.
+The delivery intelligence layer turns the MCP server into a full engineering delivery assistant.
 
 ### 1. Requirement-to-Code Traceability Matrix
 
 Maps each Jira acceptance criterion and business rule to implementation evidence in the PR diff.
 
 ```
-Use Jira MCP to generate a traceability matrix for CMPI-1234.
+Use Jira MCP to generate a traceability matrix for ENG-123.
 ```
 
 Tool: `delivery_get_traceability_matrix`
@@ -585,7 +660,7 @@ Tool: `delivery_get_traceability_matrix`
 Runs 14 automated checks to determine merge-readiness: test coverage, AC coverage, risky file detection, conflict detection, and more.
 
 ```
-Use Jira MCP to verify Definition of Done for CMPI-1234 against the current branch.
+Use Jira MCP to verify Definition of Done for ENG-123 against the current branch.
 ```
 
 Tool: `delivery_verify_definition_of_done`
@@ -595,7 +670,7 @@ Tool: `delivery_verify_definition_of_done`
 Predicts affected areas (frontend, backend, API, database, auth, validation) from the Jira requirement before coding begins.
 
 ```
-Use Jira MCP to analyze implementation impact for CMPI-1234.
+Use Jira MCP to analyze implementation impact for ENG-123.
 ```
 
 Tool: `delivery_analyze_implementation_impact`
@@ -605,7 +680,7 @@ Tool: `delivery_analyze_implementation_impact`
 Generates specific test scenarios (unit, integration, E2E, manual QA, negative, permission tests) from the Jira requirement.
 
 ```
-Use Jira MCP to generate a test strategy for CMPI-1234.
+Use Jira MCP to generate a test strategy for ENG-123.
 ```
 
 Tool: `delivery_generate_test_strategy`
@@ -615,7 +690,7 @@ Tool: `delivery_generate_test_strategy`
 Generates role-specific review reports from the same Jira/Confluence/PR context. Personas: product, frontend, backend, QA, security, release.
 
 ```
-Use Jira MCP to generate a QA reviewer report for CMPI-1234.
+Use Jira MCP to generate a QA reviewer report for ENG-123.
 ```
 
 Tool: `delivery_generate_reviewer_report` (with `persona` parameter)
@@ -625,7 +700,7 @@ Tool: `delivery_generate_reviewer_report` (with `persona` parameter)
 Generates a QA-readable handoff document with what to test, what not to test, test data, happy path, negative cases, and regression areas.
 
 ```
-Use Jira MCP to generate a QA handoff for CMPI-1234.
+Use Jira MCP to generate a QA handoff for ENG-123.
 ```
 
 Tool: `delivery_generate_qa_handoff`
@@ -635,26 +710,36 @@ Tool: `delivery_generate_qa_handoff`
 Generates audience-aware release notes. Audiences: `internal`, `qa`, `product`, `customer_safe`.
 
 ```
-Use Jira MCP to generate a release note for CMPI-1234.
+Use Jira MCP to generate a release note for ENG-123.
 ```
 
 Tool: `delivery_generate_release_notes`
 
-### 8. Claude Code Workflow Pack
+### 8. Prompt Packs
 
-Generates `.claude/skills/` and `.claude/commands/` files that turn Jira delivery workflows into reusable slash commands.
+**Generic MCP prompt pack** — works with any AI coding agent:
+```
+Use Jira MCP to generate the generic prompt pack.
+```
+Tool: `delivery_generate_generic_prompt_pack`
 
+Generates `.mcp-prompts/` with 6 ready-to-use template files covering all major workflows.
+
+**Codex CLI prompt pack** — optimized for Codex CLI:
+```
+Use Jira MCP to generate the Codex CLI prompt pack.
+```
+Tool: `delivery_generate_codex_prompt_pack`
+
+Generates `.codex-prompts/` with 4 Codex-ready prompt files.
+
+**Claude Code workflow pack** — Claude Code-specific:
 ```
 Use Jira MCP to generate the Claude Code workflow pack.
 ```
-
 Tool: `delivery_generate_claude_workflow_pack`
 
-Generated slash commands (after running the workflow pack):
-- `/jira-plan CMPI-1234` — Implementation plan
-- `/jira-review-pr CMPI-1234` — PR alignment review
-- `/jira-dod CMPI-1234` — Definition of Done check
-- `/jira-qa CMPI-1234` — QA handoff
+Generates `.claude/skills/` and `.claude/commands/` for Claude Code slash command workflows.
 
 ### 9. Optional Local Project Pattern Memory
 
@@ -676,7 +761,7 @@ Add `.mcp-project-patterns.json` to your `.gitignore` if you enable pattern memo
 Combine multiple analysis sections into a single markdown document.
 
 ```
-Use Jira MCP to export a complete delivery report for CMPI-1234.
+Use Jira MCP to export a complete delivery report for ENG-123.
 ```
 
 Tool: `delivery_export_task_report`
@@ -701,9 +786,9 @@ The server exposes five named prompts for direct use in MCP-compatible clients:
 |---------|-------|-----|
 | `Jira authentication failed` | Wrong email or API token | Verify `JIRA_EMAIL` and `JIRA_API_TOKEN` in `.env` |
 | `Jira access denied (403)` | Insufficient Jira permissions | Ask your Jira admin to grant you read access |
-| `Issue CMPI-XXXX not found` | Issue doesn't exist or you lack permission | Check the issue key in Jira, verify project access |
-| `Invalid issue key` | Key doesn't match `CMPI-XXXX` format | Use exactly 4 digits: `CMPI-1234` not `CMPI-12` |
-| `Missing env variable` | `.env` not loaded or misconfigured | Check `.env` file exists; ensure it's sourced or passed via `--env` |
+| `Issue ENG-XXX not found` | Issue doesn't exist or you lack permission | Check the issue key in Jira, verify project access |
+| `Invalid issue key` | Key doesn't match expected format | Use a valid Jira key format like `ENG-123` |
+| `Missing env variable` | `.env` not loaded or misconfigured | Check `.env` file exists; ensure it's sourced or passed via environment |
 | `Cannot find module` | `dist/` not built | Run `npm run build` first |
 | `Network error` | Jira unreachable | Check VPN, network, and the Jira Cloud URL in `JIRA_BASE_URL` |
 | Rate limited (429) | Too many requests | Wait a few minutes and retry |
@@ -722,7 +807,7 @@ Tests live in `tests/` and are run with [Vitest](https://vitest.dev).
 
 - Never commit `.env` — it is listed in `.gitignore`
 - API tokens are stored only in environment variables, never hardcoded
-- The server never writes to Jira (read-only v1)
+- The server never writes to Jira (read-only)
 - No Jira data is persisted to disk
 
 ## Security Model
@@ -811,7 +896,7 @@ All settings can be configured via environment variables:
 | `MCP_LOG_REDACT_SECRETS` | `true` | Redact secrets from log output |
 | `MCP_PERFORMANCE_LOGGING` | `false` | Include performance summary in output |
 
-## Troubleshooting
+## Additional Troubleshooting
 
 ### Slow Confluence search
 Confluence CQL search can be slow on large instances. Options:
@@ -840,6 +925,3 @@ You can also disable caching entirely with `MCP_CACHE_ENABLED=false`.
 
 ### Restricted Confluence pages
 If a Confluence page returns 403, the server continues with available pages and adds a warning to the output. Only pages you have permission to access are included.
-
-### Missing required config
-If a required variable is missing (JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN), the server will fail with a clear error message listing the missing variables. Optional integrations (Confluence, GitHub) are silently disabled when not configured.
