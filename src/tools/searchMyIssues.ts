@@ -2,14 +2,11 @@ import { JiraClient } from '../jiraClient.js';
 import { Config } from '../config.js';
 import { formatSearchResult } from '../utils/formatIssueBrief.js';
 import { McpInputError } from '../security/inputValidation.js';
+import { safeJqlProjectKey, buildProjectInJql } from '../utils/jql.js';
 
 export interface SearchMyIssuesInput {
   projectKey?: string;  // Optional — specific project to search
   maxResults?: number;  // default 10, max 50
-}
-
-function escapeJqlProjectKey(key: string): string {
-  return key.replace(/["\\]/g, '\\$&');
 }
 
 export async function searchMyIssues(input: SearchMyIssuesInput, client: JiraClient, config: Config): Promise<string> {
@@ -34,8 +31,8 @@ export async function searchMyIssues(input: SearchMyIssuesInput, client: JiraCli
       }
     }
 
-    const escapedKey = escapeJqlProjectKey(key);
-    const jql = `project = "${escapedKey}" AND assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC`;
+    const safeKey = safeJqlProjectKey(key);
+    const jql = `project = "${safeKey}" AND assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC`;
     const result = await client.searchIssues(jql, fields, maxResults);
 
     if (result.issues.length === 0) {
@@ -48,8 +45,8 @@ export async function searchMyIssues(input: SearchMyIssuesInput, client: JiraCli
   // Case 2: use defaultProjectKey
   if (config.projectConfig.defaultProjectKey) {
     const defaultKey = config.projectConfig.defaultProjectKey;
-    const escapedKey = escapeJqlProjectKey(defaultKey);
-    const jql = `project = "${escapedKey}" AND assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC`;
+    const safeKey = safeJqlProjectKey(defaultKey);
+    const jql = `project = "${safeKey}" AND assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC`;
     const result = await client.searchIssues(jql, fields, maxResults);
 
     if (result.issues.length === 0) {
@@ -61,8 +58,7 @@ export async function searchMyIssues(input: SearchMyIssuesInput, client: JiraCli
 
   // Case 3: use allowedProjectKeys list
   if (config.projectConfig.allowedProjectKeys.length > 0) {
-    const keyList = config.projectConfig.allowedProjectKeys.map(k => `"${k}"`).join(', ');
-    const jql = `project in (${keyList}) AND assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC`;
+    const jql = `${buildProjectInJql(config.projectConfig.allowedProjectKeys)} AND assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC`;
     const result = await client.searchIssues(jql, fields, maxResults);
 
     if (result.issues.length === 0) {

@@ -51,13 +51,11 @@ function redactHeaders(headers: Record<string, string>): Record<string, string> 
   return out;
 }
 
-/**
- * Main fetch wrapper with timeout + retry + rate-limit handling.
- * Only wraps GET requests (this is a read-only server).
- */
-export async function httpGet(
+async function httpRequest(
+  method: 'GET' | 'POST',
   url: string,
   headers: Record<string, string>,
+  body: unknown | undefined,
   options?: HttpClientOptions,
 ): Promise<HttpResponse> {
   const timeoutMs = resolveTimeout(options);
@@ -77,8 +75,9 @@ export async function httpGet(
     let response: Response;
     try {
       response = await fetch(url, {
-        method: 'GET',
+        method,
         headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -151,4 +150,27 @@ export async function httpGet(
       `[${provider}] HTTP ${status} after ${attempt + 1} attempt(s). URL: ${redactedUrl}`,
     );
   }
+}
+
+/**
+ * GET request with timeout + retry + rate-limit handling.
+ */
+export function httpGet(
+  url: string,
+  headers: Record<string, string>,
+  options?: HttpClientOptions,
+): Promise<HttpResponse> {
+  return httpRequest('GET', url, headers, undefined, options);
+}
+
+/**
+ * POST request with timeout + retry + rate-limit handling.
+ */
+export function httpPost(
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+  options?: HttpClientOptions,
+): Promise<HttpResponse> {
+  return httpRequest('POST', url, headers, body, options);
 }

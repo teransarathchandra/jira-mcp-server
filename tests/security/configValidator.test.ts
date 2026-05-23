@@ -24,6 +24,10 @@ describe('validateConfig()', () => {
     delete process.env.MCP_CACHE_TTL_CONFLUENCE_SECONDS;
     delete process.env.MCP_MAX_OUTPUT_CHARS;
     delete process.env.MCP_MAX_DIFF_CHARS;
+    delete process.env.JIRA_STRICT_PROJECT_ALLOWLIST;
+    delete process.env.JIRA_DEFAULT_PROJECT_KEY;
+    delete process.env.JIRA_PROJECT_KEY;
+    delete process.env.JIRA_ALLOWED_PROJECT_KEYS;
   });
 
   afterEach(() => {
@@ -179,6 +183,63 @@ describe('validateConfig()', () => {
       process.env.MCP_MAX_DIFF_CHARS = '-1';
       const result = validateConfig();
       expect(result.warnings.some(w => w.includes('MCP_MAX_DIFF_CHARS'))).toBe(true);
+    });
+  });
+
+  describe('strict project allowlist', () => {
+    it('passes when strict mode is off and no keys configured', () => {
+      Object.assign(process.env, VALID_ENV);
+      const result = validateConfig();
+      expect(result.valid).toBe(true);
+    });
+
+    it('passes when strict mode is on and JIRA_DEFAULT_PROJECT_KEY is set', () => {
+      Object.assign(process.env, VALID_ENV);
+      process.env.JIRA_STRICT_PROJECT_ALLOWLIST = 'true';
+      process.env.JIRA_DEFAULT_PROJECT_KEY = 'PROJ';
+      const result = validateConfig();
+      expect(result.valid).toBe(true);
+    });
+
+    it('passes when strict mode is on and JIRA_ALLOWED_PROJECT_KEYS is set', () => {
+      Object.assign(process.env, VALID_ENV);
+      process.env.JIRA_STRICT_PROJECT_ALLOWLIST = 'true';
+      process.env.JIRA_ALLOWED_PROJECT_KEYS = 'PROJ,ABC';
+      const result = validateConfig();
+      expect(result.valid).toBe(true);
+    });
+
+    it('passes when strict mode enabled via "1" with a default key', () => {
+      Object.assign(process.env, VALID_ENV);
+      process.env.JIRA_STRICT_PROJECT_ALLOWLIST = '1';
+      process.env.JIRA_DEFAULT_PROJECT_KEY = 'PROJ';
+      const result = validateConfig();
+      expect(result.valid).toBe(true);
+    });
+
+    it('passes when strict mode on and legacy JIRA_PROJECT_KEY is set', () => {
+      Object.assign(process.env, VALID_ENV);
+      process.env.JIRA_STRICT_PROJECT_ALLOWLIST = 'true';
+      process.env.JIRA_PROJECT_KEY = 'PROJ';
+      const result = validateConfig();
+      expect(result.valid).toBe(true);
+    });
+
+    it('fails when strict mode is on and no project keys are configured', () => {
+      Object.assign(process.env, VALID_ENV);
+      process.env.JIRA_STRICT_PROJECT_ALLOWLIST = 'true';
+      const result = validateConfig();
+      expect(result.valid).toBe(false);
+      expect(result.errors.some(e => e.includes('JIRA_STRICT_PROJECT_ALLOWLIST'))).toBe(true);
+    });
+
+    it('error message mentions required vars when strict mode has no keys', () => {
+      Object.assign(process.env, VALID_ENV);
+      process.env.JIRA_STRICT_PROJECT_ALLOWLIST = 'true';
+      const result = validateConfig();
+      expect(result.errors.some(e =>
+        e.includes('JIRA_DEFAULT_PROJECT_KEY') || e.includes('JIRA_ALLOWED_PROJECT_KEYS')
+      )).toBe(true);
     });
   });
 

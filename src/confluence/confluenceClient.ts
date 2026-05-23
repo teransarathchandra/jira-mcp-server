@@ -8,6 +8,8 @@ import {
 } from "./confluenceConfig.js";
 import { MemoryCache, isCacheEnabled } from "../cache/memoryCache.js";
 import { confluencePageKey, confluenceSearchKey } from "../cache/cacheKeys.js";
+import { httpGet } from "../api/httpClient.js";
+import { confluenceLimiter } from "../performance/concurrencyLimiter.js";
 
 // ── Confluence API response interfaces ────────────────────────────────────────
 
@@ -142,6 +144,29 @@ export class ConfluenceClient {
     throw new Error(`Unexpected Confluence API response: HTTP ${status}`);
   }
 
+  private mapHttpClientError(err: unknown, pageId?: string): never {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('HTTP 401') || message.includes('HTTP 403')) {
+      throw new ConfluenceAuthError('Confluence authentication failed. Check your credentials.');
+    }
+    if (message.includes('HTTP 404')) {
+      throw new ConfluenceNotFoundError(`Confluence page ${pageId ?? 'resource'} not found.`);
+    }
+    if (message.includes('HTTP 429')) {
+      throw new ConfluenceRateLimitError('Confluence rate limit exceeded. Please wait before retrying.');
+    }
+    if (message.includes('timed out')) {
+      throw new ConfluenceNetworkError('Confluence request timed out.');
+    }
+    if (message.includes('Network error')) {
+      throw new ConfluenceNetworkError(`Network error connecting to Confluence: ${message}`);
+    }
+    if (/HTTP 5\d\d/.test(message)) {
+      throw new ConfluenceServerError(`Confluence server error. Try again later.`);
+    }
+    throw new ConfluenceNetworkError(message);
+  }
+
   /**
    * Build the fully-qualified URL for a page's web UI.
    * Exported as public because the context service needs it.
@@ -176,34 +201,14 @@ export class ConfluenceClient {
     });
     const url = `${this.baseUrl}/rest/api/content/search?${params.toString()}`;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15_000);
-    let response: Response;
+    let response;
     try {
-      response = await fetch(url, {
-        method: "GET",
-        headers: this.commonHeaders(),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+      response = await confluenceLimiter.run(() => httpGet(url, this.commonHeaders(), { provider: 'confluence' }));
     } catch (err) {
-      clearTimeout(timeoutId);
-      if (err instanceof Error && err.name === "AbortError") {
-        throw new ConfluenceNetworkError(
-          "Confluence request timed out after 15 seconds."
-        );
-      }
-      const message = err instanceof Error ? err.message : String(err);
-      throw new ConfluenceNetworkError(
-        `Network error connecting to Confluence: ${message}`
-      );
+      this.mapHttpClientError(err);
     }
 
-    if (!response.ok) {
-      await this.handleErrorResponse(response);
-    }
-
-    const result = await response.json() as ConfluenceSearchResult;
+    const result = await response.json<ConfluenceSearchResult>();
     if (isCacheEnabled()) {
       this._searchCache.set(cacheKey, result);
     }
@@ -226,34 +231,14 @@ export class ConfluenceClient {
     });
     const url = `${this.baseUrl}/rest/api/content/${encodeURIComponent(pageId)}?${params.toString()}`;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15_000);
-    let response: Response;
+    let response;
     try {
-      response = await fetch(url, {
-        method: "GET",
-        headers: this.commonHeaders(),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+      response = await confluenceLimiter.run(() => httpGet(url, this.commonHeaders(), { provider: 'confluence' }));
     } catch (err) {
-      clearTimeout(timeoutId);
-      if (err instanceof Error && err.name === "AbortError") {
-        throw new ConfluenceNetworkError(
-          "Confluence request timed out after 15 seconds."
-        );
-      }
-      const message = err instanceof Error ? err.message : String(err);
-      throw new ConfluenceNetworkError(
-        `Network error connecting to Confluence: ${message}`
-      );
+      this.mapHttpClientError(err, pageId);
     }
 
-    if (!response.ok) {
-      await this.handleErrorResponse(response, pageId);
-    }
-
-    const page = await response.json() as ConfluencePage;
+    const page = await response.json<ConfluencePage>();
     if (isCacheEnabled()) {
       this._pageCache.set(cacheKey, page);
     }
@@ -298,34 +283,14 @@ export class ConfluenceClient {
     });
     const url = `${this.baseUrl}/rest/api/content/${encodeURIComponent(pageId)}/child/page?${params.toString()}`;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15_000);
-    let response: Response;
+    let response;
     try {
-      response = await fetch(url, {
-        method: "GET",
-        headers: this.commonHeaders(),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+      response = await confluenceLimiter.run(() => httpGet(url, this.commonHeaders(), { provider: 'confluence' }));
     } catch (err) {
-      clearTimeout(timeoutId);
-      if (err instanceof Error && err.name === "AbortError") {
-        throw new ConfluenceNetworkError(
-          "Confluence request timed out after 15 seconds."
-        );
-      }
-      const message = err instanceof Error ? err.message : String(err);
-      throw new ConfluenceNetworkError(
-        `Network error connecting to Confluence: ${message}`
-      );
+      this.mapHttpClientError(err, pageId);
     }
 
-    if (!response.ok) {
-      await this.handleErrorResponse(response, pageId);
-    }
-
-    const data = (await response.json()) as { results: ConfluencePage[] };
+    const data = await response.json<{ results: ConfluencePage[] }>();
     return data.results;
   }
 }

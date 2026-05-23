@@ -13,7 +13,6 @@ export interface Config {
   baseUrl: string;
   email: string;
   apiToken: string;
-  projectKey: string;
   epicFieldId: string | null;  // e.g. "customfield_10014" — null if not set
   // Intelligence fields (all optional):
   storyPointsFieldId: string | null;       // JIRA_STORY_POINTS_FIELD_ID
@@ -72,7 +71,6 @@ export function getConfig(): Config {
   const baseUrl = process.env.JIRA_BASE_URL?.trim();
   const email = process.env.JIRA_EMAIL?.trim();
   const apiToken = process.env.JIRA_API_TOKEN?.trim();
-  const projectKey = (process.env.JIRA_PROJECT_KEY?.trim()) || "CMPI";
   const epicFieldId = process.env.JIRA_EPIC_FIELD_ID?.trim() || null;
 
   const storyPointsFieldId = process.env.JIRA_STORY_POINTS_FIELD_ID?.trim() || null;
@@ -116,7 +114,6 @@ export function getConfig(): Config {
     baseUrl: baseUrl as string,
     email: email as string,
     apiToken: apiToken as string,
-    projectKey,
     epicFieldId,
     storyPointsFieldId,
     acceptanceCriteriaFieldId,
