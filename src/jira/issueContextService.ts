@@ -9,6 +9,7 @@ import {
 } from "../jiraClient.js";
 import { adfToMarkdown } from "../utils/adfToMarkdown.js";
 import { validateIssueKey } from "../utils/issueKey.js";
+import { safeJqlProjectKey, safeJqlIssueKey, quoteJqlString } from "../utils/jql.js";
 import { logger } from "../logging/logger.js";
 
 // ── Output types ──────────────────────────────────────────────────────────────
@@ -263,7 +264,8 @@ export async function fetchIssueContext(
 
   if (options.includeEpicSiblings && epicKey) {
     const SIBLING_LIMIT = 10;
-    const jql = `project = ${config.projectKey} AND "Epic Link" = ${epicKey} AND key != ${issueKey} ORDER BY updated DESC`;
+    const projectKey = config.projectConfig.defaultProjectKey ?? issueKey.split('-')[0];
+    const jql = `project = "${safeJqlProjectKey(projectKey)}" AND "Epic Link" = ${quoteJqlString(safeJqlIssueKey(epicKey))} AND key != "${safeJqlIssueKey(issueKey)}" ORDER BY updated DESC`;
 
     try {
       const result = await client.searchIssues(

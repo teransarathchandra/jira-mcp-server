@@ -85,6 +85,18 @@ export function validateConfig(): ConfigValidationResult {
     }
   }
 
+  const strictAllowlist = process.env.JIRA_STRICT_PROJECT_ALLOWLIST?.trim();
+  if (strictAllowlist === 'true' || strictAllowlist === '1') {
+    const defaultKey = process.env.JIRA_DEFAULT_PROJECT_KEY?.trim() || process.env.JIRA_PROJECT_KEY?.trim();
+    const allowedKeys = process.env.JIRA_ALLOWED_PROJECT_KEYS?.trim();
+    if (!defaultKey && !allowedKeys) {
+      errors.push(
+        'JIRA_STRICT_PROJECT_ALLOWLIST is enabled but no project keys are configured. ' +
+        'Set JIRA_DEFAULT_PROJECT_KEY or JIRA_ALLOWED_PROJECT_KEYS.'
+      );
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,

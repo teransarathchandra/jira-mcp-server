@@ -1,6 +1,8 @@
 import { Config } from "./config.js";
 import { MemoryCache, isCacheEnabled } from "./cache/memoryCache.js";
 import { jiraIssueKey, jiraSearchKey } from "./cache/cacheKeys.js";
+import { httpGet, httpPost } from "./api/httpClient.js";
+import { jiraLimiter } from "./performance/concurrencyLimiter.js";
 
 // ── Custom error classes ──────────────────────────────────────────────────────
 
@@ -282,6 +284,30 @@ export class JiraClient {
     throw new Error(`Unexpected Jira API response: HTTP ${status}`);
   }
 
+  private mapHttpClientError(err: unknown, issueKey?: string): never {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('HTTP 401') || message.includes('HTTP 403')) {
+      throw new JiraAuthError('Jira authentication failed. Check your credentials.');
+    }
+    if (message.includes('HTTP 404')) {
+      const subject = issueKey ? `Issue ${issueKey}` : 'Resource';
+      throw new JiraNotFoundError(`${subject} not found in Jira.`);
+    }
+    if (message.includes('HTTP 429')) {
+      throw new JiraRateLimitError('Jira rate limit exceeded. Please wait before retrying.');
+    }
+    if (message.includes('timed out')) {
+      throw new JiraNetworkError('Jira request timed out.');
+    }
+    if (message.includes('Network error')) {
+      throw new JiraNetworkError(`Network error connecting to Jira: ${message}`);
+    }
+    if (/HTTP 5\d\d/.test(message)) {
+      throw new JiraServerError(`Jira server error. Try again later.`);
+    }
+    throw new JiraNetworkError(message);
+  }
+
   // ── Public API ──────────────────────────────────────────────────────────────
 
   async getIssue(issueKey: string): Promise<JiraIssue> {
@@ -292,32 +318,14 @@ export class JiraClient {
 
     const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=${ISSUE_FIELDS}`;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15_000);
-    let response: Response;
+    let response;
     try {
-      response = await fetch(url, {
-        method: "GET",
-        headers: this.commonHeaders(),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+      response = await jiraLimiter.run(() => httpGet(url, this.commonHeaders(), { provider: 'jira' }));
     } catch (err) {
-      clearTimeout(timeoutId);
-      if (err instanceof Error && err.name === 'AbortError') {
-        throw new JiraNetworkError('Jira request timed out after 15 seconds.');
-      }
-      const message = err instanceof Error ? err.message : String(err);
-      throw new JiraNetworkError(
-        `Network error connecting to Jira: ${message}`
-      );
+      this.mapHttpClientError(err, issueKey);
     }
 
-    if (!response.ok) {
-      await this.handleErrorResponse(response, issueKey);
-    }
-
-    const issue = await response.json() as JiraIssue;
+    const issue = await response.json<JiraIssue>();
     if (isCacheEnabled()) {
       this._issueCache.set(jiraIssueKey(issueKey), issue);
     }
@@ -333,32 +341,14 @@ export class JiraClient {
 
     const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=${MINIMAL_ISSUE_FIELDS}`;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15_000);
-    let response: Response;
+    let response;
     try {
-      response = await fetch(url, {
-        method: "GET",
-        headers: this.commonHeaders(),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+      response = await jiraLimiter.run(() => httpGet(url, this.commonHeaders(), { provider: 'jira' }));
     } catch (err) {
-      clearTimeout(timeoutId);
-      if (err instanceof Error && err.name === "AbortError") {
-        throw new JiraNetworkError("Jira request timed out after 15 seconds.");
-      }
-      const message = err instanceof Error ? err.message : String(err);
-      throw new JiraNetworkError(
-        `Network error connecting to Jira: ${message}`
-      );
+      this.mapHttpClientError(err, issueKey);
     }
 
-    if (!response.ok) {
-      await this.handleErrorResponse(response, issueKey);
-    }
-
-    const issue = await response.json() as JiraMinimalIssue;
+    const issue = await response.json<JiraMinimalIssue>();
     if (isCacheEnabled()) {
       this._minimalCache.set(cacheKey, issue);
     }
@@ -377,37 +367,18 @@ export class JiraClient {
     }
 
     const url = `${this.baseUrl}/rest/api/3/issue/search`;
+    const postHeaders = { ...this.commonHeaders(), 'Content-Type': 'application/json' };
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15_000);
-    let response: Response;
+    let response;
     try {
-      response = await fetch(url, {
-        method: "POST",
-        headers: {
-          ...this.commonHeaders(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ jql, fields, maxResults, startAt: 0 }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-    } catch (err) {
-      clearTimeout(timeoutId);
-      if (err instanceof Error && err.name === 'AbortError') {
-        throw new JiraNetworkError('Jira request timed out after 15 seconds.');
-      }
-      const message = err instanceof Error ? err.message : String(err);
-      throw new JiraNetworkError(
-        `Network error connecting to Jira: ${message}`
+      response = await jiraLimiter.run(() =>
+        httpPost(url, postHeaders, { jql, fields, maxResults, startAt: 0 }, { provider: 'jira' })
       );
+    } catch (err) {
+      this.mapHttpClientError(err);
     }
 
-    if (!response.ok) {
-      await this.handleErrorResponse(response);
-    }
-
-    const result = await response.json() as JiraSearchResult;
+    const result = await response.json<JiraSearchResult>();
     if (isCacheEnabled()) {
       this._searchCache.set(cacheKey, result);
     }
