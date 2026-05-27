@@ -271,6 +271,29 @@ describe("fetchIssueContext — comment pagination", () => {
     expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing 4 of 10/);
   });
 
+  it("trims initial comment set when Jira returns more inline than maxCommentsPerIssue cap", async () => {
+    // Jira returned 3 inline comments but cap is only 2; pagination block would be skipped
+    // (comments.length 3 >= cap 2), so the trim must happen before the pagination check
+    const issue = makeIssue({
+      comments: [makeComment("c1"), makeComment("c2"), makeComment("c3")],
+      total: 10,
+    });
+    const client = makeMockClient(issue);
+    const config = makeConfig();
+    const options = makeOptions({ includeComments: true, maxCommentsPerIssue: 2 });
+
+    const ctx = await fetchIssueContext("PROJ-1", options, client, config);
+
+    expect(client.getIssueComments).not.toHaveBeenCalled();
+    // Must be trimmed to exactly the cap
+    expect(ctx.mainIssue.fields.comment.comments).toHaveLength(2);
+    expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual(["c1", "c2"]);
+    // Truncation warning must correctly say "showing 2 of 10 (cap=2)"
+    expect(ctx.truncationWarnings).toHaveLength(1);
+    expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing 2 of 10/);
+    expect(ctx.truncationWarnings[0]).toMatch(/maxCommentsPerIssue cap=2/);
+  });
+
   it("paginates across multiple pages until cap is reached", async () => {
     // Initial: 1 comment, total: 20, cap: 5 — needs two getIssueComments calls
     const issue = makeIssue({ comments: [makeComment("c1")], total: 20 });

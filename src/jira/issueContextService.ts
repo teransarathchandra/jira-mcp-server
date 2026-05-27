@@ -117,6 +117,11 @@ export async function fetchIssueContext(
     const commentField = mainIssue.fields.comment;
     const cap = Math.min(options.maxCommentsPerIssue, 20);
 
+    // Trim the initial set if Jira returned more inline than our cap allows
+    if (commentField.comments.length > cap) {
+      mainIssue.fields.comment.comments = commentField.comments.slice(0, cap);
+    }
+
     if (commentField.total > commentField.comments.length && commentField.comments.length < cap) {
       const allComments = [...commentField.comments];
       let startAt = commentField.comments.length;
