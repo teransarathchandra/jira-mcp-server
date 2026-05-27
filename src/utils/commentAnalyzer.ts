@@ -201,7 +201,8 @@ function extractExcerpt(commentText: string, matchedPattern: string): string {
   const idx = lower.indexOf(matchedPattern.toLowerCase());
 
   if (idx === -1) {
-    return commentText.slice(0, 200).trim();
+    const fallback = commentText.slice(0, 200).trim();
+    return commentText.length > 200 ? fallback + '...' : fallback;
   }
 
   // Find the sentence boundaries around the match
@@ -225,7 +226,8 @@ function extractExcerpt(commentText: string, matchedPattern: string): string {
   const end = sentenceEnd === commentText.length ? commentText.length : sentenceEnd + 1;
 
   const sentence = commentText.slice(start, end).trim();
-  return sentence.slice(0, 200).trim();
+  const excerpt = sentence.slice(0, 200).trim();
+  return sentence.length > 200 ? excerpt + '...' : excerpt;
 }
 
 /**
@@ -277,11 +279,11 @@ export function summarizeUsefulComments(comments: JiraCommentInput[]): string {
   const lines: string[] = [];
   for (const comment of top10) {
     const date = new Date(comment.created).toISOString().slice(0, 10); // YYYY-MM-DD
-    const bodyPreview = comment.body.trim().slice(0, 300);
+    const body = comment.body.trim();
     const signals = extractRequirementSignals(comment.body);
     const signalTypes = signals.map(s => s.type).join(', ');
 
-    let entry = `- **[${date}] ${comment.author}**: ${bodyPreview}`;
+    let entry = `- **[${date}] ${comment.author}**: ${body}`;
     if (signalTypes) {
       entry += `\n  Signals: ${signalTypes}`;
     }
