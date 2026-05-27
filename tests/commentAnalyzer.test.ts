@@ -6,6 +6,9 @@ import {
   type JiraCommentInput,
 } from '../src/utils/commentAnalyzer.js';
 
+// Helper to build a string of a given length
+const repeatStr = (char: string, n: number) => char.repeat(n);
+
 // ── isUsefulComment ────────────────────────────────────────────────────────────
 
 describe('isUsefulComment – noise filtering', () => {
@@ -255,5 +258,62 @@ describe('summarizeUsefulComments', () => {
     // Count occurrences of "Author" to check how many entries appear
     const matches = result.match(/\*\*\[/g) ?? [];
     expect(matches.length).toBeLessThanOrEqual(10);
+  });
+
+  it('includes the full comment body — no 300-char truncation', () => {
+    // Build a comment body longer than 300 chars that contains a signal keyword
+    const longSuffix = repeatStr('x', 350);
+    const longBody = `The API should return HTTP 422 for validation errors. ${longSuffix}`;
+    expect(longBody.length).toBeGreaterThan(300);
+
+    const comments = [
+      makeComment('1', 'Jayson', longBody, '2024-05-01T00:00:00.000Z'),
+    ];
+    const result = summarizeUsefulComments(comments);
+    // The full body must appear in the output, not just the first 300 chars
+    expect(result).toContain(longBody.trim());
+  });
+
+  it('does not silently cut long body — full text survives round-trip', () => {
+    // A detailed comment exactly 400 chars long with a known signal keyword
+    const detail = 'must ' + repeatStr('a', 395);
+    expect(detail.length).toBe(400);
+    const comments = [makeComment('1', 'Vanessa', detail, '2024-05-02T00:00:00.000Z')];
+    const result = summarizeUsefulComments(comments);
+    expect(result.includes(detail.trim())).toBe(true);
+  });
+});
+
+// ── extractExcerpt (via extractRequirementSignals) ────────────────────────────
+
+describe('extractExcerpt truncation indicator', () => {
+  it('appends ... when the matched sentence exceeds 200 chars', () => {
+    // Build a sentence with keyword "validate" followed by > 200 chars of text
+    const longSentence = 'We must validate ' + repeatStr('b', 250) + '.';
+    const signals = extractRequirementSignals(longSentence);
+    const validationSignal = signals.find(s => s.type === 'validation');
+    expect(validationSignal).toBeDefined();
+    expect(validationSignal!.excerpt.endsWith('...')).toBe(true);
+  });
+
+  it('does NOT append ... when the matched sentence is within 200 chars', () => {
+    const shortSentence = 'We must validate the email format.';
+    expect(shortSentence.length).toBeLessThan(200);
+    const signals = extractRequirementSignals(shortSentence);
+    const validationSignal = signals.find(s => s.type === 'validation');
+    expect(validationSignal).toBeDefined();
+    expect(validationSignal!.excerpt.endsWith('...')).toBe(false);
+  });
+
+  it('appends ... when matched sentence contains keyword and exceeds 200 chars', () => {
+    // A single long sentence with the "validate" keyword; the matched sentence
+    // exceeds 200 chars so the excerpt must be truncated with '...'.
+    const longComment = 'validate ' + repeatStr('c', 220);
+    const signals = extractRequirementSignals(longComment);
+    const sig = signals.find(s => s.type === 'validation');
+    expect(sig).toBeDefined();
+    // excerpt should be truncated and end with '...'
+    expect(sig!.excerpt.length).toBeLessThanOrEqual(203); // 200 chars + '...'
+    expect(sig!.excerpt.endsWith('...')).toBe(true);
   });
 });

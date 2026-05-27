@@ -112,6 +112,42 @@ export async function fetchIssueContext(
   const visited = new Set<string>([issueKey]);
   const truncationWarnings: string[] = [];
 
+  // 2a. Paginate comments if the API returned fewer than total
+  if (options.includeComments) {
+    const commentField = mainIssue.fields.comment;
+    const cap = Math.min(options.maxCommentsPerIssue, 20);
+
+    // Trim the initial set if Jira returned more inline than our cap allows
+    if (commentField.comments.length > cap) {
+      mainIssue.fields.comment.comments = commentField.comments.slice(0, cap);
+    }
+
+    if (commentField.total > commentField.comments.length && commentField.comments.length < cap) {
+      const allComments = [...commentField.comments];
+      let startAt = commentField.comments.length;
+
+      while (allComments.length < cap && startAt < commentField.total) {
+        const remaining = cap - allComments.length;
+        const page = await client.getIssueComments(issueKey, startAt, Math.min(remaining, 50));
+        allComments.push(...page.comments.slice(0, cap - allComments.length)); // FIX 1: prevent overshoot
+        startAt += page.comments.length;
+        if (page.comments.length === 0) break; // safety: stop on empty page
+      }
+
+      // Replace in-place so all downstream consumers see the full list
+      mainIssue.fields.comment.comments = allComments;
+    }
+
+    // FIX 2: emit truncation warning whenever we have fewer comments than total
+    // (regardless of whether we paginated or the initial fetch already hit the cap)
+    const finalCount = mainIssue.fields.comment.comments.length;
+    if (finalCount < mainIssue.fields.comment.total) {
+      truncationWarnings.push(
+        `Comments truncated: showing ${finalCount} of ${mainIssue.fields.comment.total} comments (maxCommentsPerIssue cap=${cap}).`
+      );
+    }
+  }
+
   // 3. Fetch parent
   let parentIssue: JiraMinimalIssue | null = null;
   let parentDescription: string | null = null;
