@@ -117,7 +117,7 @@ ${acLines.length > 0 ? acLines.join('\n') : 'Derive from description. Do not inv
 ${primarySources || '- Task description'}
 
 **Important recent comments:**
-${usefulCommentsSummary.slice(0, 300)}
+${usefulCommentsSummary}
 
 **Key technical context:**
 ${techContext || 'See description above.'}

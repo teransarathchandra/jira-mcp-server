@@ -305,20 +305,9 @@ describe('extractExcerpt truncation indicator', () => {
     expect(validationSignal!.excerpt.endsWith('...')).toBe(false);
   });
 
-  it('appends ... on fallback path when whole comment text exceeds 200 chars but keyword is absent', () => {
-    // Text longer than 200 chars but no signal keyword — exercises fallback path
-    // We need a text that passes isUsefulComment length check AND has a known signal.
-    // Force fallback by using a pattern that won't be found literally: use "api" in a
-    // comment that is longer than 200 chars so the signal is returned via the fallback.
-    const prefix = 'This is an api comment. ';
-    const padding = repeatStr('z', 210);
-    // The comment: "api" appears early; the sentence containing it is short,
-    // but let's specifically test the fallback branch by crafting a comment where
-    // the pattern index is -1. We can do that with extractRequirementSignals by
-    // checking excerpt length <= 200 when match is found. Instead, directly test
-    // that a long comment without any pattern gets '...' on the fallback branch
-    // through a comment that somehow triggers it. The easiest way: use a signal
-    // keyword that is the only content and have the rest pad the sentence past 200.
+  it('appends ... when matched sentence contains keyword and exceeds 200 chars', () => {
+    // A single long sentence with the "validate" keyword; the matched sentence
+    // exceeds 200 chars so the excerpt must be truncated with '...'.
     const longComment = 'validate ' + repeatStr('c', 220);
     const signals = extractRequirementSignals(longComment);
     const sig = signals.find(s => s.type === 'validation');
@@ -326,7 +315,5 @@ describe('extractExcerpt truncation indicator', () => {
     // excerpt should be truncated and end with '...'
     expect(sig!.excerpt.length).toBeLessThanOrEqual(203); // 200 chars + '...'
     expect(sig!.excerpt.endsWith('...')).toBe(true);
-
-    void prefix; void padding; // suppress unused-var warnings
   });
 });
