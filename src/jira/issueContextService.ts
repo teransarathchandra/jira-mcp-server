@@ -124,20 +124,22 @@ export async function fetchIssueContext(
       while (allComments.length < cap && startAt < commentField.total) {
         const remaining = cap - allComments.length;
         const page = await client.getIssueComments(issueKey, startAt, Math.min(remaining, 50));
-        allComments.push(...page.comments);
+        allComments.push(...page.comments.slice(0, cap - allComments.length)); // FIX 1: prevent overshoot
         startAt += page.comments.length;
         if (page.comments.length === 0) break; // safety: stop on empty page
       }
 
       // Replace in-place so all downstream consumers see the full list
       mainIssue.fields.comment.comments = allComments;
-      mainIssue.fields.comment.total = commentField.total;
+    }
 
-      if (allComments.length < commentField.total) {
-        truncationWarnings.push(
-          `Comments truncated: showing ${allComments.length} of ${commentField.total} comments (maxCommentsPerIssue=${cap}).`
-        );
-      }
+    // FIX 2: emit truncation warning whenever we have fewer comments than total
+    // (regardless of whether we paginated or the initial fetch already hit the cap)
+    const finalCount = mainIssue.fields.comment.comments.length;
+    if (finalCount < mainIssue.fields.comment.total) {
+      truncationWarnings.push(
+        `Comments truncated: showing ${finalCount} of ${mainIssue.fields.comment.total} comments (maxCommentsPerIssue cap=${cap}).`
+      );
     }
   }
 

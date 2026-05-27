@@ -191,7 +191,7 @@ describe("fetchIssueContext — comment pagination", () => {
     expect(ctx.mainIssue.fields.comment.comments).toHaveLength(5);
     expect(ctx.truncationWarnings).toHaveLength(1);
     expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing 5 of 30/);
-    expect(ctx.truncationWarnings[0]).toMatch(/maxCommentsPerIssue=5/);
+    expect(ctx.truncationWarnings[0]).toMatch(/maxCommentsPerIssue cap=5/);
   });
 
   it("stops pagination loop on empty page to prevent infinite loop", async () => {
@@ -218,8 +218,9 @@ describe("fetchIssueContext — comment pagination", () => {
     expect(ctx.mainIssue.fields.comment.comments).toHaveLength(1);
   });
 
-  it("does not paginate when initial comments.length already meets the cap", async () => {
+  it("does not paginate when initial comments.length already meets the cap, but emits truncation warning", async () => {
     // cap is 3 (maxCommentsPerIssue=3), API already returned 3 of 10 — no page needed
+    // but we must still warn that comments were truncated (Issue 2 fix)
     const issue = makeIssue({
       comments: [makeComment("c1"), makeComment("c2"), makeComment("c3")],
       total: 10,
@@ -231,8 +232,76 @@ describe("fetchIssueContext — comment pagination", () => {
     const ctx = await fetchIssueContext("PROJ-1", options, client, config);
 
     expect(client.getIssueComments).not.toHaveBeenCalled();
-    // comments.length === cap, so no pagination; but we still show truncation warning
-    // (handled by downstream consumers since we never enter the pagination block)
     expect(ctx.mainIssue.fields.comment.comments).toHaveLength(3);
+    // FIX 2: truncation warning must fire even though pagination block was skipped
+    expect(ctx.truncationWarnings).toHaveLength(1);
+    expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing 3 of 10/);
+    expect(ctx.truncationWarnings[0]).toMatch(/maxCommentsPerIssue cap=3/);
+  });
+
+  it("caps comments at maxCommentsPerIssue when API returns more items than requested (overshoot)", async () => {
+    // Simulate a non-conformant API returning 5 comments when only 3 were remaining to cap
+    // Initial: 1 comment, total: 10, cap: 4
+    const issue = makeIssue({ comments: [makeComment("c1")], total: 10 });
+
+    // API returns 5 comments even though we asked for Math.min(3, 50)=3
+    const overshotComments = [
+      makeComment("c2"), makeComment("c3"), makeComment("c4"),
+      makeComment("c5"), makeComment("c6"),
+    ];
+    const getIssueComments = vi.fn().mockResolvedValueOnce({
+      comments: overshotComments,
+      total: 10,
+      startAt: 1,
+      maxResults: 5, // non-conformant: returned more than asked
+    });
+
+    const client = makeMockClient(issue, { getIssueComments });
+    const config = makeConfig();
+    const options = makeOptions({ includeComments: true, maxCommentsPerIssue: 4 });
+
+    const ctx = await fetchIssueContext("PROJ-1", options, client, config);
+
+    // Must be capped at 4, not 6
+    expect(ctx.mainIssue.fields.comment.comments).toHaveLength(4);
+    expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual([
+      "c1", "c2", "c3", "c4",
+    ]);
+    expect(ctx.truncationWarnings).toHaveLength(1);
+    expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing 4 of 10/);
+  });
+
+  it("paginates across multiple pages until cap is reached", async () => {
+    // Initial: 1 comment, total: 20, cap: 5 — needs two getIssueComments calls
+    const issue = makeIssue({ comments: [makeComment("c1")], total: 20 });
+
+    const getIssueComments = vi
+      .fn()
+      .mockResolvedValueOnce({
+        comments: [makeComment("c2"), makeComment("c3")],
+        total: 20,
+        startAt: 1,
+        maxResults: 2,
+      })
+      .mockResolvedValueOnce({
+        comments: [makeComment("c4"), makeComment("c5")],
+        total: 20,
+        startAt: 3,
+        maxResults: 2,
+      });
+
+    const client = makeMockClient(issue, { getIssueComments });
+    const config = makeConfig();
+    const options = makeOptions({ includeComments: true, maxCommentsPerIssue: 5 });
+
+    const ctx = await fetchIssueContext("PROJ-1", options, client, config);
+
+    expect(getIssueComments).toHaveBeenCalledTimes(2);
+    expect(ctx.mainIssue.fields.comment.comments).toHaveLength(5);
+    expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual([
+      "c1", "c2", "c3", "c4", "c5",
+    ]);
+    expect(ctx.truncationWarnings).toHaveLength(1);
+    expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing 5 of 20/);
   });
 });
