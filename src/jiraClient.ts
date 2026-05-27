@@ -120,7 +120,7 @@ export interface JiraMinimalIssue {
     issuetype: JiraIssueType;
     parent?: { key: string; fields: { summary: string } };
     subtasks: JiraSubtask[];
-    comment: { comments: JiraComment[]; total: number };
+    comment: { comments: JiraComment[]; total: number; startAt?: number; maxResults?: number };
     updated: string;
   };
 }
@@ -142,6 +142,8 @@ interface JiraIssueFields {
   comment: {
     comments: JiraComment[];
     total: number;
+    startAt?: number;
+    maxResults?: number;
   };
   created: string;
   updated: string;
@@ -353,6 +355,23 @@ export class JiraClient {
       this._minimalCache.set(cacheKey, issue);
     }
     return issue;
+  }
+
+  async getIssueComments(
+    issueKey: string,
+    startAt: number,
+    maxResults: number
+  ): Promise<{ comments: JiraComment[]; total: number; startAt: number; maxResults: number }> {
+    const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(issueKey)}/comment?startAt=${startAt}&maxResults=${maxResults}&orderBy=created`;
+
+    let response;
+    try {
+      response = await jiraLimiter.run(() => httpGet(url, this.commonHeaders(), { provider: 'jira' }));
+    } catch (err) {
+      this.mapHttpClientError(err, issueKey);
+    }
+
+    return response.json<{ comments: JiraComment[]; total: number; startAt: number; maxResults: number }>();
   }
 
   async searchIssues(
