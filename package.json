@@ -1,6 +1,6 @@
 {
   "name": "jira-delivery-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Client-agnostic MCP server for Jira and Confluence — delivery intelligence, implementation prompts, and workflow automation for any AI coding agent",
   "type": "module",
   "main": "dist/index.js",
