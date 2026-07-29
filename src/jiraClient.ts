@@ -173,7 +173,9 @@ interface JiraSearchResult {
       updated: string;
     };
   }>;
-  total: number;
+  total?: number;
+  nextPageToken?: string;
+  isLast?: boolean;
 }
 
 // ── JiraClient ────────────────────────────────────────────────────────────────
@@ -385,13 +387,16 @@ export class JiraClient {
       if (cached !== undefined) return cached;
     }
 
-    const url = `${this.baseUrl}/rest/api/3/issue/search`;
+    // /rest/api/3/issue/search does not exist (405); the legacy
+    // /rest/api/3/search was retired. This is the current search endpoint.
+    const url = `${this.baseUrl}/rest/api/3/search/jql`;
     const postHeaders = { ...this.commonHeaders(), 'Content-Type': 'application/json' };
 
     let response;
     try {
+      // No startAt — this endpoint rejects offset paging in favour of nextPageToken.
       response = await jiraLimiter.run(() =>
-        httpPost(url, postHeaders, { jql, fields, maxResults, startAt: 0 }, { provider: 'jira' })
+        httpPost(url, postHeaders, { jql, fields, maxResults }, { provider: 'jira' })
       );
     } catch (err) {
       this.mapHttpClientError(err);

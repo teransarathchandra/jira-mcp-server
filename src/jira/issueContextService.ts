@@ -314,7 +314,7 @@ export async function fetchIssueContext(
 
       if (issues.length > SIBLING_LIMIT) {
         truncationWarnings.push(
-          `Epic siblings truncated: showing ${SIBLING_LIMIT} of ${result.total} siblings in epic ${epicKey}.`
+          `Epic siblings truncated: showing ${SIBLING_LIMIT} of more than ${SIBLING_LIMIT} siblings in epic ${epicKey}.`
         );
       }
 
