@@ -667,7 +667,7 @@ async function main() {
   const client = new JiraClient(config);
 
   const server = new Server(
-    { name: 'jira-mcp-server', version: '1.0.0' },
+    { name: 'jira-delivery-mcp', version: '1.0.0' },
     { capabilities: { tools: {}, prompts: {}, resources: {} } },
   );
 

@@ -4,9 +4,57 @@ A local stdio MCP (Model Context Protocol) server for Jira Cloud task retrieval 
 
 **Supported clients:** Claude Code, Claude Desktop, Codex CLI, Cursor, Windsurf, VS Code MCP extensions, and any stdio-based MCP client.
 
+## Install
+
+No cloning required. Add the server to your MCP client config and it will be fetched from npm on first run:
+
+```json
+{
+  "mcpServers": {
+    "jira-delivery": {
+      "command": "npx",
+      "args": ["-y", "jira-delivery-mcp"],
+      "env": {
+        "JIRA_BASE_URL": "https://your-domain.atlassian.net",
+        "JIRA_EMAIL": "your-email@example.com",
+        "JIRA_API_TOKEN": "your-api-token"
+      }
+    }
+  }
+}
+```
+
+For Claude Code, one command does the same thing:
+
+```bash
+claude mcp add jira-delivery \
+  --env JIRA_BASE_URL=https://your-domain.atlassian.net \
+  --env JIRA_EMAIL=your-email@example.com \
+  --env JIRA_API_TOKEN=your-api-token \
+  -- npx -y jira-delivery-mcp
+```
+
+Prefer a pinned global install instead of on-demand fetching:
+
+```bash
+npm install -g jira-delivery-mcp
+```
+
+Then use `"command": "jira-delivery-mcp"` with no `args` in the config above.
+
+Get your Jira API token at
+[id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens).
+
+`JIRA_BASE_URL`, `JIRA_EMAIL`, and `JIRA_API_TOKEN` are the only required
+variables. Everything else — project scoping, Confluence integration, custom
+field IDs, context budgets — is optional and documented in
+[`.env.example`](.env.example) and the [Configuration](#configuration) section.
+
+**Requires Node.js 18 or newer.**
+
 ## What this MCP server does
 
-This server connects your AI coding agent to your Jira Cloud instance. It supports any Jira project key and provides twenty-seven read-only tools:
+This server connects your AI coding agent to your Jira Cloud instance. It supports any Jira project key and provides twenty-eight read-only tools:
 
 | Tool | Description |
 |------|-------------|

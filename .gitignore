@@ -5,3 +5,5 @@ dist/
 graphify-out/
 .graphifyignore
 .DS_Store
+.claude/worktrees/
+*.tgz
