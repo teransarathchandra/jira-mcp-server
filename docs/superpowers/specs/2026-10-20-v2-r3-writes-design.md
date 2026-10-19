@@ -1,6 +1,6 @@
 # jira-delivery-mcp v2 R3 — Safe Writes Design
 
-Status: Proposed (written overnight without a question round, at the owner's request; every choice is the author's call unless marked as coming from the parent spec)
+Status: Accepted pending owner review (written overnight without a question round, at the owner's request; every choice is the author's call unless marked as coming from the parent spec)
 Date: 2026-10-20
 Parent: `2026-10-19-v2-delivery-mcp-design.md` (§3 tools, §5 write safety model, §6 hand-off, §7 R3 row)
 Plan: `docs/superpowers/plans/2026-10-20-v2-r3-writes.md`

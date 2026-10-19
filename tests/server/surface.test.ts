@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { connect } from './harness.js';
+import { connect, testDeps } from './harness.js';
+import { fixtureConfig } from '../helpers/jiraFixtures.js';
 import { getServerVersion } from '../../src/version.js';
 
 const V2_TOOLS = [
@@ -51,6 +52,18 @@ describe('v2 server surface', () => {
     const { tools } = await session.client.listTools();
     const description = tools.find((t) => t.name === 'delivery_project_patterns')?.description ?? '';
     expect(description).toContain('DELIVERY_PATTERN_MEMORY_ENABLED');
+  });
+
+  it('adds exactly the two write tools when JIRA_ENABLE_WRITES is on', async () => {
+    const writer = await connect(testDeps({ config: fixtureConfig({ enableWrites: true }) }));
+    const { tools } = await writer.client.listTools();
+    expect(tools.map((t) => t.name).sort()).toEqual([...V2_TOOLS, 'jira_add_comment', 'jira_update_issue'].sort());
+    await writer.close();
+  });
+
+  it('offers to post the QA handoff when write tools exist', async () => {
+    const r = await session.client.getPrompt({ name: 'jira_qa_handoff_prompt', arguments: { issueKey: 'ABC-1' } });
+    expect((r.messages[0].content as { text: string }).text).toContain('jira_add_comment');
   });
 
   it('keeps the five slash-command prompts', async () => {
