@@ -4,6 +4,7 @@ import { deliveryGenerateReviewerReport } from '../../tools/deliveryGenerateRevi
 import { deliveryGenerateQaHandoff } from '../../tools/deliveryGenerateQaHandoff.js';
 import { deliveryGenerateReleaseNotes } from '../../tools/deliveryGenerateReleaseNotes.js';
 import { deliveryExportTaskReport } from '../../tools/deliveryExportTaskReport.js';
+import type { ReportSection } from '../../delivery/exportTaskReport.js';
 import { EnvelopeSchema, toolResult } from '../envelope.js';
 import { errorResult } from '../errors.js';
 import { READ_ONLY_REMOTE } from '../annotations.js';
@@ -22,7 +23,18 @@ const PERSONAS = [
   'release_reviewer',
 ] as const;
 
-const DEFAULT_REPORT_SECTIONS = ['context', 'impact', 'traceability', 'definition_of_done', 'test_strategy', 'qa_handoff'];
+const REPORT_SECTIONS = [
+  'context',
+  'impact',
+  'traceability',
+  'pr_alignment',
+  'definition_of_done',
+  'test_strategy',
+  'qa_handoff',
+  'release_notes',
+] as const satisfies readonly ReportSection[];
+
+const DEFAULT_REPORT_SECTIONS: ReportSection[] = ['context', 'impact', 'traceability', 'definition_of_done', 'test_strategy', 'qa_handoff'];
 
 export const registerDeliveryGenerate: ToolRegistrar = (server, { config, jiraClient }) => {
   server.registerTool(
@@ -37,12 +49,7 @@ export const registerDeliveryGenerate: ToolRegistrar = (server, { config, jiraCl
         type: z.enum(['test_strategy', 'reviewer_report', 'qa_handoff', 'release_notes', 'task_report']),
         persona: z.enum(PERSONAS).optional().describe('Required when type is reviewer_report'),
         audience: z.enum(['internal', 'qa', 'product', 'customer_safe']).default('internal').describe('release_notes only'),
-        sections: z
-          .array(z.string())
-          .default(DEFAULT_REPORT_SECTIONS)
-          .describe(
-            'task_report only. Any of: context, impact, traceability, pr_alignment, definition_of_done, test_strategy, qa_handoff, release_notes',
-          ),
+        sections: z.array(z.enum(REPORT_SECTIONS)).default(DEFAULT_REPORT_SECTIONS).describe('task_report only: sections to include'),
         includePrDiff: z.boolean().default(false).describe('test_strategy only: include the local diff'),
         ...gitRefsShape,
         includeConfluence: z.boolean().default(true),

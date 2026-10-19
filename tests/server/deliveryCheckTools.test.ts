@@ -67,6 +67,18 @@ describe('delivery check tools', () => {
     });
   });
 
+  it('passes v1 defaults to the dod and impact checks', async () => {
+    await check({ checks: ['dod', 'impact'] });
+    expect(dod.mock.calls[0][0]).toEqual({
+      issueKey: 'ABC-1',
+      baseBranch: 'origin/main',
+      compareRef: 'HEAD',
+      repoPath: '.',
+      includeConfluence: true,
+    });
+    expect(impact.mock.calls[0][0]).toEqual({ issueKey: 'ABC-1', includeConfluence: true });
+  });
+
   it('runs only the requested checks', async () => {
     await check({ checks: ['dod'] });
     expect(dod).toHaveBeenCalledTimes(1);

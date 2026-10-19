@@ -24,7 +24,8 @@ export const registerDeliveryProjectPatterns: ToolRegistrar = (server) => {
       title: 'Scan, read or clear stored project patterns',
       description:
         'Detect the repository’s conventions (framework, test layout, tooling) and store them so other delivery tools ' +
-        'can tailor their output. scan = detect and store, get = read stored patterns, clear = delete them.',
+        'can tailor their output. scan = detect and store, get = read stored patterns, clear = delete them. ' +
+        'Storing requires DELIVERY_PATTERN_MEMORY_ENABLED=true in the server environment.',
       inputSchema: z.object({
         action: z.enum(['scan', 'get', 'clear']),
         repoPath: z.string().default('.').describe('Repository to inspect'),

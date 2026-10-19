@@ -41,6 +41,18 @@ describe('v2 server surface', () => {
     }
   });
 
+  it('tells agents the impact check works before any code exists', async () => {
+    const { tools } = await session.client.listTools();
+    const description = tools.find((t) => t.name === 'delivery_check_changes')?.description ?? '';
+    expect(description).toMatch(/impact[^.]*before (any )?cod/i);
+  });
+
+  it('tells agents how to enable project pattern memory', async () => {
+    const { tools } = await session.client.listTools();
+    const description = tools.find((t) => t.name === 'delivery_project_patterns')?.description ?? '';
+    expect(description).toContain('DELIVERY_PATTERN_MEMORY_ENABLED');
+  });
+
   it('keeps the five slash-command prompts', async () => {
     const { prompts } = await session.client.listPrompts();
     expect(prompts.map((p) => p.name).sort()).toEqual([
