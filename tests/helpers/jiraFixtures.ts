@@ -63,6 +63,7 @@ export function fixtureConfig(overrides: Partial<Config> = {}): Config {
       exampleIssueKey: 'ABC-123',
     },
     clientProfile: 'generic',
+    branchPattern: '{type}/{KEY}-{slug}',
     ...overrides,
   } as Config;
 }

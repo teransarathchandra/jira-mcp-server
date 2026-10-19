@@ -1,5 +1,6 @@
 import { McpClientProfile } from './clientProfiles/clientProfile.js';
 import { parseClientProfile } from './clientProfiles/clientProfileConfig.js';
+import { DEFAULT_BRANCH_PATTERN } from './delivery/branchName.js';
 
 export interface JiraProjectConfig {
   defaultProjectKey?: string;
@@ -23,6 +24,7 @@ export interface Config {
   maxContextChars: number;                  // JIRA_MAX_CONTEXT_CHARS (default: 30000)
   projectConfig: JiraProjectConfig;
   clientProfile: McpClientProfile;
+  branchPattern: string;                    // JIRA_BRANCH_PATTERN (default: {type}/{KEY}-{slug})
 }
 
 export function getProjectConfig(): JiraProjectConfig {
@@ -123,5 +125,6 @@ export function getConfig(): Config {
     maxContextChars,
     projectConfig: getProjectConfig(),
     clientProfile,
+    branchPattern: process.env.JIRA_BRANCH_PATTERN?.trim() || DEFAULT_BRANCH_PATTERN,
   };
 }
