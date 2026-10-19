@@ -4,6 +4,7 @@
 
 import { JiraClient } from '../jiraClient.js';
 import { Config } from '../config.js';
+import { isInboundBlocker } from '../jira/linkUtils.js';
 import { validateIssueKey } from '../utils/issueKey.js';
 import { validateGitRef, resolveRepoPath } from '../utils/gitSafety.js';
 import { fetchIssueContext, type ContextFetchOptions } from '../jira/issueContextService.js';
@@ -192,9 +193,7 @@ export async function deliveryVerifyDefinitionOfDone(
   ];
   const conflictResult = detectConflicts(conflictSources);
 
-  const hasBlockingIssues = jiraContext.linkedIssues.some((l: { relationship: string }) =>
-    l.relationship.toLowerCase().includes('block'),
-  );
+  const hasBlockingIssues = jiraContext.linkedIssues.some(isInboundBlocker);
 
   const relevanceResult = scoreLinkedIssues({
     linkedIssues: jiraContext.linkedIssues,

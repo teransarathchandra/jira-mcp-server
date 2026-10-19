@@ -1,0 +1,189 @@
+{
+  "routes": {
+    "GET /rest/api/3/issue/ABC-1": {
+      "status": 200,
+      "body": {
+        "id": "10001",
+        "key": "ABC-1",
+        "fields": {
+          "summary": "Add login rate limiting",
+          "description": {
+            "type": "doc",
+            "version": 1,
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Limit failed login attempts per account to stop brute-force attacks."
+                  }
+                ]
+              },
+              {
+                "type": "heading",
+                "attrs": {
+                  "level": 3
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Acceptance Criteria"
+                  }
+                ]
+              },
+              {
+                "type": "bulletList",
+                "content": [
+                  {
+                    "type": "listItem",
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "Lock the account for 15 minutes after 5 failed login attempts"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "listItem",
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "Show a lockout message with the remaining lock time"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "status": {
+            "name": "To Do",
+            "statusCategory": {
+              "key": "new"
+            }
+          },
+          "priority": {
+            "name": "Medium"
+          },
+          "assignee": null,
+          "reporter": {
+            "displayName": "Product Owner"
+          },
+          "labels": [
+            "security"
+          ],
+          "components": [
+            {
+              "name": "auth"
+            }
+          ],
+          "fixVersions": [],
+          "issuetype": {
+            "name": "Story"
+          },
+          "subtasks": [],
+          "attachment": [],
+          "comment": {
+            "comments": [
+              {
+                "id": "20001",
+                "author": {
+                  "displayName": "Tech Lead"
+                },
+                "body": {
+                  "type": "doc",
+                  "version": 1,
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Use the existing Redis instance for the attempt counter."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "created": "2026-10-01T09:00:00.000+0000",
+                "updated": "2026-10-01T09:00:00.000+0000"
+              },
+              {
+                "id": "20002",
+                "author": {
+                  "displayName": "QA Engineer"
+                },
+                "body": {
+                  "type": "doc",
+                  "version": 1,
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "I will add test cases for the lockout boundary."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "created": "2026-10-02T09:00:00.000+0000",
+                "updated": "2026-10-02T09:00:00.000+0000"
+              }
+            ],
+            "total": 2,
+            "startAt": 0,
+            "maxResults": 50
+          },
+          "created": "2026-09-30T09:00:00.000+0000",
+          "updated": "2026-10-02T09:00:00.000+0000",
+          "issuelinks": [
+            {
+              "id": "30003",
+              "type": {
+                "name": "Relates",
+                "inward": "relates to",
+                "outward": "relates to"
+              },
+              "outwardIssue": {
+                "key": "XYZ-5",
+                "fields": {
+                  "summary": "Shared auth library update",
+                  "status": {
+                    "name": "In Review",
+                    "statusCategory": {
+                      "key": "indeterminate"
+                    }
+                  },
+                  "issuetype": {
+                    "name": "Task"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "GET /rest/api/3/issue/XYZ-5": {
+      "status": 403,
+      "body": {
+        "errorMessages": [
+          "You do not have permission to view this issue."
+        ]
+      }
+    }
+  }
+}

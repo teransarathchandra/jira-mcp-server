@@ -13,6 +13,18 @@ export class JiraAuthError extends Error {
   }
 }
 
+/**
+ * HTTP 403: the credentials are valid but this account may not see the
+ * resource. A subclass of JiraAuthError so existing handling still applies,
+ * while callers fetching related issues can tell it apart from a bad token.
+ */
+export class JiraForbiddenError extends JiraAuthError {
+  constructor(message: string) {
+    super(message);
+    this.name = "JiraForbiddenError";
+  }
+}
+
 export class JiraNotFoundError extends Error {
   constructor(message: string) {
     super(message);
@@ -50,6 +62,7 @@ interface JiraUser {
 
 export interface JiraStatus {
   name: string;
+  statusCategory?: { key: string }; // "new" | "indeterminate" | "done"
 }
 
 interface JiraPriority {
@@ -216,6 +229,7 @@ const MINIMAL_ISSUE_FIELDS = [
 export class JiraClient {
   private readonly baseUrl: string;
   private readonly authHeader: string;
+  private readonly issueFields: string;
   private readonly _issueCache: MemoryCache<JiraIssue>;
   private readonly _minimalCache: MemoryCache<JiraMinimalIssue>;
   private readonly _searchCache: MemoryCache<JiraSearchResult>;
@@ -223,6 +237,16 @@ export class JiraClient {
   constructor(config: Config) {
     // Trim trailing slash so we can always append paths with a leading slash.
     this.baseUrl = config.baseUrl.replace(/\/$/, "");
+
+    // Configured custom fields (epic link, acceptance criteria, story points,
+    // team) must be requested explicitly or Jira omits them.
+    const customFields = [
+      config.epicFieldId,
+      config.acceptanceCriteriaFieldId,
+      config.storyPointsFieldId,
+      config.teamFieldId,
+    ].filter((f): f is string => typeof f === "string" && f.length > 0);
+    this.issueFields = [ISSUE_FIELDS, ...customFields].join(",");
 
     const credentials = Buffer.from(
       `${config.email}:${config.apiToken}`
@@ -265,9 +289,8 @@ export class JiraClient {
       );
     }
     if (status === 403) {
-      throw new JiraAuthError(
-        "Jira access denied. Your account may lack permission for this resource."
-      );
+      const subject = issueKey ? `issue ${issueKey}` : "this resource";
+      throw new JiraForbiddenError(`Permission denied for ${subject}.`);
     }
     if (status === 404) {
       const subject = issueKey ? `Issue ${issueKey}` : "Resource";
@@ -290,7 +313,11 @@ export class JiraClient {
 
   private mapHttpClientError(err: unknown, issueKey?: string): never {
     const message = err instanceof Error ? err.message : String(err);
-    if (message.includes('HTTP 401') || message.includes('HTTP 403')) {
+    if (message.includes('HTTP 403')) {
+      const subject = issueKey ? `issue ${issueKey}` : 'this resource';
+      throw new JiraForbiddenError(`Permission denied for ${subject}.`);
+    }
+    if (message.includes('HTTP 401')) {
       throw new JiraAuthError('Jira authentication failed. Check your credentials.');
     }
     if (message.includes('HTTP 404')) {
@@ -320,7 +347,7 @@ export class JiraClient {
       if (cached !== undefined) return cached;
     }
 
-    const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=${ISSUE_FIELDS}`;
+    const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=${this.issueFields}`;
 
     let response;
     try {
@@ -362,9 +389,10 @@ export class JiraClient {
   async getIssueComments(
     issueKey: string,
     startAt: number,
-    maxResults: number
+    maxResults: number,
+    order: 'created' | '-created' = 'created'
   ): Promise<{ comments: JiraComment[]; total: number; startAt: number; maxResults: number }> {
-    const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(issueKey)}/comment?startAt=${startAt}&maxResults=${maxResults}&orderBy=created`;
+    const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(issueKey)}/comment?startAt=${startAt}&maxResults=${maxResults}&orderBy=${order}`;
 
     let response;
     try {

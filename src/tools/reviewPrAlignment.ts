@@ -1,4 +1,5 @@
 import { JiraClient } from '../jiraClient.js';
+import { isInboundBlocker } from '../jira/linkUtils.js';
 import { Config } from '../config.js';
 import { validateIssueKey } from '../utils/issueKey.js';
 import { validateGitRef, resolveRepoPath } from '../utils/gitSafety.js';
@@ -86,7 +87,7 @@ export async function reviewPrAlignment(
 
   // ── Step 5: Score context quality ─────────────────────────────────────────
   const hasBlockingIssues = context.linkedIssues.some(l =>
-    l.relationship.toLowerCase().includes('block'),
+    isInboundBlocker(l),
   );
 
   const relevanceResult = scoreLinkedIssues({
