@@ -1012,7 +1012,7 @@ function formatError(err: unknown): string {
   if (err instanceof ConfluenceServerError) return `Confluence server error: ${err.message}`;
   if (err instanceof ConfluenceNetworkError) return `Confluence network error: ${err.message}`;
   if (err instanceof z.ZodError) {
-    const issues = err.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+    const issues = err.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
     return `Invalid input: ${issues}`;
   }
   if (err instanceof Error) return `Error: ${err.message}`;
