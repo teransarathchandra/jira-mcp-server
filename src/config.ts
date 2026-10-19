@@ -2,7 +2,15 @@ import { McpClientProfile } from './clientProfiles/clientProfile.js';
 import { parseClientProfile } from './clientProfiles/clientProfileConfig.js';
 import { DEFAULT_BRANCH_PATTERN } from './delivery/branchName.js';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+
+/** MCP clients don't expand ~, so do it here; always return an absolute path. */
+function resolveAuditLogPath(raw: string | undefined): string {
+  const value = raw?.trim();
+  if (!value) return join(homedir(), '.jira-delivery-mcp', 'audit.log');
+  if (value === '~' || value.startsWith('~/')) return join(homedir(), value.slice(2));
+  return resolve(value);
+}
 
 export interface JiraProjectConfig {
   defaultProjectKey?: string;
@@ -131,6 +139,6 @@ export function getConfig(): Config {
     clientProfile,
     branchPattern: process.env.JIRA_BRANCH_PATTERN?.trim() || DEFAULT_BRANCH_PATTERN,
     enableWrites: process.env.JIRA_ENABLE_WRITES?.trim().toLowerCase() === 'true',
-    auditLogPath: process.env.JIRA_DELIVERY_AUDIT_LOG?.trim() || join(homedir(), '.jira-delivery-mcp', 'audit.log'),
+    auditLogPath: resolveAuditLogPath(process.env.JIRA_DELIVERY_AUDIT_LOG),
   };
 }

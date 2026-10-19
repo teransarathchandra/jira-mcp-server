@@ -4,7 +4,7 @@
 
 ### New
 
-- **Write-back (opt-in):** `jira_add_comment` and `jira_update_issue` (transition, assign to me, link a branch/PR), registered only with `JIRA_ENABLE_WRITES=true`. Every write needs a preview + single-use confirmToken or a confirmed elicitation form, is sent without retries, and is recorded in an audit log (`JIRA_DELIVERY_AUDIT_LOG`). Markdown comments are converted to Jira's ADF.
+- **Write-back (opt-in):** `jira_add_comment` and `jira_update_issue` (transition, assign to me, link a branch/PR), registered only with `JIRA_ENABLE_WRITES=true`. Every write needs a preview + single-use confirmToken or a confirmed elicitation form, is sent without retries, and is recorded in an audit log (`JIRA_DELIVERY_AUDIT_LOG`). Markdown comments are converted to Jira's ADF. Declining the confirmation form issues no token; a timed-out or 5xx write is reported as "outcome unknown", and Jira's reason is shown when it rejects a write.
 - The QA-handoff and release-note prompts offer to post the result when the write tools are available.
 
 - `jira_prepare_work_brief` returns typed `data`: readiness with confidence, acceptance criteria and their source, inbound blockers, 2–4 recommended actions, 0–3 clarifying questions, a suggested branch name, and how each Jira source was read. The text now starts with a short "Start here" section.

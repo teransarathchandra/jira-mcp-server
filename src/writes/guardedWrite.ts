@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { appendAudit, type AuditAction } from './auditLog.js';
 import type { ConfirmTokenStore } from './confirmTokens.js';
+import { JiraNetworkError, JiraServerError } from '../jiraClient.js';
 
 // The one path every Jira write goes through (R3 design §5): a write happens
 // only with a valid single-use token or a confirmed elicitation form; anything
@@ -32,6 +33,8 @@ export interface WritePlan {
 
 export const WriteResultSchema = z.object({
   applied: z.boolean(),
+  /** The user answered no in the confirmation form; no token was issued. */
+  declined: z.boolean().optional(),
   preview: z.string(),
   confirmToken: z.string().optional(),
   results: z.array(
@@ -51,7 +54,8 @@ export interface WriteOutcome extends WriteResult {
   warnings: string[];
 }
 
-async function confirmedByForm(plan: WritePlan, elicit: ElicitFn): Promise<boolean> {
+/** 'no' only for an explicit refusal; cancel, timeout and errors are 'unavailable'. */
+async function askByForm(plan: WritePlan, elicit: ElicitFn): Promise<'yes' | 'no' | 'unavailable'> {
   try {
     const answer = await elicit(
       {
@@ -64,9 +68,10 @@ async function confirmedByForm(plan: WritePlan, elicit: ElicitFn): Promise<boole
       },
       { timeout: ELICITATION_TIMEOUT_MS },
     );
-    return answer.action === 'accept' && answer.content?.confirm === true;
+    if (answer.action === 'accept') return answer.content?.confirm === true ? 'yes' : 'no';
+    return answer.action === 'decline' ? 'no' : 'unavailable';
   } catch {
-    return false;
+    return 'unavailable';
   }
 }
 
@@ -91,7 +96,10 @@ async function apply(plan: WritePlan, auditLogPath: string): Promise<WriteOutcom
     } catch (err) {
       failed = true;
       const errorClass = err instanceof Error ? err.name : 'Error';
-      const message = err instanceof Error ? err.message : String(err);
+      const raw = err instanceof Error ? err.message : String(err);
+      // A timeout or 5xx may still have been applied by Jira: never invite a blind retry.
+      const unknown = err instanceof JiraServerError || err instanceof JiraNetworkError;
+      const message = unknown ? `${raw} The outcome is unknown: check ${plan.issueKey} in Jira before confirming again.` : raw;
       results.push({ action: step.action, outcome: 'failed', detail: errorClass, error: message });
       audit({ tool: plan.tool, issueKey: plan.issueKey, action: step.action, outcome: 'failed', detail: errorClass });
     }
@@ -114,7 +122,11 @@ export async function runGuardedWrite(
     });
     return { applied: false, refused: true, preview: plan.preview, results: [], warnings: warning ? [warning] : [] };
   }
-  if (ctx.elicit && (await confirmedByForm(plan, ctx.elicit))) return apply(plan, ctx.auditLogPath);
+  if (ctx.elicit) {
+    const answer = await askByForm(plan, ctx.elicit);
+    if (answer === 'yes') return apply(plan, ctx.auditLogPath);
+    if (answer === 'no') return { applied: false, declined: true, refused: false, preview: plan.preview, results: [], warnings: [] };
+  }
   const confirmToken = ctx.tokens.issue(plan.tool, plan.issueKey, plan.args);
   return { applied: false, refused: false, preview: plan.preview, confirmToken, results: [], warnings: [] };
 }

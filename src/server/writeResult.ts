@@ -24,6 +24,12 @@ export function writeToolResult(tool: string, issueKey: string, outcome: WriteOu
     return { content: [{ type: 'text', text: INVALID_TOKEN_MESSAGE }], isError: true };
   }
   const { refused: _refused, warnings, ...data } = outcome;
+  const warningLines = warnings.length > 0 ? ['', ...warnings.map((w) => `Warning: ${w}`)] : [];
+
+  if (outcome.declined) {
+    const text = [`## The user declined — nothing was changed in ${issueKey}`, '', outcome.preview].join('\n');
+    return toolResult(tool, text, { issueKey, warnings, data });
+  }
 
   if (!outcome.applied && outcome.results.length === 0) {
     const text = [
@@ -43,7 +49,7 @@ export function writeToolResult(tool: string, issueKey: string, outcome: WriteOu
   });
   const failed = outcome.results.some((r) => r.outcome === 'failed');
   const heading = failed ? (outcome.applied ? `Partially applied to ${issueKey}` : `Nothing was changed in ${issueKey}`) : `Applied to ${issueKey}`;
-  const text = [`## ${heading}`, '', ...lines].join('\n');
+  const text = [`## ${heading}`, '', ...lines, ...warningLines].join('\n');
   if (!outcome.applied) return { content: [{ type: 'text', text }], isError: true };
   return toolResult(tool, text, { issueKey, warnings: [...warnings, ...(failed ? ['a write step failed'] : [])], data });
 }

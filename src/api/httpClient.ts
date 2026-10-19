@@ -8,6 +8,14 @@ import {
 } from './retryPolicy.js';
 import { extractRateLimitState, formatRateLimitWarning } from './rateLimitHandler.js';
 
+/** A non-success HTTP response, with Jira's response body for error reporting. */
+export class HttpStatusError extends Error {
+  constructor(message: string, readonly status: number, readonly responseBody: string) {
+    super(message);
+    this.name = 'HttpStatusError';
+  }
+}
+
 export interface HttpClientOptions {
   timeoutMs?: number;
   maxRetries?: number;
@@ -146,8 +154,16 @@ async function httpRequest(
     }
 
     // All retries exhausted or non-retryable non-success status
-    throw new Error(
+    let responseBody = '';
+    try {
+      responseBody = (await response.text()).slice(0, 4000);
+    } catch {
+      // body unavailable; the status alone is reported
+    }
+    throw new HttpStatusError(
       `[${provider}] HTTP ${status} after ${attempt + 1} attempt(s). URL: ${redactedUrl}`,
+      status,
+      responseBody,
     );
   }
 }

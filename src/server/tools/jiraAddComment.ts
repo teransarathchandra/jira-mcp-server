@@ -10,6 +10,13 @@ import { issueKeyField } from './jiraIssueInputs.js';
 
 const NAME = 'jira_add_comment';
 
+/** Shows the comment verbatim: a fence longer than any backtick run inside it. */
+function fenced(text: string): string {
+  const longestRun = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+  const fence = '`'.repeat(Math.max(3, longestRun + 1));
+  return `${fence}\n${text}\n${fence}`;
+}
+
 export const registerJiraAddComment: ToolRegistrar = (server, { config, jiraClient, confirmTokens }) => {
   server.registerTool(
     NAME,
@@ -35,7 +42,7 @@ export const registerJiraAddComment: ToolRegistrar = (server, { config, jiraClie
             tool: NAME,
             issueKey,
             args: { issueKey, markdown },
-            preview: `Add this comment to ${issueKey} (${markdown.length} characters):\n\n${markdown}`,
+            preview: `Add this comment to ${issueKey} (${markdown.length} characters):\n\n${fenced(markdown)}`,
             steps: [{ action: 'comment', run: async () => (await jiraClient.addComment(issueKey, markdownToAdf(markdown))).id }],
           },
           {

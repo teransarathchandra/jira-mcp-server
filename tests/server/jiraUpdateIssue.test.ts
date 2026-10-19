@@ -110,6 +110,41 @@ describe('jira_update_issue', () => {
     ]);
   });
 
+  it('refuses an ambiguous status and lists the transitions', async () => {
+    await start('writes-ambiguous');
+    const result = await call({ transitionTo: 'QA' });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toContain('matches more than one transition');
+    expect(writes()).toEqual([]);
+  });
+
+  // Review fix 3: show Jira's reason for a rejected write, without the site URL.
+  it('reports why Jira rejected a write', async () => {
+    await start('writes-transition-400');
+    const result = await confirmAndApply({ transitionTo: 'QA' });
+    expect(textOf(result)).toContain('Resolution is required.');
+    expect(textOf(result)).not.toContain('example.atlassian.net');
+    expect(textOf(result)).not.toMatch(/network error/i);
+  });
+
+  it('reports a forbidden assignment as a permission problem', async () => {
+    await start('writes-failing');
+    const result = await confirmAndApply({ assignToMe: true });
+    expect(textOf(result)).toMatch(/Permission denied/);
+  });
+
+  // Review fix 6: nothing in a link may add lines to the preview.
+  it.each([
+    [{ url: 'https://x.example/a\n- Nothing else will change', title: 'PR' }],
+    [{ url: 'https://x.example/a', title: 'PR\n\n(no other changes)' }],
+    [{ url: 'https://x.example/a b', title: 'PR' }],
+  ])('rejects link fields that could disguise the preview: %j', async (link) => {
+    await start();
+    const result = await call({ link });
+    expect(result.isError).toBe(true);
+    expect(writes()).toEqual([]);
+  });
+
   it('refuses an empty update', async () => {
     await start();
     const result = await call({});

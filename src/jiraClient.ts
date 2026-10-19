@@ -1,7 +1,8 @@
 import { Config } from "./config.js";
 import { MemoryCache, isCacheEnabled } from "./cache/memoryCache.js";
 import { jiraIssueKey, jiraSearchKey } from "./cache/cacheKeys.js";
-import { httpGet, httpPost, httpPut, type HttpResponse } from "./api/httpClient.js";
+import { httpGet, httpPost, httpPut, HttpStatusError, type HttpResponse } from "./api/httpClient.js";
+import { redactString } from "./security/secretRedactor.js";
 import type { AdfDoc } from "./utils/markdownToAdf.js";
 import { jiraLimiter } from "./performance/concurrencyLimiter.js";
 
@@ -24,6 +25,28 @@ export class JiraForbiddenError extends JiraAuthError {
     super(message);
     this.name = "JiraForbiddenError";
   }
+}
+
+/** Jira rejected a write as invalid (400/409/422); the message carries Jira's reason. */
+export class JiraRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "JiraRequestError";
+  }
+}
+
+/** Jira's own reasons from an error body: errorMessages plus field errors. */
+function jiraReasons(body: string): string {
+  try {
+    const parsed = JSON.parse(body) as { errorMessages?: unknown; errors?: Record<string, unknown> };
+    const messages = Array.isArray(parsed.errorMessages) ? parsed.errorMessages.map(String) : [];
+    const fields = Object.entries(parsed.errors ?? {}).map(([field, reason]) => `${field}: ${String(reason)}`);
+    const all = [...messages, ...fields].filter(Boolean);
+    if (all.length > 0) return redactString(all.join('; ')).slice(0, 500);
+  } catch {
+    // not JSON
+  }
+  return 'no reason given';
 }
 
 export class JiraNotFoundError extends Error {
@@ -451,6 +474,9 @@ export class JiraClient {
         method === 'POST' ? httpPost(url, headers, body, options) : httpPut(url, headers, body, options),
       );
     } catch (err) {
+      if (err instanceof HttpStatusError && [400, 409, 422].includes(err.status)) {
+        throw new JiraRequestError(`Jira rejected the request (HTTP ${err.status}): ${jiraReasons(err.responseBody)}`);
+      }
       this.mapHttpClientError(err, issueKey);
     }
   }

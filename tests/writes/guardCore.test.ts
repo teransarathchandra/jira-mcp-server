@@ -89,3 +89,17 @@ describe('assertWritableIssue()', () => {
     expect(() => assertWritableIssue('not a key', fixtureConfig())).toThrow();
   });
 });
+
+describe('auditLogPath (review fix 8)', () => {
+  it('expands a leading ~ to the home directory', async () => {
+    const { getConfig } = await import('../../src/config.js');
+    const { homedir } = await import('node:os');
+    const saved = { ...process.env };
+    Object.assign(process.env, { JIRA_BASE_URL: 'https://x.atlassian.net', JIRA_EMAIL: 'a@b.c', JIRA_API_TOKEN: 't', JIRA_DELIVERY_AUDIT_LOG: '~/jdm-test/audit.log' });
+    try {
+      expect(getConfig().auditLogPath).toBe(join(homedir(), 'jdm-test', 'audit.log'));
+    } finally {
+      process.env = saved;
+    }
+  });
+});

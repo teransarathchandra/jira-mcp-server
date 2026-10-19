@@ -12,6 +12,25 @@ const NAME = 'jira_update_issue';
 
 type Transition = { id: string; name: string; to: { name: string } };
 
+// Line breaks, other control characters and bidi overrides could add lines to,
+// or reorder, the preview the user confirms.
+const UNSAFE_TEXT = /[\u0000-\u001f\u007f\u200e\u200f\u202a-\u202e\u2066-\u2069]/;
+
+function assertSafeLink(link: { url: string; title: string }): void {
+  let parsed: URL | undefined;
+  try {
+    parsed = new URL(link.url);
+  } catch {
+    parsed = undefined;
+  }
+  if (!parsed || (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') || /\s/.test(link.url) || UNSAFE_TEXT.test(link.url)) {
+    throw new McpInputError('link.url must be a single http:// or https:// URL', 'link');
+  }
+  if (UNSAFE_TEXT.test(link.title)) {
+    throw new McpInputError('link.title must be one line of plain text', 'link');
+  }
+}
+
 /** Exact case-insensitive match on the transition name, else on the target status. */
 function matchTransition(transitions: Transition[], wanted: string): Transition {
   const w = wanted.trim().toLowerCase();
@@ -51,9 +70,7 @@ export const registerJiraUpdateIssue: ToolRegistrar = (server, { config, jiraCli
         if (transitionTo === undefined && assignToMe === undefined && link === undefined) {
           throw new McpInputError('Nothing to update: pass transitionTo, assignToMe or link.');
         }
-        if (link && !/^https?:\/\//i.test(link.url)) {
-          throw new McpInputError('link.url must start with http:// or https://', 'link');
-        }
+        if (link) assertSafeLink(link);
         assertWritableIssue(issueKey, config);
 
         const steps: WriteStep[] = [];

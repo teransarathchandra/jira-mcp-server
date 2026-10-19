@@ -86,15 +86,60 @@ describe('jira_add_comment', () => {
     expect(posts()).toHaveLength(1);
   });
 
+  // Review fix 1: an explicit "no" must not be one call away from posting.
   it.each([
     ['decline', async () => ({ action: 'decline' })],
     ['confirm false', async () => ({ action: 'accept', content: { confirm: false } })],
-  ])('falls back to preview and token on %s', async (_label, onElicit) => {
+  ])('changes nothing and issues no token when the user answers %s', async (_label, onElicit) => {
     await start({ onElicit });
+    const result = await comment({});
+    expect(dataOf(result).applied).toBe(false);
+    expect(dataOf(result).confirmToken).toBeUndefined();
+    expect(textOf(result)).toMatch(/declined/i);
+    expect(posts()).toHaveLength(0);
+  });
+
+  it('falls back to preview and token when the form fails or times out', async () => {
+    await start({ onElicit: async () => { throw new Error('client closed the form'); } });
     const result = await comment({});
     expect(dataOf(result).applied).toBe(false);
     expect(dataOf(result).confirmToken).toBeDefined();
     expect(posts()).toHaveLength(0);
+  });
+
+  it('refuses a token used for a different issue', async () => {
+    await start();
+    const token = dataOf(await comment({})).confirmToken;
+    const other = await comment({ issueKey: 'ABC-2', confirmToken: token });
+    expect(other.isError).toBe(true);
+    expect(fixture.requests.some((r) => r.startsWith('POST'))).toBe(false);
+  });
+
+  it('still writes, and warns, when the audit log cannot be written', async () => {
+    await start({}, { auditLogPath: '/dev/null/not-a-dir/audit.log' });
+    const token = dataOf(await comment({})).confirmToken;
+    const result = await comment({ confirmToken: token });
+    expect(dataOf(result).applied).toBe(true);
+    expect((result.structuredContent as { warnings: string[] }).warnings.join(' ')).toMatch(/audit log/i);
+    expect(textOf(result)).toMatch(/audit log/i);
+  });
+
+  // Review fix 2: a 5xx or timeout may still have been applied by Jira.
+  it('says the outcome is unknown after a server error instead of inviting a retry', async () => {
+    fixture.restore();
+    fixture = installJiraFixture('writes-failing');
+    await start();
+    const token = dataOf(await comment({})).confirmToken;
+    const result = await comment({ confirmToken: token });
+    expect(textOf(result)).toMatch(/outcome is unknown/i);
+    expect(textOf(result)).toContain('check ABC-1');
+  });
+
+  // Review fix 6: the preview shows the comment fenced, so Markdown cannot disguise it.
+  it('shows the comment inside a code fence in the preview', async () => {
+    await start();
+    const result = await session!.client.callTool({ name: 'jira_add_comment', arguments: { issueKey: 'ABC-1', markdown: 'see ```code``` here' } });
+    expect(textOf(result)).toMatch(/\n`{4,}\nsee ```code``` here\n`{4,}\n/);
   });
 
   it('audits the write without the comment text or the token', async () => {
