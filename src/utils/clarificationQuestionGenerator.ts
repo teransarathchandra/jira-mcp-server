@@ -19,23 +19,6 @@ function truncate(text: string, maxLen: number): string {
   return text.length <= maxLen ? text : text.slice(0, maxLen);
 }
 
-/**
- * Returns true if the given text is already answered by any of the provided
- * acceptance criteria or business rules (rough substring overlap check).
- */
-function isAlreadyAnswered(topic: string, acceptanceCriteria: string[], businessRules: string[]): boolean {
-  const topicLower = topic.toLowerCase();
-  const sources = [...acceptanceCriteria, ...businessRules];
-  for (const src of sources) {
-    // If at least 5 consecutive words of the topic appear in a source, consider it answered
-    const words = topicLower.split(/\s+/).filter(w => w.length > 3);
-    if (words.length === 0) continue;
-    const matchCount = words.filter(w => src.toLowerCase().includes(w)).length;
-    if (matchCount >= Math.min(3, words.length)) return true;
-  }
-  return false;
-}
-
 // ── Main function ─────────────────────────────────────────────────────────────
 
 /**
@@ -63,11 +46,6 @@ export function generateClarificationQuestions(params: {
     conflictDescriptions,
     hasBlockingIssues,
     blockerDescriptions,
-    mainDescription,
-    acceptanceCriteria,
-    userRoles,
-    validationRules,
-    businessRules,
   } = params;
 
   const shouldAsk =
@@ -137,59 +115,8 @@ export function generateClarificationQuestions(params: {
     }
   }
 
-  // 4. Missing validation details
-  if (questions.length < 5) {
-    const validationWithKeyword = validationRules.find(r =>
-      /validate|required|invalid/i.test(r),
-    );
-    if (validationWithKeyword) {
-      const topic = 'validation error message';
-      if (
-        !seenTopics.has(topic) &&
-        !isAlreadyAnswered(topic, acceptanceCriteria, businessRules)
-      ) {
-        addQuestion({
-          question: `What exact error message should appear when ${truncate(validationWithKeyword, 80)}?`,
-          priority: 'medium',
-          topic,
-        });
-      }
-    }
-  }
-
-  // 5. Missing user role scope
-  if (questions.length < 5) {
-    const descLower = mainDescription.toLowerCase();
-    const isUserFacing =
-      /\b(user|display|show|form|page|screen|button|modal|ui|click|view|render)\b/i.test(descLower);
-    if (userRoles.length === 0 && isUserFacing) {
-      const topic = 'user roles';
-      if (!seenTopics.has(topic)) {
-        addQuestion({
-          question: 'Which user roles should be affected by this change?',
-          priority: 'medium',
-          topic,
-        });
-      }
-    }
-  }
-
-  // 6. Mobile/responsive question
-  if (questions.length < 5) {
-    const descLower = mainDescription.toLowerCase();
-    const mentionsUI = /\b(ui|form|page|screen|button|modal|layout|display|render|view)\b/i.test(descLower);
-    const mentionsMobile = /\b(mobile|responsive|tablet|breakpoint|viewport)\b/i.test(descLower);
-    if (mentionsUI && !mentionsMobile) {
-      const topic = 'mobile support';
-      if (!seenTopics.has(topic)) {
-        addQuestion({
-          question: 'Should this UI change apply to both desktop and mobile views?',
-          priority: 'medium',
-          topic,
-        });
-      }
-    }
-  }
+  // Questions inferred only from silence (validation copy, user roles, mobile
+  // support) were removed in R2: they are speculative, not material.
 
   return { questions, shouldAsk };
 }

@@ -1,0 +1,8 @@
+{
+  "routes": {
+    "GET /rest/api/3/issue/ABC-1": {
+      "status": 401,
+      "body": { "errorMessages": ["Client must be authenticated to access this resource."] }
+    }
+  }
+}

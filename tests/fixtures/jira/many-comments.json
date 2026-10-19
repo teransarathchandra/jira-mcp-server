@@ -1,0 +1,466 @@
+{
+  "routes": {
+    "GET /rest/api/3/issue/ABC-1": {
+      "status": 200,
+      "body": {
+        "id": "10001",
+        "key": "ABC-1",
+        "fields": {
+          "summary": "Add login rate limiting",
+          "description": {
+            "type": "doc",
+            "version": 1,
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Limit failed login attempts per account to stop brute-force attacks."
+                  }
+                ]
+              },
+              {
+                "type": "heading",
+                "attrs": {
+                  "level": 3
+                },
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Acceptance Criteria"
+                  }
+                ]
+              },
+              {
+                "type": "bulletList",
+                "content": [
+                  {
+                    "type": "listItem",
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "Lock the account for 15 minutes after 5 failed login attempts"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "listItem",
+                    "content": [
+                      {
+                        "type": "paragraph",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "Show a lockout message with the remaining lock time"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "status": {
+            "name": "To Do",
+            "statusCategory": {
+              "key": "new"
+            }
+          },
+          "priority": {
+            "name": "Medium"
+          },
+          "assignee": null,
+          "reporter": {
+            "displayName": "Product Owner"
+          },
+          "labels": [
+            "security"
+          ],
+          "components": [
+            {
+              "name": "auth"
+            }
+          ],
+          "fixVersions": [],
+          "issuetype": {
+            "name": "Story"
+          },
+          "subtasks": [],
+          "attachment": [],
+          "comment": {
+            "comments": [
+              {
+                "id": "1",
+                "author": {
+                  "displayName": "Tech Lead"
+                },
+                "body": {
+                  "type": "doc",
+                  "version": 1,
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Update 1 on the rate limiting work."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "created": "2026-10-01T09:00:00.000+0000",
+                "updated": "2026-10-01T09:00:00.000+0000"
+              },
+              {
+                "id": "2",
+                "author": {
+                  "displayName": "QA Engineer"
+                },
+                "body": {
+                  "type": "doc",
+                  "version": 1,
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Update 2 on the rate limiting work."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "created": "2026-10-02T09:00:00.000+0000",
+                "updated": "2026-10-02T09:00:00.000+0000"
+              },
+              {
+                "id": "3",
+                "author": {
+                  "displayName": "Tech Lead"
+                },
+                "body": {
+                  "type": "doc",
+                  "version": 1,
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Update 3 on the rate limiting work."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "created": "2026-10-03T09:00:00.000+0000",
+                "updated": "2026-10-03T09:00:00.000+0000"
+              },
+              {
+                "id": "4",
+                "author": {
+                  "displayName": "QA Engineer"
+                },
+                "body": {
+                  "type": "doc",
+                  "version": 1,
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Update 4 on the rate limiting work."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "created": "2026-10-04T09:00:00.000+0000",
+                "updated": "2026-10-04T09:00:00.000+0000"
+              },
+              {
+                "id": "5",
+                "author": {
+                  "displayName": "Tech Lead"
+                },
+                "body": {
+                  "type": "doc",
+                  "version": 1,
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Update 5 on the rate limiting work."
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "created": "2026-10-05T09:00:00.000+0000",
+                "updated": "2026-10-05T09:00:00.000+0000"
+              }
+            ],
+            "total": 25,
+            "startAt": 0,
+            "maxResults": 5
+          },
+          "created": "2026-09-30T09:00:00.000+0000",
+          "updated": "2026-10-02T09:00:00.000+0000",
+          "issuelinks": []
+        }
+      }
+    },
+    "GET /rest/api/3/issue/ABC-1/comment": {
+      "status": 200,
+      "body": {
+        "comments": [
+          {
+            "id": "25",
+            "author": {
+              "displayName": "Tech Lead"
+            },
+            "body": {
+              "type": "doc",
+              "version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Update 25 on the rate limiting work."
+                    }
+                  ]
+                }
+              ]
+            },
+            "created": "2026-10-25T09:00:00.000+0000",
+            "updated": "2026-10-25T09:00:00.000+0000"
+          },
+          {
+            "id": "24",
+            "author": {
+              "displayName": "QA Engineer"
+            },
+            "body": {
+              "type": "doc",
+              "version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Update 24 on the rate limiting work."
+                    }
+                  ]
+                }
+              ]
+            },
+            "created": "2026-10-24T09:00:00.000+0000",
+            "updated": "2026-10-24T09:00:00.000+0000"
+          },
+          {
+            "id": "23",
+            "author": {
+              "displayName": "Tech Lead"
+            },
+            "body": {
+              "type": "doc",
+              "version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Update 23 on the rate limiting work."
+                    }
+                  ]
+                }
+              ]
+            },
+            "created": "2026-10-23T09:00:00.000+0000",
+            "updated": "2026-10-23T09:00:00.000+0000"
+          },
+          {
+            "id": "22",
+            "author": {
+              "displayName": "QA Engineer"
+            },
+            "body": {
+              "type": "doc",
+              "version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Update 22 on the rate limiting work."
+                    }
+                  ]
+                }
+              ]
+            },
+            "created": "2026-10-22T09:00:00.000+0000",
+            "updated": "2026-10-22T09:00:00.000+0000"
+          },
+          {
+            "id": "21",
+            "author": {
+              "displayName": "Tech Lead"
+            },
+            "body": {
+              "type": "doc",
+              "version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Update 21 on the rate limiting work."
+                    }
+                  ]
+                }
+              ]
+            },
+            "created": "2026-10-21T09:00:00.000+0000",
+            "updated": "2026-10-21T09:00:00.000+0000"
+          },
+          {
+            "id": "20",
+            "author": {
+              "displayName": "QA Engineer"
+            },
+            "body": {
+              "type": "doc",
+              "version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Update 20 on the rate limiting work."
+                    }
+                  ]
+                }
+              ]
+            },
+            "created": "2026-10-20T09:00:00.000+0000",
+            "updated": "2026-10-20T09:00:00.000+0000"
+          },
+          {
+            "id": "19",
+            "author": {
+              "displayName": "Tech Lead"
+            },
+            "body": {
+              "type": "doc",
+              "version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Update 19 on the rate limiting work."
+                    }
+                  ]
+                }
+              ]
+            },
+            "created": "2026-10-19T09:00:00.000+0000",
+            "updated": "2026-10-19T09:00:00.000+0000"
+          },
+          {
+            "id": "18",
+            "author": {
+              "displayName": "QA Engineer"
+            },
+            "body": {
+              "type": "doc",
+              "version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Update 18 on the rate limiting work."
+                    }
+                  ]
+                }
+              ]
+            },
+            "created": "2026-10-18T09:00:00.000+0000",
+            "updated": "2026-10-18T09:00:00.000+0000"
+          },
+          {
+            "id": "17",
+            "author": {
+              "displayName": "Tech Lead"
+            },
+            "body": {
+              "type": "doc",
+              "version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Update 17 on the rate limiting work."
+                    }
+                  ]
+                }
+              ]
+            },
+            "created": "2026-10-17T09:00:00.000+0000",
+            "updated": "2026-10-17T09:00:00.000+0000"
+          },
+          {
+            "id": "16",
+            "author": {
+              "displayName": "QA Engineer"
+            },
+            "body": {
+              "type": "doc",
+              "version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Update 16 on the rate limiting work."
+                    }
+                  ]
+                }
+              ]
+            },
+            "created": "2026-10-16T09:00:00.000+0000",
+            "updated": "2026-10-16T09:00:00.000+0000"
+          }
+        ],
+        "total": 25,
+        "startAt": 0,
+        "maxResults": 10
+      }
+    }
+  }
+}

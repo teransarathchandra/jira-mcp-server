@@ -9,6 +9,7 @@ import { fetchIssueContext, type ContextFetchOptions } from '../jira/issueContex
 import { extractRequirements } from '../utils/requirementExtractor.js';
 import { analyzeImpact } from '../delivery/impactAnalyzer.js';
 import type { ImpactArea, ImpactAnalysis } from '../delivery/deliveryTypes.js';
+import type { ImpactData } from '../delivery/checkChangesTypes.js';
 import type { RequirementSignals } from '../utils/requirementExtractor.js';
 
 // Confluence imports (conditional — Confluence may not be configured)
@@ -112,11 +113,20 @@ function formatImpactAnalysis(analysis: ImpactAnalysis): string {
 
 // ── Main function ─────────────────────────────────────────────────────────────
 
+/** Markdown analysis for callers that only need text (e.g. the task report). */
 export async function deliveryAnalyzeImplementationImpact(
   input: DeliveryAnalyzeImpactInput,
   client: JiraClient,
   config: Config,
 ): Promise<string> {
+  return (await computeImpact(input, client, config)).markdown;
+}
+
+export async function computeImpact(
+  input: DeliveryAnalyzeImpactInput,
+  client: JiraClient,
+  config: Config,
+): Promise<{ markdown: string; data: ImpactData }> {
   // ── Step 1: Validate issue key ──────────────────────────────────────────────
   validateIssueKey(input.issueKey);
 
@@ -214,5 +224,12 @@ export async function deliveryAnalyzeImplementationImpact(
   });
 
   // ── Step 6: Format and return ──────────────────────────────────────────────
-  return formatImpactAnalysis(analysis);
+  return {
+    markdown: formatImpactAnalysis(analysis),
+    data: {
+      likelyAffectedAreas: analysis.likelyAffectedAreas,
+      riskyDownstreamFlows: analysis.riskyDownstreamFlows,
+      unknowns: analysis.unknowns,
+    },
+  };
 }

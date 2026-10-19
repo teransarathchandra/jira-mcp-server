@@ -4,6 +4,8 @@
 
 import { JiraClient } from '../jiraClient.js';
 import { Config } from '../config.js';
+import { isInboundBlocker } from '../jira/linkUtils.js';
+import type { DodData } from '../delivery/checkChangesTypes.js';
 import { validateIssueKey } from '../utils/issueKey.js';
 import { validateGitRef, resolveRepoPath } from '../utils/gitSafety.js';
 import { fetchIssueContext, type ContextFetchOptions } from '../jira/issueContextService.js';
@@ -141,11 +143,20 @@ function formatDoDResult(result: DoDResult): string {
 
 // ── Main function ─────────────────────────────────────────────────────────────
 
+/** Markdown verdict for callers that only need text (e.g. the task report). */
 export async function deliveryVerifyDefinitionOfDone(
   input: DeliveryVerifyDoDInput,
   client: JiraClient,
   config: Config,
 ): Promise<string> {
+  return (await computeDefinitionOfDone(input, client, config)).markdown;
+}
+
+export async function computeDefinitionOfDone(
+  input: DeliveryVerifyDoDInput,
+  client: JiraClient,
+  config: Config,
+): Promise<{ markdown: string; data: DodData; diffRead: boolean }> {
   // ── Step 1: Validate inputs ─────────────────────────────────────────────────
   validateIssueKey(input.issueKey);
 
@@ -192,9 +203,7 @@ export async function deliveryVerifyDefinitionOfDone(
   ];
   const conflictResult = detectConflicts(conflictSources);
 
-  const hasBlockingIssues = jiraContext.linkedIssues.some((l: { relationship: string }) =>
-    l.relationship.toLowerCase().includes('block'),
-  );
+  const hasBlockingIssues = jiraContext.linkedIssues.some(isInboundBlocker);
 
   const relevanceResult = scoreLinkedIssues({
     linkedIssues: jiraContext.linkedIssues,
@@ -232,6 +241,7 @@ export async function deliveryVerifyDefinitionOfDone(
   let changedFileCount = 0;
   let classifiedFiles: ClassifiedFiles = emptyClassifiedFiles();
   let isGitRepo = true;
+  let diffRead = false; // true only when the local diff was actually read
 
   // Validate git refs only if we're going to attempt a diff
   try {
@@ -254,6 +264,7 @@ export async function deliveryVerifyDefinitionOfDone(
       diffTruncated = diffResult.truncated;
       changedFileCount = diffResult.changedFiles.length;
       classifiedFiles = classifyChangedFiles(diffResult.changedFiles);
+      diffRead = true;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (
@@ -454,5 +465,17 @@ export async function deliveryVerifyDefinitionOfDone(
   });
 
   // ── Step 12: Format markdown output ─────────────────────────────────────────
-  return formatDoDResult(dodResult);
+  const toItem = (c: DoDCheck) => ({ id: c.checkId, name: c.checkName, detail: c.detail });
+  return {
+    diffRead,
+    markdown: formatDoDResult(dodResult),
+    data: {
+      status: dodResult.overallStatus,
+      score: dodResult.score,
+      confidence: dodResult.confidence,
+      failed: dodResult.failedChecks.map(toItem),
+      warnings: dodResult.warningChecks.map(toItem),
+      requiredFixes: dodResult.requiredFixes,
+    },
+  };
 }

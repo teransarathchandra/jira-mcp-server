@@ -9,12 +9,14 @@ import type { Config } from "../src/config.js";
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function makeComment(id: string): JiraComment {
+  // "c7" is created on day 7, so comment ids sort the same way as their dates.
+  const day = String(Number(id.replace(/\D/g, "")) || 1).padStart(2, "0");
   return {
     id,
     author: { displayName: "Alice" },
     body: null,
-    created: "2024-01-01T00:00:00.000Z",
-    updated: "2024-01-01T00:00:00.000Z",
+    created: `2024-01-${day}T00:00:00.000Z`,
+    updated: `2024-01-${day}T00:00:00.000Z`,
   };
 }
 
@@ -140,191 +142,121 @@ describe("fetchIssueContext — comment pagination", () => {
     expect(ctx.mainIssue.fields.comment.comments).toHaveLength(1);
   });
 
-  it("paginates when total > comments.length and includeComments is true", async () => {
-    // Simulate Jira Cloud returning 2 of 5 comments on the initial issue fetch
-    const initialComments = [makeComment("c1"), makeComment("c2")];
-    const issue = makeIssue({ comments: initialComments, total: 5 });
-
-    // Mock getIssueComments to return the remaining 3 comments
-    const remainingComments = [makeComment("c3"), makeComment("c4"), makeComment("c5")];
+  // Defect 3 (R2): Jira pages comments oldest-first, so the old forward
+  // pagination kept the oldest comments and dropped the newest. The server now
+  // asks for the newest `cap` comments in one call and sorts them oldest-first.
+  it("fetches the newest page when total > comments.length and returns it chronologically", async () => {
+    const issue = makeIssue({ comments: [makeComment("c1"), makeComment("c2")], total: 5 });
     const getIssueComments = vi.fn().mockResolvedValueOnce({
-      comments: remainingComments,
+      comments: ["c5", "c4", "c3", "c2", "c1"].map(makeComment),
       total: 5,
-      startAt: 2,
-      maxResults: 50,
+      startAt: 0,
+      maxResults: 10,
     });
-
     const client = makeMockClient(issue, { getIssueComments });
-    const config = makeConfig();
-    const options = makeOptions({ includeComments: true, maxCommentsPerIssue: 10 });
 
-    const ctx = await fetchIssueContext("PROJ-1", options, client, config);
+    const ctx = await fetchIssueContext("PROJ-1", makeOptions({ maxCommentsPerIssue: 10 }), client, makeConfig());
 
     expect(getIssueComments).toHaveBeenCalledOnce();
-    expect(getIssueComments).toHaveBeenCalledWith("PROJ-1", 2, expect.any(Number));
-    expect(ctx.mainIssue.fields.comment.comments).toHaveLength(5);
-    expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual([
-      "c1", "c2", "c3", "c4", "c5",
-    ]);
+    expect(getIssueComments).toHaveBeenCalledWith("PROJ-1", 0, 10, "-created");
+    expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual(["c1", "c2", "c3", "c4", "c5"]);
     expect(ctx.truncationWarnings).toHaveLength(0);
+    expect(ctx.evidence.comments).toBe("observed");
   });
 
-  it("adds truncation warning when paginated comments are capped at maxCommentsPerIssue", async () => {
-    // 1 comment returned initially, 30 total, but cap is 5
+  it("keeps the newest comments and warns when total exceeds the cap", async () => {
     const issue = makeIssue({ comments: [makeComment("c1")], total: 30 });
-
-    // Mock returns 4 more to reach the cap of 5
-    const page1Comments = [makeComment("c2"), makeComment("c3"), makeComment("c4"), makeComment("c5")];
     const getIssueComments = vi.fn().mockResolvedValueOnce({
-      comments: page1Comments,
+      comments: ["c30", "c29", "c28", "c27", "c26"].map(makeComment),
       total: 30,
-      startAt: 1,
-      maxResults: 4,
+      startAt: 0,
+      maxResults: 5,
     });
-
     const client = makeMockClient(issue, { getIssueComments });
-    const config = makeConfig();
-    const options = makeOptions({ includeComments: true, maxCommentsPerIssue: 5 });
 
-    const ctx = await fetchIssueContext("PROJ-1", options, client, config);
+    const ctx = await fetchIssueContext("PROJ-1", makeOptions({ maxCommentsPerIssue: 5 }), client, makeConfig());
 
-    expect(ctx.mainIssue.fields.comment.comments).toHaveLength(5);
+    expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual(["c26", "c27", "c28", "c29", "c30"]);
     expect(ctx.truncationWarnings).toHaveLength(1);
-    expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing 5 of 30/);
+    expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing the newest 5 of 30/);
     expect(ctx.truncationWarnings[0]).toMatch(/maxCommentsPerIssue cap=5/);
+    expect(ctx.evidence.comments).toBe("truncated");
   });
 
-  it("stops pagination loop on empty page to prevent infinite loop", async () => {
-    // API says 10 total but returns empty pages — safety break must fire
+  it("keeps the inline comments when the newest page comes back empty", async () => {
     const issue = makeIssue({ comments: [makeComment("c1")], total: 10 });
-
-    // getIssueComments always returns empty (simulates a buggy API)
-    const getIssueComments = vi.fn().mockResolvedValue({
-      comments: [],
-      total: 10,
-      startAt: 1,
-      maxResults: 50,
-    });
-
+    const getIssueComments = vi.fn().mockResolvedValue({ comments: [], total: 10, startAt: 0, maxResults: 10 });
     const client = makeMockClient(issue, { getIssueComments });
-    const config = makeConfig();
-    const options = makeOptions({ includeComments: true, maxCommentsPerIssue: 10 });
 
-    const ctx = await fetchIssueContext("PROJ-1", options, client, config);
+    const ctx = await fetchIssueContext("PROJ-1", makeOptions({ maxCommentsPerIssue: 10 }), client, makeConfig());
 
-    // Called once, then loop breaks because page.comments.length === 0
     expect(getIssueComments).toHaveBeenCalledOnce();
-    // Only the original 1 comment is present
-    expect(ctx.mainIssue.fields.comment.comments).toHaveLength(1);
+    expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual(["c1"]);
   });
 
-  it("does not paginate when initial comments.length already meets the cap, but emits truncation warning", async () => {
-    // cap is 3 (maxCommentsPerIssue=3), API already returned 3 of 10 — no page needed
-    // but we must still warn that comments were truncated (Issue 2 fix)
-    const issue = makeIssue({
-      comments: [makeComment("c1"), makeComment("c2"), makeComment("c3")],
-      total: 10,
-    });
-    const client = makeMockClient(issue);
-    const config = makeConfig();
-    const options = makeOptions({ includeComments: true, maxCommentsPerIssue: 3 });
-
-    const ctx = await fetchIssueContext("PROJ-1", options, client, config);
-
-    expect(client.getIssueComments).not.toHaveBeenCalled();
-    expect(ctx.mainIssue.fields.comment.comments).toHaveLength(3);
-    // FIX 2: truncation warning must fire even though pagination block was skipped
-    expect(ctx.truncationWarnings).toHaveLength(1);
-    expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing 3 of 10/);
-    expect(ctx.truncationWarnings[0]).toMatch(/maxCommentsPerIssue cap=3/);
-  });
-
-  it("caps comments at maxCommentsPerIssue when API returns more items than requested (overshoot)", async () => {
-    // Simulate a non-conformant API returning 5 comments when only 3 were remaining to cap
-    // Initial: 1 comment, total: 10, cap: 4
-    const issue = makeIssue({ comments: [makeComment("c1")], total: 10 });
-
-    // API returns 5 comments even though we asked for Math.min(3, 50)=3
-    const overshotComments = [
-      makeComment("c2"), makeComment("c3"), makeComment("c4"),
-      makeComment("c5"), makeComment("c6"),
-    ];
+  it("fetches the newest page even when the inline set already fills the cap", async () => {
+    const issue = makeIssue({ comments: ["c1", "c2", "c3"].map(makeComment), total: 10 });
     const getIssueComments = vi.fn().mockResolvedValueOnce({
-      comments: overshotComments,
+      comments: ["c10", "c9", "c8"].map(makeComment),
       total: 10,
-      startAt: 1,
-      maxResults: 5, // non-conformant: returned more than asked
+      startAt: 0,
+      maxResults: 3,
     });
-
     const client = makeMockClient(issue, { getIssueComments });
-    const config = makeConfig();
-    const options = makeOptions({ includeComments: true, maxCommentsPerIssue: 4 });
 
-    const ctx = await fetchIssueContext("PROJ-1", options, client, config);
+    const ctx = await fetchIssueContext("PROJ-1", makeOptions({ maxCommentsPerIssue: 3 }), client, makeConfig());
 
-    // Must be capped at 4, not 6
-    expect(ctx.mainIssue.fields.comment.comments).toHaveLength(4);
-    expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual([
-      "c1", "c2", "c3", "c4",
-    ]);
-    expect(ctx.truncationWarnings).toHaveLength(1);
-    expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing 4 of 10/);
+    expect(getIssueComments).toHaveBeenCalledWith("PROJ-1", 0, 3, "-created");
+    expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual(["c8", "c9", "c10"]);
+    expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing the newest 3 of 10/);
   });
 
-  it("trims initial comment set when Jira returns more inline than maxCommentsPerIssue cap", async () => {
-    // Jira returned 3 inline comments but cap is only 2; pagination block would be skipped
-    // (comments.length 3 >= cap 2), so the trim must happen before the pagination check
-    const issue = makeIssue({
-      comments: [makeComment("c1"), makeComment("c2"), makeComment("c3")],
+  it("caps comments at maxCommentsPerIssue when the API returns more than requested", async () => {
+    const issue = makeIssue({ comments: [makeComment("c1")], total: 10 });
+    const getIssueComments = vi.fn().mockResolvedValueOnce({
+      comments: ["c10", "c9", "c8", "c7", "c6", "c5"].map(makeComment),
       total: 10,
+      startAt: 0,
+      maxResults: 6, // non-conformant: returned more than asked
     });
-    const client = makeMockClient(issue);
-    const config = makeConfig();
-    const options = makeOptions({ includeComments: true, maxCommentsPerIssue: 2 });
+    const client = makeMockClient(issue, { getIssueComments });
 
-    const ctx = await fetchIssueContext("PROJ-1", options, client, config);
+    const ctx = await fetchIssueContext("PROJ-1", makeOptions({ maxCommentsPerIssue: 4 }), client, makeConfig());
 
-    expect(client.getIssueComments).not.toHaveBeenCalled();
-    // Must be trimmed to exactly the cap
-    expect(ctx.mainIssue.fields.comment.comments).toHaveLength(2);
-    expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual(["c1", "c2"]);
-    // Truncation warning must correctly say "showing 2 of 10 (cap=2)"
-    expect(ctx.truncationWarnings).toHaveLength(1);
-    expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing 2 of 10/);
+    expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual(["c7", "c8", "c9", "c10"]);
+    expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing the newest 4 of 10/);
+  });
+
+  it("re-fetches the newest page when Jira returns more inline comments than the cap", async () => {
+    const issue = makeIssue({ comments: ["c1", "c2", "c3"].map(makeComment), total: 3 });
+    const getIssueComments = vi.fn().mockResolvedValueOnce({
+      comments: ["c3", "c2"].map(makeComment),
+      total: 3,
+      startAt: 0,
+      maxResults: 2,
+    });
+    const client = makeMockClient(issue, { getIssueComments });
+
+    const ctx = await fetchIssueContext("PROJ-1", makeOptions({ maxCommentsPerIssue: 2 }), client, makeConfig());
+
+    expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual(["c2", "c3"]);
+    expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing the newest 2 of 3/);
     expect(ctx.truncationWarnings[0]).toMatch(/maxCommentsPerIssue cap=2/);
   });
 
-  it("paginates across multiple pages until cap is reached", async () => {
-    // Initial: 1 comment, total: 20, cap: 5 — needs two getIssueComments calls
+  it("asks for at most `cap` newest comments in a single request", async () => {
     const issue = makeIssue({ comments: [makeComment("c1")], total: 20 });
-
-    const getIssueComments = vi
-      .fn()
-      .mockResolvedValueOnce({
-        comments: [makeComment("c2"), makeComment("c3")],
-        total: 20,
-        startAt: 1,
-        maxResults: 2,
-      })
-      .mockResolvedValueOnce({
-        comments: [makeComment("c4"), makeComment("c5")],
-        total: 20,
-        startAt: 3,
-        maxResults: 2,
-      });
-
+    const getIssueComments = vi.fn().mockResolvedValueOnce({
+      comments: ["c20", "c19", "c18", "c17", "c16"].map(makeComment),
+      total: 20,
+      startAt: 0,
+      maxResults: 5,
+    });
     const client = makeMockClient(issue, { getIssueComments });
-    const config = makeConfig();
-    const options = makeOptions({ includeComments: true, maxCommentsPerIssue: 5 });
 
-    const ctx = await fetchIssueContext("PROJ-1", options, client, config);
+    await fetchIssueContext("PROJ-1", makeOptions({ maxCommentsPerIssue: 5 }), client, makeConfig());
 
-    expect(getIssueComments).toHaveBeenCalledTimes(2);
-    expect(ctx.mainIssue.fields.comment.comments).toHaveLength(5);
-    expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual([
-      "c1", "c2", "c3", "c4", "c5",
-    ]);
-    expect(ctx.truncationWarnings).toHaveLength(1);
-    expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing 5 of 20/);
+    expect(getIssueComments).toHaveBeenCalledTimes(1);
+    expect(getIssueComments).toHaveBeenCalledWith("PROJ-1", 0, 5, "-created");
   });
 });

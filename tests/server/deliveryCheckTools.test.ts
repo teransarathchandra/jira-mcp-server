@@ -4,36 +4,51 @@ import { ConfluenceAuthError } from '../../src/confluence/confluenceConfig.js';
 
 const order: string[] = [];
 
+const diff = { baseBranch: 'origin/main', compareRef: 'HEAD', filesChanged: 2, truncated: false };
+
 vi.mock('../../src/tools/reviewPrAlignment.js', () => ({
-  reviewPrAlignment: vi.fn(async () => {
+  DiffUnavailableError: class DiffUnavailableError extends Error {},
+  computeAlignment: vi.fn(async () => {
     order.push('alignment');
-    return 'ALIGNMENT';
+    return {
+      markdown: 'ALIGNMENT',
+      diff,
+      data: {
+        status: 'MOSTLY_ALIGNED', score: 80, confidence: 'High',
+        criteria: [{ text: 'c', status: 'covered', files: ['src/a.ts'] }],
+        unrelatedChanges: [], testSignal: 'tests_added',
+      },
+    };
   }),
 }));
 vi.mock('../../src/tools/deliveryVerifyDefinitionOfDone.js', () => ({
-  deliveryVerifyDefinitionOfDone: vi.fn(async () => {
+  computeDefinitionOfDone: vi.fn(async () => {
     order.push('dod');
-    return 'DOD';
+    return {
+      markdown: 'DOD',
+      diffRead: true,
+      data: { status: 'READY_FOR_REVIEW', score: 90, confidence: 'High', failed: [], warnings: [], requiredFixes: [] },
+    };
   }),
 }));
 vi.mock('../../src/tools/deliveryAnalyzeImplementationImpact.js', () => ({
-  deliveryAnalyzeImplementationImpact: vi.fn(async () => {
+  computeImpact: vi.fn(async () => {
     order.push('impact');
-    return 'IMPACT';
+    return { markdown: 'IMPACT', data: { likelyAffectedAreas: ['auth'], riskyDownstreamFlows: [], unknowns: [] } };
   }),
 }));
 vi.mock('../../src/tools/deliveryGetTraceabilityMatrix.js', () => ({
   deliveryGetTraceabilityMatrix: vi.fn(async () => 'MATRIX'),
 }));
 
-const alignment = vi.mocked((await import('../../src/tools/reviewPrAlignment.js')).reviewPrAlignment);
-const dod = vi.mocked((await import('../../src/tools/deliveryVerifyDefinitionOfDone.js')).deliveryVerifyDefinitionOfDone);
+const alignment = vi.mocked((await import('../../src/tools/reviewPrAlignment.js')).computeAlignment);
+const dod = vi.mocked((await import('../../src/tools/deliveryVerifyDefinitionOfDone.js')).computeDefinitionOfDone);
 const impact = vi.mocked(
-  (await import('../../src/tools/deliveryAnalyzeImplementationImpact.js')).deliveryAnalyzeImplementationImpact,
+  (await import('../../src/tools/deliveryAnalyzeImplementationImpact.js')).computeImpact,
 );
 const matrix = vi.mocked((await import('../../src/tools/deliveryGetTraceabilityMatrix.js')).deliveryGetTraceabilityMatrix);
 
-type Envelope = { markdown: string; warnings: string[] };
+type Envelope = { markdown: string; warnings: string[]; data: { verdict: string; failedChecks: string[]; alignment?: unknown; impact?: unknown } };
 
 describe('delivery check tools', () => {
   let session: Awaited<ReturnType<typeof connect>>;
@@ -96,6 +111,9 @@ describe('delivery check tools', () => {
     expect(env.markdown).toContain('dod check failed');
     expect(env.markdown).toContain('Confluence authentication error: 401');
     expect(env.warnings).toEqual(['dod check failed']);
+    expect(env.data.failedChecks).toEqual(['dod']);
+    expect(env.data.alignment).toBeDefined();
+    expect(env.data.impact).toBeDefined();
   });
 
   it('is an error when every selected check fails', async () => {

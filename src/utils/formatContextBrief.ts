@@ -1,4 +1,5 @@
 import { IssueContext } from '../jira/issueContextService.js';
+import { isInboundBlocker } from '../jira/linkUtils.js';
 import { adfToMarkdown } from './adfToMarkdown.js';
 
 import {
@@ -172,7 +173,7 @@ export function formatContextBrief(context: IssueContext): string {
   const conflictResult = detectConflicts(conflictSources);
 
   const hasBlockingIssues = context.linkedIssues.some(l =>
-    l.relationship.toLowerCase().includes('block'),
+    isInboundBlocker(l),
   );
 
   const authorityRanking = rankAuthority({
@@ -224,7 +225,7 @@ export function formatContextBrief(context: IssueContext): string {
     conflictCount: conflictResult.conflicts.length,
     hasBlockingIssues,
     blockerDescriptions: context.linkedIssues
-      .filter(l => l.relationship.toLowerCase().includes('block'))
+      .filter(l => isInboundBlocker(l))
       .map(l => `${l.key}: ${l.summary}`),
     usefulCommentCount: commentInputs.filter(c => isUsefulComment(c.body)).length,
     hasRequirementChangingComment: commentInputs.some(c =>
@@ -241,7 +242,7 @@ export function formatContextBrief(context: IssueContext): string {
     conflictDescriptions: conflictResult.conflicts.map(c => c.description),
     hasBlockingIssues,
     blockerDescriptions: context.linkedIssues
-      .filter(l => l.relationship.toLowerCase().includes('block'))
+      .filter(l => isInboundBlocker(l))
       .map(l => l.summary),
     mainDescription: mainDesc,
     acceptanceCriteria: mainReqs.acceptanceCriteria,
@@ -360,7 +361,7 @@ export function formatContextBrief(context: IssueContext): string {
 
   // Dependencies / Blockers
   const blockerIssues = context.linkedIssues.filter(l =>
-    l.relationship.toLowerCase().includes('block'),
+    isInboundBlocker(l),
   );
   const blockersContent = blockerIssues.length > 0
     ? blockerIssues.map(l => `- **${l.key}** (${l.relationship}): ${l.summary}`).join('\n')
