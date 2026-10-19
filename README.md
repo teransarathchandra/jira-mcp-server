@@ -50,42 +50,37 @@ variables. Everything else — project scoping, Confluence integration, custom
 field IDs, context budgets — is optional and documented in
 [`.env.example`](.env.example) and the [Configuration](#configuration) section.
 
-**Requires Node.js 18 or newer.**
+**Requires Node.js 20 or newer.**
 
 ## What this MCP server does
 
-This server connects your AI coding agent to your Jira Cloud instance. It supports any Jira project key and provides twenty-eight read-only tools:
+This server connects your AI coding agent to your Jira Cloud instance. It supports any Jira project key and provides ten tools.
 
-| Tool | Description |
-|------|-------------|
-| `jira_get_issue` | Fetch full details of a single Jira issue (summary, description, status, priority, assignee, attachments, labels) |
-| `jira_search_my_open_issues` | List your currently open issues in the configured Jira projects (supports project filtering) |
-| `jira_list_configured_projects` | Show which Jira projects this server is configured to support |
-| `jira_prepare_work_prompt` | Fetch a Jira issue and return a structured implementation prompt ready for a coding agent |
-| `jira_get_issue_context` | Fetch a Jira issue with full surrounding context (parent, epic, linked issues, subtasks, comments) |
-| `jira_prepare_contextual_work_prompt` | Fetch a Jira issue with full context and return a final implementation prompt |
-| `jira_review_pr_alignment` | Review a PR or local branch against a Jira requirement — produces an evidence-based alignment report with score, matched/missing requirements, and review comments |
-| `jira_prepare_pr_review_prompt` | Prepare a focused PR review prompt for an AI coding agent to review a PR against a Jira task |
-| `confluence_search_related_pages` | Search Confluence for pages related to a Jira issue, ranked by relevance |
-| `confluence_get_page_summary` | Fetch and summarize a Confluence page by ID with extracted requirement signals |
-| `jira_get_issue_with_confluence_context` | Jira issue + Confluence documentation enrichment in one combined context brief |
-| `jira_prepare_confluence_enriched_work_prompt` | Implementation prompt enriched with relevant Confluence documentation |
-| `delivery_get_traceability_matrix` | Generate a requirement-to-code traceability matrix for a Jira task |
-| `delivery_verify_definition_of_done` | Verify Definition of Done (14 checks) and return merge-readiness verdict with score |
-| `delivery_analyze_implementation_impact` | Analyze predicted implementation impact before coding begins |
-| `delivery_generate_test_strategy` | Generate a practical test strategy with unit, integration, E2E, and manual QA scenarios |
-| `delivery_generate_reviewer_report` | Generate a role-specific review report (product, frontend, backend, QA, security, release) |
-| `delivery_generate_qa_handoff` | Generate a QA handoff document with test cases, regression areas, and known risks |
-| `delivery_generate_release_notes` | Generate release notes with audience variants (internal, qa, product, customer_safe) |
-| `delivery_generate_claude_workflow_pack` | Generate Claude Code workflow assets (.claude/skills/ and .claude/commands/) for Jira workflows |
-| `delivery_generate_generic_prompt_pack` | Generate client-agnostic prompt templates (.mcp-prompts/) for all major delivery workflows |
-| `delivery_generate_codex_prompt_pack` | Generate Codex CLI-ready prompt files (.codex-prompts/) for Jira delivery workflows |
-| `delivery_scan_project_patterns` | Scan local repo for technical patterns (tech stack, module names, naming conventions) |
-| `delivery_get_project_patterns` | Get saved local project patterns from pattern memory |
-| `delivery_clear_project_patterns` | Clear local project pattern memory |
-| `delivery_export_task_report` | Export a complete multi-section delivery report to a markdown file |
-| `mcp_get_client_setup_instructions` | Return setup instructions for configuring this server with a specific MCP-compatible client |
-| `mcp_clear_cache` | Clear the in-memory Jira/Confluence cache |
+> **Upgrading from 1.x?** v2 consolidated 28 tools into the 10 below. See the [migration table in the CHANGELOG](CHANGELOG.md#migrating-from-1x).
+
+## Tools (v2)
+
+| Tool | What it does | Key inputs |
+|------|-------------|------------|
+| `jira_get_issue` | Fetch a Jira issue as a developer brief | `issueKey`, `depth: basic\|full`, `includeConfluence` |
+| `jira_search_issues` | List your open issues | `projectKey?`, `maxResults` |
+| `jira_prepare_work_brief` | Turn an issue into a ready-to-implement brief for a coding agent | `issueKey`, `depth`, `includeConfluence` |
+| `confluence_search` | Find Confluence pages related to an issue, ranked by relevance | `issueKey`, `maxResults`, `spaceKeys` |
+| `confluence_get_page` | Read and summarise a Confluence page | `pageId`, `maxChars` |
+| `delivery_check_changes` | Check the local diff against the issue: alignment, Definition of Done, impact | `issueKey`, `checks`, git refs |
+| `delivery_traceability_matrix` | Map requirements to the changed files that implement them | `issueKey`, git refs |
+| `delivery_generate` | Generate a test strategy, reviewer report, QA handoff, release notes or task report | `issueKey`, `type`, `persona?`, `audience?` |
+| `delivery_generate_agent_pack` | Write reusable delivery prompts/commands for Claude Code, Codex or any agent into the repo | `client: claude\|codex\|generic` |
+| `delivery_project_patterns` | Scan, read or clear stored repository conventions | `action: scan\|get\|clear` |
+
+Git refs are `baseBranch` (default `origin/main`), `compareRef` (default `HEAD`) and `repoPath` (default `.`).
+
+Every tool returns Markdown text plus `structuredContent` (`schemaVersion`, `tool`, `issueKey`, `markdown`, `warnings`) and carries annotations (`readOnlyHint`, `destructiveHint`) so clients know which calls change anything. Only `delivery_generate_agent_pack` and `delivery_project_patterns` write, and only to the local repository.
+
+Also available:
+- Resource `jira-delivery://config/projects`: which Jira projects this server is configured for.
+- Prompts (slash commands): `jira_implementation_prompt`, `jira_pr_review_prompt`, `jira_qa_handoff_prompt`, `jira_definition_of_done_prompt`, `jira_release_note_prompt`.
+- CLI: `npx jira-delivery-mcp setup <client>` prints setup instructions for `generic`, `claude-code`, `claude-desktop`, `codex-cli`, `cursor`, `windsurf` or `vscode`.
 
 Additional capabilities:
 - Converts Atlassian Document Format (ADF) to clean Markdown so descriptions are readable
@@ -104,7 +99,7 @@ Additional capabilities:
 
 ## Prerequisites
 
-- Node.js 18+ (this project uses Node 22)
+- Node.js 20+
 - A Jira Cloud account with API token access
 
 ## Creating an Atlassian API token
@@ -228,14 +223,14 @@ After registering, use these prompts in Claude Code:
 Use the Jira MCP server to fetch ENG-123 and prepare an implementation plan.
 Fetch ENG-123 from Jira, inspect this repo, and implement the task carefully.
 Show my open Jira issues.
-Use jira_prepare_pr_review_prompt for ENG-123 and review my current branch.
+Use delivery_check_changes for ENG-123 and review my current branch.
 Use Jira MCP to verify Definition of Done for ENG-123.
 Use Jira MCP to generate the Claude Code workflow pack.
 ```
 
 #### Claude Code workflow pack (Claude-specific)
 
-The `delivery_generate_claude_workflow_pack` tool generates `.claude/skills/` and `.claude/commands/` files that turn Jira delivery workflows into reusable slash commands in Claude Code:
+The `delivery_generate_agent_pack` (client: claude) tool generates `.claude/skills/` and `.claude/commands/` files that turn Jira delivery workflows into reusable slash commands in Claude Code:
 
 ```
 Use Jira MCP to generate the Claude Code workflow pack.
@@ -273,7 +268,7 @@ env = { JIRA_BASE_URL = "https://your-domain.atlassian.net", JIRA_EMAIL = "your-
 
 #### Generate a Codex CLI prompt pack
 
-The `delivery_generate_codex_prompt_pack` tool creates `.codex-prompts/` files with ready-to-use Codex prompts:
+The `delivery_generate_agent_pack` (client: codex) tool creates `.codex-prompts/` files with ready-to-use Codex prompts:
 
 ```
 Use Jira MCP to generate the Codex CLI prompt pack.
@@ -329,10 +324,10 @@ For VS Code:
 1. Configure the server in your VS Code MCP extension settings
 2. Pass credentials via environment variables
 
-After adding the server, use `mcp_get_client_setup_instructions` with your client profile to get tailored instructions:
+For tailored instructions for your client, run:
 
 ```
-Use mcp_get_client_setup_instructions with client: "cursor"
+npx jira-delivery-mcp setup cursor
 ```
 
 ---
@@ -361,15 +356,10 @@ Refer to your client's documentation for where to place this configuration.
 
 #### Getting client-specific setup instructions
 
-The `mcp_get_client_setup_instructions` tool returns setup instructions for any supported client:
+The `setup` command prints setup instructions for any supported client, and needs no Jira credentials:
 
-```json
-{
-  "client": "codex-cli",
-  "serverName": "jira-delivery-mcp",
-  "serverCommand": "node",
-  "serverArgs": ["/absolute/path/to/dist/index.js"]
-}
+```bash
+npx jira-delivery-mcp setup codex-cli
 ```
 
 Supported client values: `generic`, `claude-code`, `claude-desktop`, `codex-cli`, `cursor`, `windsurf`, `vscode`
@@ -393,50 +383,38 @@ Generate release notes for ENG-123.
 Direct tool usage:
 ```
 jira_get_issue({"issueKey": "ENG-123"})
-jira_prepare_work_prompt({"issueKey": "ENG-123"})
-jira_search_my_open_issues({"maxResults": 10})
-delivery_verify_definition_of_done({"issueKey": "ENG-123"})
+jira_prepare_work_brief({"issueKey": "ENG-123"})
+jira_search_issues({"maxResults": 10})
+delivery_check_changes (checks: dod)({"issueKey": "ENG-123"})
 ```
 
 ## Context-aware Jira task fetching
 
 The server includes two advanced tools that gather surrounding context from Jira — parent issues, epics, linked issues, subtasks, and analyzed comments — to produce a richer brief for implementing complex requirements.
 
-### `jira_get_issue_context`
+### `jira_get_issue` (depth: full)
 
 Fetches an issue and its surrounding Jira context, producing a comprehensive developer brief.
 
 ```json
 {
   "issueKey": "ENG-123",
-  "includeComments": true,
-  "includeParent": true,
-  "includeEpic": true,
-  "includeLinkedIssues": true,
-  "includeSubtasks": true,
-  "includeEpicSiblings": false,
-  "maxLinkedIssues": 8,
-  "maxSubtasks": 10,
-  "maxCommentsPerIssue": 10,
-  "contextDepth": 1
+  "depth": "full"
 }
 ```
 
+It fetches the parent, epic, up to 8 linked issues, up to 10 subtasks and up to 10 comments per issue (epic siblings are not included). Add `"includeConfluence": true` to fold in related Confluence pages.
+
 Output includes: Main Task metadata, Core Requirement, Acceptance Criteria, Requirement Clarifications from Comments, Parent/Epic Context, Related Issues, Subtasks, Possible Dependencies/Blockers, Technical Signals, Risk/Ambiguity, and a Final Implementation Prompt.
 
-### `jira_prepare_contextual_work_prompt`
+### `jira_prepare_work_brief` (depth: full)
 
-Same as `jira_get_issue_context` but returns only the final implementation prompt — ready to paste directly into any AI coding agent.
+Same as `jira_get_issue` (depth: full) but returns only the final implementation prompt — ready to paste directly into any AI coding agent.
 
 ```json
 {
   "issueKey": "ENG-123",
-  "includeComments": true,
-  "includeParent": true,
-  "includeEpic": true,
-  "includeLinkedIssues": true,
-  "includeSubtasks": true,
-  "includeEpicSiblings": false
+  "depth": "full"
 }
 ```
 
@@ -452,10 +430,9 @@ Standard Jira Cloud projects do not need this setting — the server tries the s
 
 ### Context budget controls
 
-- `includeEpicSiblings` defaults to `false` — sibling issues can add a lot of noise.
-- `contextDepth` maximum is `2` — keep it at `1` for most tasks.
-- `maxLinkedIssues` maximum is `15` — default is `8`.
-- If the brief is too large, lower `maxLinkedIssues`, `maxCommentsPerIssue`, or set `includeEpicSiblings: false`.
+- `depth: "basic"` (the default) fetches only the issue itself; use `"full"` only when the surrounding context matters.
+- The full-depth limits (8 linked issues, 10 subtasks, 10 comments per issue, no epic siblings) are fixed in v2.
+- If the brief is too large, lower `JIRA_MAX_CONTEXT_CHARS` (default `30000`).
 
 ### Why these tools are still read-only
 
@@ -479,7 +456,7 @@ The context-aware tools include a built-in intelligence layer that evaluates Jir
 
 ### Updated context brief sections
 
-When using `jira_get_issue_context`, the brief includes:
+When using `jira_get_issue` (depth: full), the brief includes:
 - **Context Quality** — Score and interpretation (0-100)
 - **Requirement Authority** — Which sources are most authoritative
 - **Implementation Readiness** — READY / MOSTLY_READY / NEEDS_CLARIFICATION / BLOCKED with reasons
@@ -522,17 +499,13 @@ JIRA_MAX_CONTEXT_CHARS=30000
 
 ### Overview
 
-The `jira_review_pr_alignment` tool compares a PR's changes against the Jira requirement to produce an evidence-based alignment report. It reports a score, confidence level, matched requirements, missing requirements, unrelated changes, risky changes, and practical review comments.
+The `delivery_check_changes` (checks: alignment) tool compares a PR's changes against the Jira requirement to produce an evidence-based alignment report. It reports a score, confidence level, matched requirements, missing requirements, unrelated changes, risky changes, and practical review comments.
 
-### Supported modes
+### How changes are read
 
-**local_diff (default):**
 Compares a local branch against a base branch using git. No GitHub API required.
 
-**github_pr (v2, not yet supported):**
-Will fetch PR data from GitHub using GITHUB_TOKEN. Not available in v1 — use local_diff.
-
-### `jira_review_pr_alignment`
+### `delivery_check_changes` (checks: alignment)
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
@@ -542,25 +515,29 @@ Will fetch PR data from GitHub using GITHUB_TOKEN. Not available in v1 — use l
 | `repoPath` | no | `.` | Path to the git repository |
 | `maxDiffChars` | no | `50000` | Max characters of diff to analyze |
 
-### `jira_prepare_pr_review_prompt`
+### Choosing checks
 
-Returns a ready-to-use review prompt for an AI coding agent to review the PR against the Jira requirement.
+`delivery_check_changes` also accepts `checks` (default: all three) and `includeConfluence` (default `true`):
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `issueKey` | yes | Jira issue key, e.g. `ENG-123` |
+| `checks` value | What it runs |
+|-----------|-------------|
+| `alignment` | The alignment report above |
+| `dod` | The 14-point Definition of Done verdict |
+| `impact` | Predicted implementation impact |
+
+Each check runs independently. If one fails (for example, Confluence returns 401), the others still report and the failure appears in `warnings`.
 
 ### Usage examples
 
 ```
 # Review local changes against ENG-123
-Use jira_review_pr_alignment with issueKey: "ENG-123"
+Use delivery_check_changes (checks: alignment) with issueKey: "ENG-123"
 
 # Review a specific branch
-Use jira_review_pr_alignment with issueKey: "ENG-123", baseBranch: "main", compareRef: "feature/my-branch"
+Use delivery_check_changes (checks: alignment) with issueKey: "ENG-123", baseBranch: "main", compareRef: "feature/my-branch"
 
 # Prepare a review prompt
-Use jira_prepare_pr_review_prompt with issueKey: "ENG-123"
+Use delivery_check_changes with issueKey: "ENG-123"
 ```
 
 ### Understanding the alignment score
@@ -671,10 +648,10 @@ Jira is always the primary source of truth:
 ### Example usage
 
 ```
-Use jira_prepare_confluence_enriched_work_prompt for ENG-123
-Use confluence_search_related_pages for ENG-123 and explain which pages are most relevant
-Use jira_get_issue_with_confluence_context for ENG-123, then inspect this repo and implement the confirmed requirement
-Use confluence_get_page_summary with pageId: "123456789"
+Use jira_prepare_work_brief (includeConfluence: true) for ENG-123
+Use confluence_search for ENG-123 and explain which pages are most relevant
+Use jira_get_issue (includeConfluence: true) for ENG-123, then inspect this repo and implement the confirmed requirement
+Use confluence_get_page with pageId: "123456789"
 ```
 
 ### Troubleshooting Confluence
@@ -701,7 +678,7 @@ Maps each Jira acceptance criterion and business rule to implementation evidence
 Use Jira MCP to generate a traceability matrix for ENG-123.
 ```
 
-Tool: `delivery_get_traceability_matrix`
+Tool: `delivery_traceability_matrix`
 
 ### 2. Definition of Done Verification
 
@@ -711,7 +688,7 @@ Runs 14 automated checks to determine merge-readiness: test coverage, AC coverag
 Use Jira MCP to verify Definition of Done for ENG-123 against the current branch.
 ```
 
-Tool: `delivery_verify_definition_of_done`
+Tool: `delivery_check_changes` (checks: dod)
 
 ### 3. Implementation Impact Analysis
 
@@ -721,7 +698,7 @@ Predicts affected areas (frontend, backend, API, database, auth, validation) fro
 Use Jira MCP to analyze implementation impact for ENG-123.
 ```
 
-Tool: `delivery_analyze_implementation_impact`
+Tool: `delivery_check_changes` (checks: impact)
 
 ### 4. Test Strategy Generation
 
@@ -731,7 +708,7 @@ Generates specific test scenarios (unit, integration, E2E, manual QA, negative, 
 Use Jira MCP to generate a test strategy for ENG-123.
 ```
 
-Tool: `delivery_generate_test_strategy`
+Tool: `delivery_generate` (type: test_strategy)
 
 ### 5. Reviewer Persona Reports
 
@@ -741,7 +718,7 @@ Generates role-specific review reports from the same Jira/Confluence/PR context.
 Use Jira MCP to generate a QA reviewer report for ENG-123.
 ```
 
-Tool: `delivery_generate_reviewer_report` (with `persona` parameter)
+Tool: `delivery_generate` (type: reviewer_report) (with `persona` parameter)
 
 ### 6. QA Handoff
 
@@ -751,7 +728,7 @@ Generates a QA-readable handoff document with what to test, what not to test, te
 Use Jira MCP to generate a QA handoff for ENG-123.
 ```
 
-Tool: `delivery_generate_qa_handoff`
+Tool: `delivery_generate` (type: qa_handoff)
 
 ### 7. Release Note Generation
 
@@ -761,7 +738,7 @@ Generates audience-aware release notes. Audiences: `internal`, `qa`, `product`, 
 Use Jira MCP to generate a release note for ENG-123.
 ```
 
-Tool: `delivery_generate_release_notes`
+Tool: `delivery_generate` (type: release_notes)
 
 ### 8. Prompt Packs
 
@@ -769,7 +746,7 @@ Tool: `delivery_generate_release_notes`
 ```
 Use Jira MCP to generate the generic prompt pack.
 ```
-Tool: `delivery_generate_generic_prompt_pack`
+Tool: `delivery_generate_agent_pack` (client: generic)
 
 Generates `.mcp-prompts/` with 6 ready-to-use template files covering all major workflows.
 
@@ -777,7 +754,7 @@ Generates `.mcp-prompts/` with 6 ready-to-use template files covering all major 
 ```
 Use Jira MCP to generate the Codex CLI prompt pack.
 ```
-Tool: `delivery_generate_codex_prompt_pack`
+Tool: `delivery_generate_agent_pack` (client: codex)
 
 Generates `.codex-prompts/` with 4 Codex-ready prompt files.
 
@@ -785,7 +762,7 @@ Generates `.codex-prompts/` with 4 Codex-ready prompt files.
 ```
 Use Jira MCP to generate the Claude Code workflow pack.
 ```
-Tool: `delivery_generate_claude_workflow_pack`
+Tool: `delivery_generate_agent_pack` (client: claude)
 
 Generates `.claude/skills/` and `.claude/commands/` for Claude Code slash command workflows.
 
@@ -796,9 +773,9 @@ Capture non-sensitive technical patterns from the local repo (module names, test
 Enable by setting `DELIVERY_PATTERN_MEMORY_ENABLED=true` in your `.env`.
 
 Tools:
-- `delivery_scan_project_patterns` — Scan and optionally persist patterns
-- `delivery_get_project_patterns` — Retrieve saved patterns
-- `delivery_clear_project_patterns` — Delete the pattern file
+- `delivery_project_patterns` (action: scan) — Scan and optionally persist patterns
+- `delivery_project_patterns` (action: get) — Retrieve saved patterns
+- `delivery_project_patterns` (action: clear) — Delete the pattern file
 
 **Security note:** Pattern memory never stores Jira descriptions, Confluence content, or any client-sensitive text — only derived structural metadata.
 
@@ -812,7 +789,7 @@ Combine multiple analysis sections into a single markdown document.
 Use Jira MCP to export a complete delivery report for ENG-123.
 ```
 
-Tool: `delivery_export_task_report`
+Tool: `delivery_generate` (type: task_report)
 
 Sections: `context`, `impact`, `traceability`, `pr_alignment`, `definition_of_done`, `test_strategy`, `qa_handoff`, `release_notes`
 
@@ -968,7 +945,7 @@ If context output is cut off:
 - Security warnings are always preserved even when truncating
 
 ### Cache stale
-To clear the cache mid-session, use the `mcp_clear_cache` tool with `{ "scope": "all" }`.
+Cache entries expire on their own; to clear them immediately, restart the MCP server.
 You can also disable caching entirely with `MCP_CACHE_ENABLED=false`.
 
 ### Restricted Confluence pages

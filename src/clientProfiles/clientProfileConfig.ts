@@ -29,24 +29,62 @@ export function getClientDisplayName(profile: McpClientProfile): string {
   }
 }
 
+// The server only reads credentials from its process environment, so every
+// client config must pass these three variables.
+const REQUIRED_ENV: Array<[string, string]> = [
+  ['JIRA_BASE_URL', 'https://your-domain.atlassian.net'],
+  ['JIRA_EMAIL', 'you@example.com'],
+  ['JIRA_API_TOKEN', 'your-api-token'],
+];
+
+function jsonServerBlock(serverName: string, serverCommand: string, serverArgs: string[]): string {
+  const env = Object.fromEntries(REQUIRED_ENV);
+  const block = { mcpServers: { [serverName]: { command: serverCommand, args: serverArgs, env } } };
+  return ['```json', JSON.stringify(block, null, 2), '```'].join('\n');
+}
+
 function getSetupSteps(profile: McpClientProfile, serverName: string, serverCommand: string, serverArgs: string[]): string {
   const argsStr = serverArgs.join(' ');
+  // Only a local checkout (`node dist/index.js`) needs building; `npx` fetches the published package.
+  const steps = serverCommand === 'node' ? ['Build the server: `npm run build`'] : [];
+  const json = jsonServerBlock(serverName, serverCommand, serverArgs);
+
   switch (profile) {
     case 'generic':
-      return '1. Build the server: `npm run build`\n2. Configure your MCP client to launch the server via stdio.\n3. Pass credentials via environment variables.';
-    case 'claude-code':
-      return `1. Build the server: \`npm run build\`\n2. Run: \`claude mcp add ${serverName} ${serverCommand} -- ${argsStr}\`\n3. Pass credentials via environment variables or \`.env\` file.`;
+      steps.push(`Configure your MCP client to launch the server via stdio with the required environment variables:\n\n${json}`);
+      break;
+    case 'claude-code': {
+      const envFlags = REQUIRED_ENV.map(([k, v]) => `-e ${k}=${v}`).join(' ');
+      steps.push(`Run: \`claude mcp add ${serverName} ${envFlags} -- ${serverCommand} ${argsStr}\``);
+      break;
+    }
     case 'claude-desktop':
-      return '1. Build the server: `npm run build`\n2. Add the server to `claude_desktop_config.json` under `mcpServers`.\n3. Restart Claude Desktop.';
-    case 'codex-cli':
-      return '1. Build the server: `npm run build`\n2. Add the server to `~/.codex/config.toml` under `[mcp_servers]`.\n3. Pass credentials via environment variables.';
+      steps.push(`Add the server to \`claude_desktop_config.json\`:\n\n${json}`, 'Restart Claude Desktop.');
+      break;
+    case 'codex-cli': {
+      const toml = [
+        '```toml',
+        `[mcp_servers.${serverName}]`,
+        `command = "${serverCommand}"`,
+        `args = [${serverArgs.map((a) => `"${a}"`).join(', ')}]`,
+        `env = { ${REQUIRED_ENV.map(([k, v]) => `${k} = "${v}"`).join(', ')} }`,
+        '```',
+      ].join('\n');
+      steps.push(`Add the server to \`~/.codex/config.toml\`:\n\n${toml}`);
+      break;
+    }
     case 'cursor':
-      return '1. Build the server: `npm run build`\n2. Open Cursor Settings → Features → MCP → Add Server.\n3. Enter the command and args.';
+      steps.push(`Add the server to \`~/.cursor/mcp.json\` (or Cursor Settings → MCP → Add Server):\n\n${json}`);
+      break;
     case 'windsurf':
-      return '1. Build the server: `npm run build`\n2. Open Windsurf Settings → MCP Servers → Add.\n3. Enter the server command and args.';
+      steps.push(`Add the server in Windsurf Settings → MCP Servers:\n\n${json}`);
+      break;
     case 'vscode':
-      return '1. Build the server: `npm run build`\n2. Configure the server in your VS Code MCP extension settings.\n3. Pass credentials via environment variables.';
+      steps.push(`Configure the server in your VS Code MCP settings:\n\n${json}`);
+      break;
   }
+  steps.push(`Replace the placeholder values of ${REQUIRED_ENV.map(([k]) => k).join(', ')} with your own.`);
+  return steps.map((s, i) => `${i + 1}. ${s}`).join('\n');
 }
 
 function getExampleUsage(_profile: McpClientProfile): string {
@@ -94,7 +132,7 @@ export function getClientExampleCommands(profile: McpClientProfile, exampleIssue
   ];
 
   if (profile === 'claude-code') {
-    examples.push(`Run jira_get_issue_with_confluence_context for ${exampleIssueKey}`);
+    examples.push(`Run jira_get_issue (includeConfluence: true) for ${exampleIssueKey}`);
   }
 
   return examples;

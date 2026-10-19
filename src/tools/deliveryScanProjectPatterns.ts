@@ -143,7 +143,7 @@ export async function deliveryGetProjectPatterns(input: {
         '',
         'Pattern memory is disabled.',
         '',
-        'Set `DELIVERY_PATTERN_MEMORY_ENABLED=true` and run `delivery_scan_project_patterns` to scan and persist patterns.',
+        'Set `DELIVERY_PATTERN_MEMORY_ENABLED=true` and run `delivery_project_patterns` (action: scan) to scan and persist patterns.',
       ].join('\n');
     }
     return [
@@ -151,7 +151,7 @@ export async function deliveryGetProjectPatterns(input: {
       '',
       `No pattern file found for: ${input.repoPath}`,
       '',
-      'Run `delivery_scan_project_patterns` first to scan and persist patterns.',
+      'Run `delivery_project_patterns` (action: scan) first to scan and persist patterns.',
     ].join('\n');
   }
 

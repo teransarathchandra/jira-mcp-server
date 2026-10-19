@@ -20,10 +20,9 @@ import { scoreLinkedIssues } from '../utils/relevanceScorer.js';
 
 export interface ReviewPrAlignmentInput {
   issueKey: string;
-  mode: 'local_diff' | 'github_pr';
+  mode: 'local_diff';
   baseBranch: string;
   compareRef: string;
-  prNumber?: number | null; // Reserved for future github_pr mode support
   repoPath: string;
   maxDiffChars?: number;
 }
@@ -39,12 +38,6 @@ export async function reviewPrAlignment(
   validateIssueKey(input.issueKey);
   validateGitRef(input.baseBranch);
   validateGitRef(input.compareRef);
-
-  if (input.mode === 'github_pr') {
-    throw new Error(
-      'github_pr mode requires GITHUB_TOKEN, GITHUB_OWNER, and GITHUB_REPO environment variables. Use local_diff mode instead.',
-    );
-  }
 
   const MIN_DIFF_CHARS = 1000;
   const MAX_DIFF_CHARS = 200000;

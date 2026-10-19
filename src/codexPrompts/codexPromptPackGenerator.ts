@@ -47,7 +47,7 @@ Use the Jira Delivery MCP server to fetch the full implementation context for <I
 and prepare an implementation plan.
 
 Steps:
-1. Call jira_prepare_contextual_work_prompt with issueKey: <ISSUE-KEY>
+1. Call jira_prepare_work_brief (depth: full) with issueKey: <ISSUE-KEY>
 2. Read the full implementation prompt it returns.
 3. Inspect the repository structure relevant to the task.
 4. Implement only the confirmed requirements from the Jira task.
@@ -81,11 +81,10 @@ Replace <ISSUE-KEY> with your Jira issue key:
 Use the Jira Delivery MCP server to review the current branch against <ISSUE-KEY>.
 
 Steps:
-1. Call jira_prepare_pr_review_prompt with issueKey: <ISSUE-KEY>
-2. Read the review prompt and check the changed files listed.
-3. Call jira_review_pr_alignment with issueKey: <ISSUE-KEY>
-4. Report: alignment score, matched requirements, missing requirements, unrelated changes.
-5. List required fixes before merge.
+1. Call delivery_check_changes (checks: alignment) with issueKey: <ISSUE-KEY>
+2. Check the changed files it lists.
+3. Report: alignment score, matched requirements, missing requirements, unrelated changes.
+4. List required fixes before merge.
 \`\`\`
 
 ## Notes
@@ -112,7 +111,7 @@ Replace <ISSUE-KEY> with your Jira issue key:
 Use the Jira Delivery MCP server to generate a test strategy for <ISSUE-KEY>.
 
 Steps:
-1. Call delivery_generate_test_strategy with issueKey: <ISSUE-KEY>
+1. Call delivery_generate (type: test_strategy) with issueKey: <ISSUE-KEY>
 2. Read the test strategy it returns.
 3. Identify which test files already exist in the repository for the affected areas.
 4. Write or update tests based on the strategy, covering acceptance criteria and edge cases.
@@ -144,8 +143,8 @@ Replace <ISSUE-KEY> with your Jira issue key:
 Use the Jira Delivery MCP server to verify Definition of Done for <ISSUE-KEY>.
 
 Steps:
-1. Call delivery_verify_definition_of_done with issueKey: <ISSUE-KEY>
-2. Call delivery_get_traceability_matrix with issueKey: <ISSUE-KEY>
+1. Call delivery_check_changes (checks: dod) with issueKey: <ISSUE-KEY>
+2. Call delivery_traceability_matrix with issueKey: <ISSUE-KEY>
 3. Review the DoD checklist and traceability matrix.
 4. List any failing criteria with specific evidence.
 5. Recommend fixes for failing criteria before merge.

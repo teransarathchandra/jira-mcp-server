@@ -39,9 +39,9 @@ description: Review a Jira task implementation using the Jira MCP server. Checks
 Use this skill to review whether the current branch implementation aligns with a Jira task.
 
 ## Steps
-1. Run \`delivery_verify_definition_of_done\` with the issue key
-2. Run \`delivery_get_traceability_matrix\` with the issue key
-3. Run \`jira_review_pr_alignment\` with the issue key
+1. Run \`delivery_check_changes\` (checks: dod) with the issue key
+2. Run \`delivery_traceability_matrix\` with the issue key
+3. Run \`delivery_check_changes\` (checks: alignment) with the issue key
 4. Summarize findings and list required fixes
 
 ## When to Use
@@ -60,9 +60,9 @@ description: Generate an implementation plan from a Jira task using the Jira MCP
 Use this skill to plan implementation before writing code.
 
 ## Steps
-1. Run \`jira_get_issue_with_confluence_context\` to get full context
-2. Run \`delivery_analyze_implementation_impact\` to predict affected areas
-3. Run \`delivery_generate_test_strategy\` to plan testing
+1. Run \`jira_get_issue\` (includeConfluence: true) to get full context
+2. Run \`delivery_check_changes\` (checks: impact) to predict affected areas
+3. Run \`delivery_generate\` (type: test_strategy) to plan testing
 4. Produce an ordered implementation plan
 
 ## When to Use
@@ -81,7 +81,7 @@ description: Generate a QA handoff document from a Jira task and current branch.
 Use this skill to prepare a QA handoff after implementation.
 
 ## Steps
-1. Run \`delivery_generate_qa_handoff\` with the issue key
+1. Run \`delivery_generate\` (type: qa_handoff) with the issue key
 2. Review and summarize the handoff document
 3. Highlight known risks and open questions
 
@@ -184,7 +184,7 @@ export function generateWorkflowPack(input: WorkflowPackInput): WorkflowPackResu
     '/jira-review-pr <JIRA-ISSUE-KEY> — Review PR alignment',
     '/jira-dod <JIRA-ISSUE-KEY> — Verify Definition of Done',
     '/jira-qa <JIRA-ISSUE-KEY> — Generate QA handoff',
-    '/jira-release-note <JIRA-ISSUE-KEY> — Generate release notes (via delivery_generate_release_notes tool)',
+    '/jira-release-note <JIRA-ISSUE-KEY> — Generate release notes (via delivery_generate (type: release_notes) tool)',
   ];
 
   return { generated, skipped, usageExamples };
