@@ -8,7 +8,13 @@ A local stdio MCP (Model Context Protocol) server for Jira Cloud task retrieval 
 
 > **v2 is in beta.** These instructions install it with the `@beta` tag. Plain `jira-delivery-mcp` still installs 1.x until 2.0.0 is released.
 
-No cloning required. Add the server to your MCP client config and it will be fetched from npm on first run:
+**Claude Code plugin (server + skill in one step).** The plugin asks for your Jira site, email and API token, and adds a skill that tells the agent when to use each tool:
+
+```
+/plugin install jira-delivery --marketplace teransarathchandra/jira-mcp-server
+```
+
+**Any MCP client.** No cloning required. Add the server to your MCP client config and it will be fetched from npm on first run:
 
 ```json
 {

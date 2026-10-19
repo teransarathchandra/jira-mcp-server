@@ -1,0 +1,50 @@
+{
+  "name": "jira-delivery",
+  "displayName": "Jira Delivery",
+  "version": "2.0.0-beta.2",
+  "description": "Start Jira tickets with a ready-to-build brief, verify your branch against the acceptance criteria before the PR, and hand off — from inside your coding agent.",
+  "author": { "name": "Teran Sarathchandra", "url": "https://github.com/teransarathchandra" },
+  "homepage": "https://github.com/teransarathchandra/jira-mcp-server#readme",
+  "repository": "https://github.com/teransarathchandra/jira-mcp-server",
+  "license": "MIT",
+  "keywords": ["jira", "confluence", "mcp", "delivery", "acceptance-criteria", "qa-handoff"],
+  "mcpServers": {
+    "jira-delivery-mcp": {
+      "command": "npx",
+      "args": ["-y", "jira-delivery-mcp@beta"],
+      "env": {
+        "JIRA_BASE_URL": "${user_config.jira_base_url}",
+        "JIRA_EMAIL": "${user_config.jira_email}",
+        "JIRA_API_TOKEN": "${user_config.jira_api_token}",
+        "JIRA_ENABLE_WRITES": "${user_config.enable_writes}"
+      }
+    }
+  },
+  "userConfig": {
+    "jira_base_url": {
+      "type": "string",
+      "title": "Jira site URL",
+      "description": "Your Jira Cloud site, e.g. https://your-domain.atlassian.net",
+      "required": true
+    },
+    "jira_email": {
+      "type": "string",
+      "title": "Jira account email",
+      "description": "The email of the Atlassian account the API token belongs to",
+      "required": true
+    },
+    "jira_api_token": {
+      "type": "string",
+      "title": "Jira API token",
+      "description": "Create one at https://id.atlassian.com/manage-profile/security/api-tokens",
+      "required": true,
+      "sensitive": true
+    },
+    "enable_writes": {
+      "type": "boolean",
+      "title": "Allow write-back to Jira",
+      "description": "Lets the agent post comments, change status, assign and link — always behind a preview you confirm. Off by default.",
+      "default": false
+    }
+  }
+}
