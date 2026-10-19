@@ -1,6 +1,6 @@
 # jira-delivery-mcp v2 R2 — Workflows Design
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-19
 Parent: `2026-10-19-v2-delivery-mcp-design.md` (§6, §7 R2 row). Narrows the scope of `2026-08-05-contextual-guidance-design.md` to what R2 ships.
 Decisions: the owner asked for the recommended defaults without a question round, so every choice below is the author's call unless marked as coming from the parent spec.

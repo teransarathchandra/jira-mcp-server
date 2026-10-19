@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### New
+
+- `jira_prepare_work_brief` returns typed `data`: readiness with confidence, acceptance criteria and their source, inbound blockers, 2–4 recommended actions, 0–3 clarifying questions, a suggested branch name, and how each Jira source was read. The text now starts with a short "Start here" section.
+- `delivery_check_changes` returns typed `data` with one verdict (`ready_for_pr`, `needs_work`, `insufficient_evidence`), per-criterion coverage with files, Definition of Done results and impact.
+- Branch name suggestion, configurable with `JIRA_BRANCH_PATTERN` (default `{type}/{KEY}-{slug}`).
+- `jira_prepare_work_brief` `allowElicitation: true` asks the clarifying questions in a form when the client supports it.
+
+### Fixes
+
+- The configured acceptance-criteria, epic, story-points and team custom fields are now requested from Jira; before, they were never fetched.
+- A link where this ticket blocks another issue no longer counts as this ticket being blocked.
+- When a ticket has more comments than the cap, the newest ones are kept (before, the oldest were).
+- Clarifying questions inferred only from what a ticket doesn't say (user roles, mobile views, error-message copy) are no longer generated.
+- A linked issue, parent or epic you don't have permission to see no longer fails the whole request; it is reported as not visible. Bad credentials still fail.
+
 ## 2.0.0-beta.2
 
 ### Fixes
