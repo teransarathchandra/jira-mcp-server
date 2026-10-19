@@ -115,7 +115,7 @@ Transitions are matched by name against `GET /issue/{key}/transitions`. When not
 | Release | Scope | Tag | Exit criteria |
 |---|---|---|---|
 | R1 Foundation | SDK v2 (`@modelcontextprotocol/server`), Node ≥20, Zod 4, one module per tool, §3 consolidation, §4 envelope, annotations, version from package.json, `setup` CLI, CI (Node 20/22: typecheck, test, build), MCP contract tests, old→new table | `2.0.0-beta.1` | All existing tests green; contract tests cover all 10 tools; one week of personal use logged |
-| R2 Workflows | Start a ticket, verify before PR, typed `data`, recorded Jira fixtures | `2.0.0-beta.2` | Fixtures-based tests for both workflows; used on ≥5 real tickets |
+| R2 Workflows | Start a ticket, verify before PR, typed `data`, recorded Jira fixtures — detailed in `2026-10-19-v2-r2-workflows-design.md` | `2.0.0-beta.2` | Fixtures-based tests for both workflows; used on ≥5 real tickets |
 | R3 Writes | §5 guards, `jira_add_comment`, `jira_update_issue`, Markdown→ADF, hand-off | `2.0.0-rc.1` | Write path tested preview→confirm→audit; elicitation fallback tested |
 | R4 Launch | SKILL.md, Claude Code plugin, tool-selection evals (~30 prompts), README rewrite + GIF, MCP Registry `server.json`, Cursor link, directories, release-please + npm provenance, OSS hygiene files | `2.0.0` | Eval pass rate reported in README; listed in Registry |
 | After | Agensi free listing; consider paid premium skills; revisit DC/OAuth/HTTP, remote PR diffs | — | — |
