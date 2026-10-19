@@ -4,6 +4,7 @@ import type { ServerDeps, ToolRegistrar } from './types.js';
 import { registerPrompts } from './prompts.js';
 import { ConfirmTokenStore } from '../writes/confirmTokens.js';
 import { registerJiraAddComment } from './tools/jiraAddComment.js';
+import { registerJiraUpdateIssue } from './tools/jiraUpdateIssue.js';
 import { registerResources } from './resources.js';
 import { registerJiraSearchIssues } from './tools/jiraSearchIssues.js';
 import { registerJiraGetIssue } from './tools/jiraGetIssue.js';
@@ -29,7 +30,7 @@ const TOOL_REGISTRARS: ToolRegistrar[] = [
   registerDeliveryProjectPatterns,
 ];
 
-const WRITE_REGISTRARS: ToolRegistrar[] = [registerJiraAddComment];
+const WRITE_REGISTRARS: ToolRegistrar[] = [registerJiraAddComment, registerJiraUpdateIssue];
 
 export function createServer(deps: ServerDeps): McpServer {
   const server = new McpServer({ name: 'jira-delivery-mcp', version: getServerVersion() });
