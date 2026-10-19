@@ -52,19 +52,35 @@ describe('jira_get_issue and jira_prepare_work_brief', () => {
     it('uses the context fetch with v1 defaults for depth full', async () => {
       await call('jira_get_issue', { issueKey: 'ABC-1', depth: 'full' });
       expect(getIssueContext).toHaveBeenCalledTimes(1);
-      expect(getIssueContext.mock.calls[0][0]).toMatchObject({
+      expect(getIssueContext.mock.calls[0][0]).toEqual({
         issueKey: 'ABC-1',
+        includeComments: true,
+        includeParent: true,
+        includeEpic: true,
+        includeLinkedIssues: true,
+        includeSubtasks: true,
+        includeEpicSiblings: false,
         maxLinkedIssues: 8,
         maxSubtasks: 10,
         maxCommentsPerIssue: 10,
         contextDepth: 1,
-        includeEpicSiblings: false,
       });
     });
 
     it('uses the Confluence-enriched fetch when includeConfluence is true', async () => {
       await call('jira_get_issue', { issueKey: 'ABC-1', includeConfluence: true });
       expect(getWithConfluence).toHaveBeenCalledTimes(1);
+      expect(getWithConfluence.mock.calls[0][0]).toEqual({
+        issueKey: 'ABC-1',
+        includeJiraComments: true,
+        includeParent: true,
+        includeEpic: true,
+        includeLinkedIssues: true,
+        includeSubtasks: true,
+        includeConfluence: true,
+        includeMediumRelevancePages: true,
+        includeLowRelevancePages: false,
+      });
       expect(getIssue).not.toHaveBeenCalled();
       expect(getIssueContext).not.toHaveBeenCalled();
     });
@@ -91,7 +107,15 @@ describe('jira_get_issue and jira_prepare_work_brief', () => {
 
     it('uses the contextual brief for depth full', async () => {
       await call('jira_prepare_work_brief', { issueKey: 'ABC-1', depth: 'full' });
-      expect(prepareContextual.mock.calls[0][0]).toMatchObject({ issueKey: 'ABC-1', includeEpicSiblings: false });
+      expect(prepareContextual.mock.calls[0][0]).toEqual({
+        issueKey: 'ABC-1',
+        includeComments: true,
+        includeParent: true,
+        includeEpic: true,
+        includeLinkedIssues: true,
+        includeSubtasks: true,
+        includeEpicSiblings: false,
+      });
     });
 
     it('uses the Confluence-enriched brief when includeConfluence is true', async () => {

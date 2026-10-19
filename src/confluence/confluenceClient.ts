@@ -90,7 +90,7 @@ export class ConfluenceClient {
     this._searchCache = new MemoryCache<ConfluenceSearchResult>({ ttlMs: pageTtlMs });
   }
 
-  /** Expose caches so external tools (e.g. mcp_clear_cache) can clear them. */
+  /** Expose caches so external tools can clear them. */
   get pageCache(): MemoryCache<ConfluencePage> { return this._pageCache; }
   get searchCache(): MemoryCache<ConfluenceSearchResult> { return this._searchCache; }
 

@@ -20,8 +20,9 @@ export const registerDeliveryCheckChanges: ToolRegistrar = (server, { config, ji
     {
       title: 'Check local changes against a Jira issue',
       description:
-        'Verify the current branch before opening a PR: alignment of the diff with the acceptance criteria, ' +
-        'Definition of Done verdict, and implementation impact. Each check runs independently.',
+        'Check work on a Jira issue. alignment and dod compare the local diff with the acceptance criteria and ' +
+        'Definition of Done — run them before opening a PR. impact predicts the affected areas and works before any code ' +
+        'is written, so use checks ["impact"] when planning. Each check runs independently.',
       inputSchema: z.object({
         issueKey: issueKeyField(config),
         checks: z

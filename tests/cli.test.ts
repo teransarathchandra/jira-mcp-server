@@ -1,5 +1,31 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { parseCommand, runSetup } from '../src/cli.js';
+import { parseCommand, runSetup, runCommand } from '../src/cli.js';
+
+describe('runCommand()', () => {
+  it('rejects an unknown command on stderr with exit 1', () => {
+    const out: string[] = [];
+    const err: string[] = [];
+    const code = runCommand(parseCommand(['stup', 'cursor']), (s) => out.push(s), (s) => err.push(s));
+    expect(code).toBe(1);
+    expect(err.join('\n')).toContain('Unknown command "stup"');
+    expect(err.join('\n')).toContain('Usage:');
+    expect(out).toEqual([]);
+  });
+
+  it('prints help on stdout with exit 0', () => {
+    const out: string[] = [];
+    expect(runCommand({ kind: 'help' }, (s) => out.push(s), () => {})).toBe(0);
+    expect(out.join('\n')).toContain('Usage:');
+  });
+});
+
+describe('setup instructions during a prerelease', () => {
+  it('installs the same dist-tag as the running version', () => {
+    const out: string[] = [];
+    runSetup('claude-code', (s) => out.push(s), () => {}, '2.0.0-beta.2');
+    expect(out.join('\n')).toContain('-- npx -y jira-delivery-mcp@beta');
+  });
+});
 
 describe('parseCommand()', () => {
   it('serves by default', () => {
@@ -13,6 +39,14 @@ describe('parseCommand()', () => {
   it('parses help flags', () => {
     expect(parseCommand(['--help'])).toEqual({ kind: 'help' });
     expect(parseCommand(['-h'])).toEqual({ kind: 'help' });
+  });
+
+  it('treats setup --help as help', () => {
+    expect(parseCommand(['setup', '--help'])).toEqual({ kind: 'help' });
+  });
+
+  it('marks anything else as unknown', () => {
+    expect(parseCommand(['stup'])).toEqual({ kind: 'unknown', arg: 'stup' });
   });
 });
 

@@ -77,6 +77,12 @@ describe('delivery generate tools', () => {
       });
     });
 
+    it('rejects an unknown task_report section instead of silently dropping it', async () => {
+      const r = await call('delivery_generate', { issueKey: 'ABC-1', type: 'task_report', sections: ['contxt'] });
+      expect(r.isError).toBe(true);
+      expect(exportReport).not.toHaveBeenCalled();
+    });
+
     it('never asks the task report to write a file', async () => {
       await call('delivery_generate', { issueKey: 'ABC-1', type: 'task_report' });
       const input = exportReport.mock.calls[0][0];
