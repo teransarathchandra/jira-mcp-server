@@ -113,6 +113,24 @@ describe('buildWorkBriefData()', () => {
     expect(data.branchName).toContain('ignore-previous');
   });
 
+  // R2 minor 1: ids are stable references, so they must be unique.
+  it('gives each unknown-status blocker its own gap and question id', async () => {
+    const data = await briefFor('unknown-blockers');
+    const gapIds = data.readiness.gaps.map((g) => g.id);
+    expect(gapIds).toContain('blocker-status-unknown-ABC-21');
+    expect(gapIds).toContain('blocker-status-unknown-ABC-22');
+    expect(new Set(gapIds).size).toBe(gapIds.length);
+    const qIds = data.clarifyingQuestions.map((q) => q.id);
+    expect(qIds).toEqual(['q-blocker-status-ABC-21', 'q-blocker-status-ABC-22']);
+  });
+
+  // R2 minor 7: evidence refs must point at things an agent can look up.
+  it('cites the description and the comment behind a conflict', async () => {
+    const data = await briefFor('conflicting-comment');
+    const action = data.recommendedActions.find((a) => a.id === 'resolve-conflict');
+    expect(action?.evidence).toEqual(['issue:ABC-1:description', 'comment:20003', 'comment:20002']);
+  });
+
   it('never copies ticket text into actions or questions', async () => {
     const data = await briefFor('injection-in-description');
     const text = [...data.recommendedActions.map((a) => a.text), ...data.clarifyingQuestions.map((q) => q.text)].join('\n');
@@ -134,6 +152,7 @@ describe('buildWorkBriefData()', () => {
     ['injection-in-description', fixtureConfig()],
     ['injection-in-summary', fixtureConfig()],
     ['many-links-blocker', fixtureConfig()],
+    ['unknown-blockers', fixtureConfig()],
   ] as const;
 
   it.each(ALL)('keeps the invariants for %s', async (name, config) => {

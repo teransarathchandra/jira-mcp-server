@@ -68,6 +68,28 @@ const EVIDENCE_LABEL: Record<keyof IssueContext['evidence'], string> = {
   acceptanceCriteriaField: 'The acceptance-criteria field',
 };
 
+/**
+ * Maps conflict sources (labels such as "task description (2026-09-30)" or
+ * "comment 20003 (2026-10-05)") to evidence references an agent can resolve.
+ */
+function conflictEvidence(conflicts: Array<{ source1: string; source2: string }>, context: IssueContext): string[] {
+  const key = context.mainIssue.key;
+  const refFor = (label: string): string => {
+    const comment = /^comment (\S+)/.exec(label);
+    if (comment) return `comment:${comment[1]}`;
+    if (label.startsWith('parent issue') && context.parentIssue) return `issue:${context.parentIssue.key}:description`;
+    if (label.startsWith('epic') && context.epicIssue) return `issue:${context.epicIssue.key}:description`;
+    return `issue:${key}:description`;
+  };
+  const refs: string[] = [];
+  for (const conflict of conflicts) {
+    for (const ref of [refFor(conflict.source1), refFor(conflict.source2)]) {
+      if (!refs.includes(ref)) refs.push(ref);
+    }
+  }
+  return refs;
+}
+
 export function buildWorkBriefData(context: IssueContext, config: Config): WorkBriefData {
   const fields = context.mainIssue.fields;
   const key = context.mainIssue.key;
@@ -128,7 +150,7 @@ export function buildWorkBriefData(context: IssueContext, config: Config): WorkB
   const gaps: Gap[] = [];
   for (const blocker of openBlockers) gaps.push({ id: `blocker-${blocker.key}`, text: `Blocked by ${blocker.key} (${blocker.status}).` });
   for (const blocker of unknownBlockers) {
-    gaps.push({ id: 'blocker-status-unknown', text: `The status of blocker ${blocker.key} could not be read.` });
+    gaps.push({ id: `blocker-status-unknown-${blocker.key}`, text: `The status of blocker ${blocker.key} could not be read.` });
   }
   if (acceptanceCriteria.length === 0) gaps.push({ id: 'no-acceptance-criteria', text: 'No acceptance criteria were found.' });
   if (materialConflicts.length > 0) {
@@ -160,7 +182,7 @@ export function buildWorkBriefData(context: IssueContext, config: Config): WorkB
     problems.push({
       id: 'resolve-conflict',
       text: `Resolve the conflicting requirement (${materialConflicts.length} conflict(s)) before implementing.`,
-      evidence: materialConflicts.map(({ index }) => `conflict:${index}`),
+      evidence: conflictEvidence(materialConflicts.map(({ conflict }) => conflict), context),
     });
   }
   if (ambiguities.length > 0) {
@@ -192,7 +214,7 @@ export function buildWorkBriefData(context: IssueContext, config: Config): WorkB
   const candidates: Array<Question & { action: string | null }> = [];
   for (const blocker of unknownBlockers) {
     candidates.push({
-      id: 'q-blocker-status',
+      id: `q-blocker-status-${blocker.key}`,
       action: null,
       text: `Is ${blocker.key} still blocking this work?`,
       reason: 'The blocker status could not be read.',

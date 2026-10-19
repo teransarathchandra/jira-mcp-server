@@ -23,6 +23,8 @@ export function testDeps(overrides: Partial<ServerDeps> = {}): ServerDeps {
 export interface ConnectOptions {
   /** Declare form elicitation and answer every elicitation request with this handler. */
   onElicit?: (params: { message: string; requestedSchema: unknown }) => Promise<{ action: string; content?: Record<string, unknown> }>;
+  /** Elicitation capability the client declares (default: form). */
+  elicitationCapability?: Record<string, unknown>;
 }
 
 export async function connect(
@@ -33,7 +35,7 @@ export async function connect(
   const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client(
     { name: 'contract-test', version: '0.0.0' },
-    options.onElicit ? { capabilities: { elicitation: { form: {} } } } : {},
+    options.onElicit ? { capabilities: { elicitation: options.elicitationCapability ?? { form: {} } } } : {},
   );
   if (options.onElicit) {
     const onElicit = options.onElicit;

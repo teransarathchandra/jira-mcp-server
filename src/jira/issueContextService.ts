@@ -148,7 +148,12 @@ export async function fetchIssueContext(
   validateIssueKey(issueKey);
 
   // 2. Fetch main issue
-  const mainIssue = await client.getIssue(issueKey);
+  // The client caches issue objects, so work on a copy of the parts edited below.
+  const fetchedIssue = await client.getIssue(issueKey);
+  const mainIssue: JiraIssue = {
+    ...fetchedIssue,
+    fields: { ...fetchedIssue.fields, comment: { ...fetchedIssue.fields.comment } },
+  };
   const mainIssueDescription = adfToMarkdown(mainIssue.fields.description);
 
   // Track visited keys to prevent duplicate fetches
@@ -163,17 +168,25 @@ export async function fetchIssueContext(
     const cap = Math.min(options.maxCommentsPerIssue, 20);
     commentsEvidence = commentField.total === 0 ? 'observed_empty' : 'observed';
 
-    if (commentField.total > commentField.comments.length || commentField.comments.length > cap) {
+    const chronological = (list: typeof commentField.comments) => [...list].sort((a, b) => a.created.localeCompare(b.created));
+    const newestInline = () => (cap === 0 ? [] : chronological(commentField.comments).slice(-cap));
+
+    if (cap === 0) {
+      mainIssue.fields.comment.comments = [];
+    } else if (commentField.total <= commentField.comments.length) {
+      // Jira returned every comment inline: the newest ones are already here.
+      mainIssue.fields.comment.comments = newestInline();
+    } else {
       try {
         const page = await client.getIssueComments(issueKey, 0, cap, '-created');
-        const newest = page.comments.length > 0 ? page.comments.slice(0, cap) : commentField.comments.slice(-cap);
-        mainIssue.fields.comment.comments = [...newest].sort((a, b) => a.created.localeCompare(b.created));
+        mainIssue.fields.comment.comments =
+          page.comments.length > 0 ? chronological(page.comments.slice(0, cap)) : newestInline();
       } catch (err) {
         if (err instanceof JiraAuthError && !(err instanceof JiraForbiddenError)) throw err;
         const message = err instanceof Error ? err.message : String(err);
         logger.warn(`[issueContext] Failed to fetch newest comments for ${issueKey}: ${message}`, { issueKey });
         truncationWarnings.push(`Newest comments could not be fetched: ${message}`);
-        mainIssue.fields.comment.comments = commentField.comments.slice(-cap);
+        mainIssue.fields.comment.comments = newestInline();
         commentsEvidence = 'fetch_error';
       }
     }

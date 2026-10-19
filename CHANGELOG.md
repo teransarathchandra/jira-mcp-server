@@ -16,6 +16,11 @@
 - When a ticket has more comments than the cap, the newest ones are kept (before, the oldest were).
 - Clarifying questions inferred only from what a ticket doesn't say (user roles, mobile views, error-message copy) are no longer generated.
 - A linked issue, parent or epic you don't have permission to see no longer fails the whole request; it is reported as not visible. Bad credentials still fail.
+- `delivery_check_changes` never reports `ready_for_pr` unless every criterion is covered; a crashed check, unreadable diff or unproven criteria give `insufficient_evidence`.
+- A DoD-only check reports the number of changed files and treats an empty branch as `insufficient_evidence`.
+- Inbound blockers are no longer missed on tickets with many links.
+- Conflict evidence now points at the description and comments involved (`issue:<KEY>:description`, `comment:<id>`).
+- Fewer Jira requests: comments are not re-fetched when Jira already returned all of them.
 
 ## 2.0.0-beta.2
 

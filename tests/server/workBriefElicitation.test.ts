@@ -61,6 +61,13 @@ describe('jira_prepare_work_brief elicitation', () => {
     expect(questions.every((q) => q.answer === undefined)).toBe(true);
   });
 
+  // R2 minor 5: only form elicitation can show these questions.
+  it('does not ask a client that only supports URL elicitation', async () => {
+    const onElicit = vi.fn(async () => ({ action: 'accept', content: { q0: 'yes' } }));
+    await brief({ allowElicitation: true }, { onElicit, elicitationCapability: { url: {} } });
+    expect(onElicit).not.toHaveBeenCalled();
+  });
+
   it('drops answers with control characters', async () => {
     const questions = await brief({ allowElicitation: true }, { onElicit: async () => ({ action: 'accept', content: { q0: 'ye\u0007s' } }) });
     expect(questions[0].answer).toBeUndefined();

@@ -122,7 +122,7 @@ How it decides:
 - **Confidence** drops when something couldn't be read (a linked issue you can't see, truncated comments). Missing data is never reported as "none".
 - **Actions** (2–4) and **questions** (0–3) come from fixed templates. Ticket text decides which ones apply but is never copied into them. A question is asked only when its answer could change the first step.
 - **Branch name** follows `JIRA_BRANCH_PATTERN` (default `{type}/{KEY}-{slug}`): Bug/Defect → `fix`, Story/Feature/Improvement/Epic → `feature`, anything else → `chore`. It's a suggestion; nothing runs git.
-- **`allowElicitation: true`** asks the questions in a form when your client supports it. Answers come back in `clarifyingQuestions[].answer` for that response only and are never stored.
+- **`allowElicitation: true`** asks the questions in a form when your client supports it. Answers come back in `clarifyingQuestions[].answer` for that response only and are never stored. The form waits up to 60 seconds; some clients cancel a tool call after 60 seconds in total, so answer promptly or leave it off.
 
 ### Verify before PR: `delivery_check_changes`
 
