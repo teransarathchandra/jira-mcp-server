@@ -2,6 +2,10 @@ import { z } from 'zod';
 import { prepareWorkPrompt } from '../../tools/prepareWorkPrompt.js';
 import { prepareContextualWorkPrompt } from '../../tools/prepareContextualWorkPrompt.js';
 import { jiraPrepareConfluenceEnrichedWorkPrompt } from '../../tools/jiraPrepareConfluenceEnrichedWorkPrompt.js';
+import { fetchIssueContext } from '../../jira/issueContextService.js';
+import { buildWorkBriefData } from '../../delivery/workBriefGuidance.js';
+import { WorkBriefDataSchema } from '../../delivery/workBriefTypes.js';
+import { formatStartHere } from '../../delivery/formatStartHere.js';
 import { EnvelopeSchema, toolResult } from '../envelope.js';
 import { errorResult } from '../errors.js';
 import { READ_ONLY_REMOTE } from '../annotations.js';
@@ -11,6 +15,7 @@ import {
   depthField,
   includeConfluenceField,
   CONTEXT_INCLUDE_DEFAULTS,
+  CONTEXT_FETCH_DEFAULTS,
   CONFLUENCE_BRIEF_DEFAULTS,
 } from './jiraIssueInputs.js';
 
@@ -29,20 +34,24 @@ export const registerJiraPrepareWorkBrief: ToolRegistrar = (server, { config, ji
         depth: depthField,
         includeConfluence: includeConfluenceField,
       }),
-      outputSchema: EnvelopeSchema,
+      outputSchema: EnvelopeSchema.extend({ data: WorkBriefDataSchema }),
       annotations: READ_ONLY_REMOTE,
     },
     async ({ issueKey, depth, includeConfluence }) => {
       try {
-        let markdown: string;
+        // Guidance always uses full-depth context; `depth` only shapes the prompt.
+        const context = await fetchIssueContext(issueKey, { ...CONTEXT_FETCH_DEFAULTS }, jiraClient, config);
+        const data = buildWorkBriefData(context, config);
+
+        let prompt: string;
         if (includeConfluence) {
-          markdown = await jiraPrepareConfluenceEnrichedWorkPrompt({ issueKey, ...CONFLUENCE_BRIEF_DEFAULTS }, jiraClient, config);
+          prompt = await jiraPrepareConfluenceEnrichedWorkPrompt({ issueKey, ...CONFLUENCE_BRIEF_DEFAULTS }, jiraClient, config);
         } else if (depth === 'full') {
-          markdown = await prepareContextualWorkPrompt({ issueKey, ...CONTEXT_INCLUDE_DEFAULTS }, jiraClient, config);
+          prompt = await prepareContextualWorkPrompt({ issueKey, ...CONTEXT_INCLUDE_DEFAULTS }, jiraClient, config);
         } else {
-          markdown = await prepareWorkPrompt({ issueKey }, jiraClient);
+          prompt = await prepareWorkPrompt({ issueKey }, jiraClient);
         }
-        return toolResult(NAME, markdown, { issueKey });
+        return toolResult(NAME, `${formatStartHere(data)}\n\n${prompt}`, { issueKey, data });
       } catch (err) {
         return errorResult(err);
       }

@@ -13,6 +13,26 @@ vi.mock('../../src/tools/prepareContextualWorkPrompt.js', () => ({
 vi.mock('../../src/tools/jiraPrepareConfluenceEnrichedWorkPrompt.js', () => ({
   jiraPrepareConfluenceEnrichedWorkPrompt: vi.fn(async () => 'brief + confluence'),
 }));
+// jira_prepare_work_brief also builds guidance data (R2); these tests only cover prompt dispatch.
+vi.mock('../../src/jira/issueContextService.js', () => ({ fetchIssueContext: vi.fn(async () => ({})) }));
+vi.mock('../../src/delivery/workBriefGuidance.js', () => ({
+  buildWorkBriefData: vi.fn(() => ({
+    issue: { key: 'ABC-1', summary: 's', type: 'Story', status: 'To Do', statusCategory: 'new', priority: null, assignee: null },
+    readiness: { status: 'READY', score: 90, confidence: 'high', gaps: [] },
+    acceptanceCriteria: [],
+    blockers: [],
+    recommendedActions: [
+      { id: 'create-branch', text: 'Create branch feature/ABC-1-s.', evidence: ['issue:ABC-1:summary'] },
+      { id: 'implement-and-verify', text: 'Implement.', evidence: ['issue:ABC-1:description'] },
+    ],
+    clarifyingQuestions: [],
+    branchName: 'feature/ABC-1-s',
+    evidence: {
+      comments: 'observed', linkedIssues: 'observed_empty', subtasks: 'observed_empty', parent: 'observed_empty',
+      epic: 'observed_empty', acceptanceCriteriaField: 'not_configured', confluence: 'not_requested',
+    },
+  })),
+}));
 
 const getIssue = vi.mocked((await import('../../src/tools/getIssue.js')).getIssue);
 const getIssueContext = vi.mocked((await import('../../src/tools/getIssueContext.js')).getIssueContext);
@@ -102,7 +122,9 @@ describe('jira_get_issue and jira_prepare_work_brief', () => {
     it('uses the basic brief by default', async () => {
       const r = await call('jira_prepare_work_brief', { issueKey: 'ABC-1' });
       expect(prepareWorkPrompt.mock.calls[0][0]).toEqual({ issueKey: 'ABC-1' });
-      expect((r.structuredContent as Envelope).markdown).toBe('basic brief');
+      const markdown = (r.structuredContent as Envelope).markdown;
+      expect(markdown.startsWith('## Start here')).toBe(true);
+      expect(markdown.endsWith('\n\nbasic brief')).toBe(true);
     });
 
     it('uses the contextual brief for depth full', async () => {

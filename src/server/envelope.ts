@@ -16,14 +16,15 @@ export type Envelope = z.infer<typeof EnvelopeSchema>;
 export function toolResult(
   tool: string,
   markdown: string,
-  opts: { issueKey?: string; warnings?: string[] } = {},
+  opts: { issueKey?: string; warnings?: string[]; data?: object } = {},
 ): CallToolResult {
-  const envelope: Envelope = {
+  const envelope: Envelope & { data?: object } = {
     schemaVersion: '2.0',
     tool,
     ...(opts.issueKey !== undefined ? { issueKey: opts.issueKey } : {}),
     markdown,
     warnings: opts.warnings ?? [],
+    ...(opts.data !== undefined ? { data: opts.data } : {}),
   };
   return {
     content: [{ type: 'text', text: markdown }],
