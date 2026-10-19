@@ -235,7 +235,7 @@ export class JiraClient {
     this._searchCache = new MemoryCache<JiraSearchResult>({ ttlMs: issueTtlMs });
   }
 
-  /** Expose caches so external tools (e.g. mcp_clear_cache) can clear them. */
+  /** Expose caches so external tools can clear them. */
   get issueCache(): MemoryCache<JiraIssue> { return this._issueCache; }
   get minimalCache(): MemoryCache<JiraMinimalIssue> { return this._minimalCache; }
   get searchCache(): MemoryCache<JiraSearchResult> { return this._searchCache; }

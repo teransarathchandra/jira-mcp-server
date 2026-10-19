@@ -86,7 +86,7 @@ Every tool declares an `outputSchema` and returns `structuredContent` plus a tex
 }
 ```
 
-**R2** adds a typed `data` field to the two headline tools (`jira_prepare_work_brief`, `delivery_check_changes`); other tools gain `data` only when a workflow needs it. Errors return `isError: true` with the existing `formatError` messages.
+**R2** adds a typed `data` field to the two headline tools (`jira_prepare_work_brief`, `delivery_check_changes`); other tools gain `data` only when a workflow needs it. Errors return `isError: true` with the existing `formatError` messages. Arguments that fail the input schema are rejected by the SDK before the handler runs, with its own `Input validation error: …` text.
 
 ## 5. Write safety model (R3)
 

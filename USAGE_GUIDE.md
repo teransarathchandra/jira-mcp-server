@@ -66,7 +66,7 @@ See `.env.example` for the full list of supported variables.
 
 | Tool | What It Does |
 |------|-------------|
-| `delivery_check_changes` | Prepare a focused review prompt for a PR against a Jira requirement |
+| `delivery_check_changes` | Run all checks (alignment, Definition of Done, impact) against the current branch |
 | `delivery_check_changes` (checks: alignment) | Review a PR/branch against a Jira requirement and produce an alignment report with score |
 
 ### Confluence

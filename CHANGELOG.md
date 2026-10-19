@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.0-beta.2
+
+### Fixes
+
+- `setup <client>` and the README install snippets use `jira-delivery-mcp@beta` during the beta. A bare `jira-delivery-mcp` installs `latest`, which is still 1.x.
+- Unknown CLI commands print usage to stderr and exit 1 instead of printing help and exiting 0. `setup --help` shows help.
+- `delivery_generate` rejects unknown `task_report` sections instead of silently dropping them.
+- The `delivery_check_changes` description says the `impact` check works before any code is written.
+- The `delivery_project_patterns` description names the `DELIVERY_PATTERN_MEMORY_ENABLED=true` opt-in.
+- The README now includes the v1 → v2 migration table.
+
 ## 2.0.0-beta.1
 
 The first v2 beta: the same delivery capabilities on MCP SDK v2, consolidated from 28 tools to 10.
@@ -7,7 +18,7 @@ The first v2 beta: the same delivery capabilities on MCP SDK v2, consolidated fr
 ### Breaking changes
 
 - **Node.js 20 or later** is required.
-- **Tools consolidated from 28 to 10.** Every v1 tool name is gone; see the migration table below.
+- **Tools consolidated from 28 to 10.** Every v1 tool name except `jira_get_issue` is gone; see the migration table below.
 - `jira_review_pr_alignment`'s `github_pr` mode (an unimplemented stub) is removed. Changes are checked against the local git diff only.
 - `delivery_generate` with `type: task_report` returns Markdown and no longer writes a file (`outputPath` removed). Save the output yourself if you need a file.
 - `mcp_clear_cache` is removed. Caches are time-bounded; restart the server to clear them.
