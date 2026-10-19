@@ -6,6 +6,8 @@ import { registerJiraGetIssue } from './tools/jiraGetIssue.js';
 import { registerJiraPrepareWorkBrief } from './tools/jiraPrepareWorkBrief.js';
 import { registerConfluenceSearch } from './tools/confluenceSearch.js';
 import { registerConfluenceGetPage } from './tools/confluenceGetPage.js';
+import { registerDeliveryCheckChanges } from './tools/deliveryCheckChanges.js';
+import { registerDeliveryTraceabilityMatrix } from './tools/deliveryTraceabilityMatrix.js';
 
 const TOOL_REGISTRARS: ToolRegistrar[] = [
   registerJiraGetIssue,
@@ -13,6 +15,8 @@ const TOOL_REGISTRARS: ToolRegistrar[] = [
   registerJiraPrepareWorkBrief,
   registerConfluenceSearch,
   registerConfluenceGetPage,
+  registerDeliveryCheckChanges,
+  registerDeliveryTraceabilityMatrix,
 ];
 
 export function createServer(deps: ServerDeps): McpServer {

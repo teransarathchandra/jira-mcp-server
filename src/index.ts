@@ -100,7 +100,7 @@ const PrepareContextualWorkPromptSchema = z.object({
 
 const ReviewPrAlignmentSchema = z.object({
   issueKey: z.string().describe('Jira issue key (e.g., PROJ-123)'),
-  mode: z.enum(['local_diff', 'github_pr']).optional().default('local_diff').describe('Diff mode: local_diff (default) or github_pr'),
+  mode: z.enum(['local_diff']).optional().default('local_diff').describe('Diff mode: local_diff (default) or github_pr'),
   baseBranch: z.string().optional().default('origin/main').describe('Base branch to diff against (default: origin/main)'),
   compareRef: z.string().optional().default('HEAD').describe('Compare ref (branch name or commit SHA, default: HEAD)'),
   prNumber: z.number().int().positive().optional().nullable().default(null).describe('GitHub PR number (only for github_pr mode)'),
