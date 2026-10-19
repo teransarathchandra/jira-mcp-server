@@ -45,79 +45,80 @@ See `.env.example` for the full list of supported variables.
 | Tool | What It Does |
 |------|-------------|
 | `jira_get_issue` | Fetch a Jira issue by key with description, AC, technical notes, and comments |
-| `jira_search_my_open_issues` | List all open Jira issues assigned to you |
+| `jira_search_issues` | List all open Jira issues assigned to you |
 
 ### Jira — Context & Enrichment
 
 | Tool | What It Does |
 |------|-------------|
-| `jira_get_issue_context` | Fetch an issue with full surrounding context — parent, epic, linked issues, subtasks, comments |
-| `jira_get_issue_with_confluence_context` | Fetch an issue enriched with relevant Confluence documentation |
+| `jira_get_issue` (depth: full) | Fetch an issue with full surrounding context — parent, epic, linked issues, subtasks, comments |
+| `jira_get_issue` (includeConfluence: true) | Fetch an issue enriched with relevant Confluence documentation |
 
 ### Jira — Prompt Generation
 
 | Tool | What It Does |
 |------|-------------|
-| `jira_prepare_work_prompt` | Generate a clean implementation prompt ready for your AI coding assistant |
-| `jira_prepare_contextual_work_prompt` | Generate a prompt with full Jira context (parent, epic, links, subtasks) |
-| `jira_prepare_confluence_enriched_work_prompt` | Generate a prompt enriched with Confluence documentation insights |
+| `jira_prepare_work_brief` | Generate a clean implementation prompt ready for your AI coding assistant |
+| `jira_prepare_work_brief` (depth: full) | Generate a prompt with full Jira context (parent, epic, links, subtasks) |
+| `jira_prepare_work_brief` (includeConfluence: true) | Generate a prompt enriched with Confluence documentation insights |
 
 ### Jira — PR Review
 
 | Tool | What It Does |
 |------|-------------|
-| `jira_prepare_pr_review_prompt` | Prepare a focused review prompt for a PR against a Jira requirement |
-| `jira_review_pr_alignment` | Review a PR/branch against a Jira requirement and produce an alignment report with score |
+| `delivery_check_changes` | Prepare a focused review prompt for a PR against a Jira requirement |
+| `delivery_check_changes` (checks: alignment) | Review a PR/branch against a Jira requirement and produce an alignment report with score |
 
 ### Confluence
 
 | Tool | What It Does |
 |------|-------------|
-| `confluence_search_related_pages` | Search Confluence for pages related to a Jira issue, ranked by relevance |
-| `confluence_get_page_summary` | Fetch a Confluence page summary with metadata, key sections, and extracted requirement signals |
+| `confluence_search` | Search Confluence for pages related to a Jira issue, ranked by relevance |
+| `confluence_get_page` | Fetch a Confluence page summary with metadata, key sections, and extracted requirement signals |
 
 ### Delivery — Pre-Implementation
 
 | Tool | What It Does |
 |------|-------------|
-| `delivery_analyze_implementation_impact` | Predict affected areas (frontend, backend, API, database, auth) before coding |
-| `delivery_scan_project_patterns` | Scan a repository for tech patterns, module names, test locations, naming conventions |
+| `delivery_check_changes` (checks: impact) | Predict affected areas (frontend, backend, API, database, auth) before coding |
+| `delivery_project_patterns` (action: scan) | Scan a repository for tech patterns, module names, test locations, naming conventions |
 
 ### Delivery — Post-Implementation Verification
 
 | Tool | What It Does |
 |------|-------------|
-| `delivery_verify_definition_of_done` | Run a 14-point DoD check and return a merge-readiness verdict with score |
-| `delivery_get_traceability_matrix` | Map acceptance criteria to PR diff evidence |
+| `delivery_check_changes` (checks: dod) | Run a 14-point DoD check and return a merge-readiness verdict with score |
+| `delivery_traceability_matrix` | Map acceptance criteria to PR diff evidence |
 
 ### Delivery — Test & QA Strategy
 
 | Tool | What It Does |
 |------|-------------|
-| `delivery_generate_test_strategy` | Generate unit, integration, E2E, manual QA, and negative test scenarios |
-| `delivery_generate_qa_handoff` | Generate a QA handoff document with test data, happy path, negative cases, regression areas |
+| `delivery_generate` (type: test_strategy) | Generate unit, integration, E2E, manual QA, and negative test scenarios |
+| `delivery_generate` (type: qa_handoff) | Generate a QA handoff document with test data, happy path, negative cases, regression areas |
 
 ### Delivery — Reviews & Documentation
 
 | Tool | What It Does |
 |------|-------------|
-| `delivery_generate_reviewer_report` | Generate a role-specific review report (product, frontend, backend, QA, security, release) |
-| `delivery_generate_release_notes` | Generate release notes for multiple audiences (internal, qa, product, customer_safe) |
+| `delivery_generate` (type: reviewer_report) | Generate a role-specific review report (product, frontend, backend, QA, security, release) |
+| `delivery_generate` (type: release_notes) | Generate release notes for multiple audiences (internal, qa, product, customer_safe) |
 
 ### Delivery — Orchestration
 
 | Tool | What It Does |
 |------|-------------|
-| `delivery_export_task_report` | Export a comprehensive delivery report combining all analysis sections into one markdown doc |
-| `delivery_generate_claude_workflow_pack` | Generate `.claude/skills/` and `.claude/commands/` workflow assets for a project |
-| `delivery_get_project_patterns` | Retrieve previously saved project patterns from local pattern memory |
-| `delivery_clear_project_patterns` | Clear local project pattern memory |
+| `delivery_generate` (type: task_report) | Export a comprehensive delivery report combining all analysis sections into one markdown doc |
+| `delivery_generate_agent_pack` (client: claude) | Generate `.claude/skills/` and `.claude/commands/` workflow assets for a project |
+| `delivery_project_patterns` (action: get) | Retrieve previously saved project patterns from local pattern memory |
+| `delivery_project_patterns` (action: clear) | Clear local project pattern memory |
 
 ### System
 
-| Tool | What It Does |
+| Resource / command | What It Does |
 |------|-------------|
-| `mcp_clear_cache` | Clear all in-memory caches (Jira issues, searches, Confluence pages) |
+| `jira-delivery://config/projects` (resource) | Show which Jira projects this server is configured for |
+| `npx jira-delivery-mcp setup <client>` (CLI) | Print setup instructions for an MCP client |
 
 ---
 
@@ -152,7 +153,7 @@ Get me the details for PROJ-123
 Get the full context for PROJ-123 including its parent epic, linked issues, and subtasks
 ```
 
-**Tool:** `jira_get_issue_context`
+**Tool:** `jira_get_issue` (depth: full)
 **Returns:** Everything from Scenario 1 plus related tickets so you understand dependencies before touching code.
 
 ---
@@ -166,7 +167,7 @@ Get the full context for PROJ-123 including its parent epic, linked issues, and 
 Get PROJ-123 with any related Confluence documentation
 ```
 
-**Tool:** `jira_get_issue_with_confluence_context`
+**Tool:** `jira_get_issue` (includeConfluence: true)
 **Returns:** Jira brief + matched Confluence pages merged into one view.
 
 ---
@@ -186,7 +187,7 @@ These tools generate structured prompts you feed directly to your AI coding assi
 Prepare a work prompt for PROJ-123
 ```
 
-**Tool:** `jira_prepare_work_prompt`
+**Tool:** `jira_prepare_work_brief`
 **Returns:** A clean, structured prompt — goal, acceptance criteria, codebase inspection steps, technical context. Copy-paste it into a new session to begin implementation.
 
 ---
@@ -200,7 +201,7 @@ Prepare a work prompt for PROJ-123
 Prepare a contextual work prompt for PROJ-123
 ```
 
-**Tool:** `jira_prepare_contextual_work_prompt`
+**Tool:** `jira_prepare_work_brief` (depth: full)
 **Returns:** Same as Scenario 4 plus parent epic and linked issues so the AI has full requirement lineage.
 
 ---
@@ -214,7 +215,7 @@ Prepare a contextual work prompt for PROJ-123
 Prepare a Confluence-enriched work prompt for PROJ-123
 ```
 
-**Tool:** `jira_prepare_confluence_enriched_work_prompt`
+**Tool:** `jira_prepare_work_brief` (includeConfluence: true)
 **Returns:** Implementation prompt + relevant Confluence documentation woven in. This produces the best-quality, most grounded prompt.
 
 ---
@@ -230,7 +231,7 @@ Prepare a Confluence-enriched work prompt for PROJ-123
 Search Confluence for pages related to PROJ-123
 ```
 
-**Tool:** `confluence_search_related_pages`
+**Tool:** `confluence_search`
 **Returns:** Ranked list of Confluence pages relevant to the ticket's topic.
 
 ---
@@ -244,7 +245,7 @@ Search Confluence for pages related to PROJ-123
 Summarize this Confluence page: https://your-domain.atlassian.net/wiki/spaces/PROJ/pages/12345
 ```
 
-**Tool:** `confluence_get_page_summary`
+**Tool:** `confluence_get_page`
 **Returns:** Metadata, key sections, and requirement signals extracted from the page.
 
 ---
@@ -260,7 +261,7 @@ Summarize this Confluence page: https://your-domain.atlassian.net/wiki/spaces/PR
 Analyze the implementation impact for PROJ-123
 ```
 
-**Tool:** `delivery_analyze_implementation_impact`
+**Tool:** `delivery_check_changes` (checks: impact)
 **Returns:** Prediction of affected frontend/backend/API/database/auth areas so you can plan your approach and communicate scope to the team.
 
 ---
@@ -274,7 +275,7 @@ Analyze the implementation impact for PROJ-123
 Scan the project patterns for PROJ-123 in /path/to/your/repo
 ```
 
-**Tool:** `delivery_scan_project_patterns`
+**Tool:** `delivery_project_patterns` (action: scan)
 **Returns:** Detected module names, test file locations, tech stack, naming conventions. Saved to local pattern memory so other delivery tools can use it automatically.
 
 ---
@@ -291,7 +292,7 @@ Generate a test strategy for PROJ-123 with this diff:
 <paste your git diff here>
 ```
 
-**Tool:** `delivery_generate_test_strategy`
+**Tool:** `delivery_generate` (type: test_strategy)
 **Returns:** Unit, integration, E2E, manual QA, and negative test scenarios tailored to your changes.
 
 ---
@@ -306,7 +307,7 @@ Verify the definition of done for PROJ-123 with this diff:
 <paste your git diff here>
 ```
 
-**Tool:** `delivery_verify_definition_of_done`
+**Tool:** `delivery_check_changes` (checks: dod)
 **Returns:** 14-criteria checklist, merge-readiness verdict, and score. Catches missing tests, missing AC coverage, and documentation gaps.
 
 ---
@@ -321,7 +322,7 @@ Get the traceability matrix for PROJ-123 with this PR diff:
 <paste your git diff here>
 ```
 
-**Tool:** `delivery_get_traceability_matrix`
+**Tool:** `delivery_traceability_matrix`
 **Returns:** Each AC line mapped to specific files and lines in your diff. Useful for formal reviews and audits.
 
 ---
@@ -338,7 +339,7 @@ Generate a QA handoff for PROJ-123 with this diff:
 <paste your git diff here>
 ```
 
-**Tool:** `delivery_generate_qa_handoff`
+**Tool:** `delivery_generate` (type: qa_handoff)
 **Returns:** What to test, test data needed, happy path steps, negative cases, and regression areas. QA can begin immediately without back-and-forth.
 
 ---
@@ -352,7 +353,7 @@ Generate a QA handoff for PROJ-123 with this diff:
 Prepare a PR review prompt for PROJ-123 on branch fix/proj-123-short-description
 ```
 
-**Tool:** `jira_prepare_pr_review_prompt`
+**Tool:** `delivery_check_changes`
 **Returns:** A focused review prompt asking — does this PR actually fix what the ticket requires? Use this to start a review session.
 
 ---
@@ -366,7 +367,7 @@ Prepare a PR review prompt for PROJ-123 on branch fix/proj-123-short-description
 Review PR alignment for PROJ-123 on branch fix/proj-123-short-description
 ```
 
-**Tool:** `jira_review_pr_alignment`
+**Tool:** `delivery_check_changes` (checks: alignment)
 **Returns:** Alignment report with a score, identified gaps, and risk areas. Answers: does the PR cover all the requirements?
 
 ---
@@ -381,7 +382,7 @@ Generate a reviewer report for PROJ-123 for the "product" persona with this diff
 <paste your diff here>
 ```
 
-**Tool:** `delivery_generate_reviewer_report`
+**Tool:** `delivery_generate` (type: reviewer_report)
 **Persona options:** `product`, `frontend`, `backend`, `qa`, `security`, `release`
 **Returns:** A report written for that specific reviewer's concerns. Run once per reviewer type.
 
@@ -396,7 +397,7 @@ Generate a reviewer report for PROJ-123 for the "product" persona with this diff
 Generate release notes for PROJ-123 for the "internal" audience
 ```
 
-**Tool:** `delivery_generate_release_notes`
+**Tool:** `delivery_generate` (type: release_notes)
 **Audience options:** `internal`, `qa`, `product`, `customer_safe`
 **Returns:** Release notes at the right level of detail and tone for that audience.
 
@@ -412,7 +413,7 @@ Export a full delivery report for PROJ-123 with this diff:
 <paste your diff here>
 ```
 
-**Tool:** `delivery_export_task_report`
+**Tool:** `delivery_generate` (type: task_report)
 **Returns:** Impact analysis + test strategy + DoD check + traceability matrix + QA handoff combined into a single exportable document.
 
 ---
@@ -428,7 +429,7 @@ Export a full delivery report for PROJ-123 with this diff:
 Generate a Claude workflow pack for PROJ-123
 ```
 
-**Tool:** `delivery_generate_claude_workflow_pack`
+**Tool:** `delivery_generate_agent_pack` (client: claude)
 **Returns:** Creates `.claude/skills/` and `.claude/commands/` files inside the target project. Any developer on that team can then trigger these workflows as slash commands.
 
 ---
@@ -464,15 +465,7 @@ Release: "Generate release notes for PROJ-123 for the 'internal' audience"
 
 ### Clear the cache
 
-> The MCP server caches Jira and Confluence responses for performance. If you need fresh data after a ticket update, clear the cache.
-
-**Prompt:**
-```
-Clear the MCP cache
-```
-
-**Tool:** `mcp_clear_cache`
-**Returns:** Confirmation that all in-memory caches (issues, searches, Confluence pages) have been cleared.
+> The MCP server caches Jira and Confluence responses for performance. Cache entries expire on their own; if you need fresh data immediately after a ticket update, restart the MCP server (or set `MCP_CACHE_ENABLED=false`).
 
 ---
 
@@ -483,5 +476,5 @@ Clear the MCP cache
 Show me my open Jira issues
 ```
 
-**Tool:** `jira_search_my_open_issues`
+**Tool:** `jira_search_issues`
 **Returns:** List of open issues assigned to you in your configured project(s), ordered by last updated.
