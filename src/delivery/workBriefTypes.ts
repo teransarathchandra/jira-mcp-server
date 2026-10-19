@@ -37,7 +37,16 @@ export const WorkBriefDataSchema = z.object({
   acceptanceCriteria: z.array(z.object({ text: z.string(), source: z.enum(['field', 'description']) })),
   blockers: z.array(z.object({ key: z.string(), status: z.string(), direction: z.literal('inward') })),
   recommendedActions: z.array(z.object(ReferencedItem)).min(2).max(4),
-  clarifyingQuestions: z.array(z.object({ ...ReferencedItem, reason: z.string() })).max(3),
+  clarifyingQuestions: z
+    .array(
+      z.object({
+        ...ReferencedItem,
+        reason: z.string(),
+        // The user's answer when the client supports elicitation. Never Jira evidence, never stored.
+        answer: z.string().optional(),
+      }),
+    )
+    .max(3),
   branchName: z.string(),
   evidence: z.object({
     comments: EvidenceStateSchema,
