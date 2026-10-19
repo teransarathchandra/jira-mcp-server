@@ -16,6 +16,7 @@ import { formatPrAlignmentReview } from '../utils/formatPrAlignmentReview.js';
 import { isUsefulComment } from '../utils/commentAnalyzer.js';
 import { adfToMarkdown } from '../utils/adfToMarkdown.js';
 import { scoreLinkedIssues } from '../utils/relevanceScorer.js';
+import type { AlignmentData, DiffInfo } from '../delivery/checkChangesTypes.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -30,11 +31,33 @@ export interface ReviewPrAlignmentInput {
 
 // ── Main function ──────────────────────────────────────────────────────────────
 
+/** The local diff could not be read (not a repository, unknown ref, …). */
+export class DiffUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DiffUnavailableError';
+  }
+}
+
+/** Markdown review for callers that only need text (e.g. the task report). */
 export async function reviewPrAlignment(
   input: ReviewPrAlignmentInput,
   client: JiraClient,
   config: Config,
 ): Promise<string> {
+  try {
+    return (await computeAlignment(input, client, config)).markdown;
+  } catch (err) {
+    if (err instanceof DiffUnavailableError) return err.message;
+    throw err;
+  }
+}
+
+export async function computeAlignment(
+  input: ReviewPrAlignmentInput,
+  client: JiraClient,
+  config: Config,
+): Promise<{ markdown: string; data: AlignmentData; diff: DiffInfo }> {
   // ── Step 1: Validate inputs ────────────────────────────────────────────────
   validateIssueKey(input.issueKey);
   validateGitRef(input.baseBranch);
@@ -127,11 +150,11 @@ export async function reviewPrAlignment(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.toLowerCase().includes('not a git repository')) {
-      return `Not a git repository: ${input.repoPath}. Please provide a valid repository path.`;
+      throw new DiffUnavailableError(`Not a git repository: ${input.repoPath}. Please provide a valid repository path.`);
     }
-    return (
+    throw new DiffUnavailableError(
       `Could not get diff: ${message}. ` +
-      `Check that baseBranch '${input.baseBranch}' and compareRef '${input.compareRef}' exist in the repository.`
+      `Check that baseBranch '${input.baseBranch}' and compareRef '${input.compareRef}' exist in the repository.`,
     );
   }
 
@@ -196,5 +219,25 @@ export async function reviewPrAlignment(
     alignmentResult,
   });
 
-  return review;
+  return {
+    markdown: review,
+    data: {
+      status: alignmentResult.status,
+      score: alignmentResult.score,
+      confidence: alignmentResult.confidence,
+      criteria: matchResult.coverageItems.map((item) => ({
+        text: item.criterion.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '').trim(),
+        status: item.status,
+        files: item.evidence,
+      })),
+      unrelatedChanges: matchResult.unrelatedChanges.map((c) => ({ path: c.path, reason: c.reason })),
+      testSignal: matchResult.testCoverageSignal,
+    },
+    diff: {
+      baseBranch: input.baseBranch,
+      compareRef: input.compareRef,
+      filesChanged: diffResult.changedFiles.length,
+      truncated: diffResult.truncated,
+    },
+  };
 }
