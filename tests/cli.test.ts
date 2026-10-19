@@ -37,6 +37,24 @@ describe('runSetup()', () => {
     expect(out).toEqual([]);
   });
 
+  it.each(['generic', 'claude-code', 'claude-desktop', 'codex-cli', 'cursor', 'windsurf', 'vscode'])(
+    'gives %s instructions that produce a server that can start',
+    (client) => {
+      const out: string[] = [];
+      runSetup(client, (s) => out.push(s), () => {});
+      const text = out.join('\n');
+      expect(text).not.toContain('npm run build');
+      expect(text).not.toContain('.env');
+      for (const v of ['JIRA_BASE_URL', 'JIRA_EMAIL', 'JIRA_API_TOKEN']) expect(text).toContain(v);
+    },
+  );
+
+  it('prints a claude mcp add command that passes the credentials', () => {
+    const out: string[] = [];
+    runSetup('claude-code', (s) => out.push(s), () => {});
+    expect(out.join('\n')).toContain('claude mcp add jira-delivery-mcp -e JIRA_BASE_URL=');
+  });
+
   it('prints instructions without any Jira credentials', () => {
     const out: string[] = [];
     const code = runSetup('cursor', (s) => out.push(s), () => {});

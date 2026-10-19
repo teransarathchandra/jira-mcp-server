@@ -13,6 +13,18 @@ The first v2 beta: the same delivery capabilities on MCP SDK v2, consolidated fr
 - `mcp_clear_cache` is removed. Caches are time-bounded; restart the server to clear them.
 - The placeholder resources `jira://{issueKey}/context` and `jira://{issueKey}/traceability`, which only pointed at tools, are removed.
 
+### Removed parameters
+
+v2 tools ignore unknown arguments, so these v1 parameters are now silently dropped. Each fetch uses the v1 default value shown.
+
+- `jira_get_issue`: `includeComments` (always included), `includeAttachments` (always included).
+- `depth: "full"` context options: `includeParent`, `includeEpic`, `includeLinkedIssues`, `includeSubtasks` (all on), `includeEpicSiblings` (off), `maxLinkedIssues` (8), `maxSubtasks` (10), `maxCommentsPerIssue` (10), `contextDepth` (1).
+- `includeConfluence: true` options: `includeJiraComments` (on), `confluenceMaxSearchResults` and `maxConfluenceChars` (server defaults), `confluenceMaxPagesToRead` (server default; 5 for `jira_prepare_work_brief`), `includeMediumRelevancePages` (on), `includeLowRelevancePages` (off).
+- `delivery_check_changes` alignment: `prNumber` (the `github_pr` mode is gone).
+- `delivery_generate` `task_report`: `outputPath` (no file is written).
+
+To limit output size, use `JIRA_MAX_CONTEXT_CHARS` and the `CONFLUENCE_MAX_*` environment variables.
+
 ### New
 
 - Every tool declares an `outputSchema` and returns `structuredContent` (`schemaVersion`, `tool`, `issueKey`, `markdown`, `warnings`) alongside the Markdown text.

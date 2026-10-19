@@ -399,18 +399,11 @@ Fetches an issue and its surrounding Jira context, producing a comprehensive dev
 ```json
 {
   "issueKey": "ENG-123",
-  "includeComments": true,
-  "includeParent": true,
-  "includeEpic": true,
-  "includeLinkedIssues": true,
-  "includeSubtasks": true,
-  "includeEpicSiblings": false,
-  "maxLinkedIssues": 8,
-  "maxSubtasks": 10,
-  "maxCommentsPerIssue": 10,
-  "contextDepth": 1
+  "depth": "full"
 }
 ```
+
+It fetches the parent, epic, up to 8 linked issues, up to 10 subtasks and up to 10 comments per issue (epic siblings are not included). Add `"includeConfluence": true` to fold in related Confluence pages.
 
 Output includes: Main Task metadata, Core Requirement, Acceptance Criteria, Requirement Clarifications from Comments, Parent/Epic Context, Related Issues, Subtasks, Possible Dependencies/Blockers, Technical Signals, Risk/Ambiguity, and a Final Implementation Prompt.
 
@@ -421,12 +414,7 @@ Same as `jira_get_issue` (depth: full) but returns only the final implementation
 ```json
 {
   "issueKey": "ENG-123",
-  "includeComments": true,
-  "includeParent": true,
-  "includeEpic": true,
-  "includeLinkedIssues": true,
-  "includeSubtasks": true,
-  "includeEpicSiblings": false
+  "depth": "full"
 }
 ```
 
@@ -442,10 +430,9 @@ Standard Jira Cloud projects do not need this setting — the server tries the s
 
 ### Context budget controls
 
-- `includeEpicSiblings` defaults to `false` — sibling issues can add a lot of noise.
-- `contextDepth` maximum is `2` — keep it at `1` for most tasks.
-- `maxLinkedIssues` maximum is `15` — default is `8`.
-- If the brief is too large, lower `maxLinkedIssues`, `maxCommentsPerIssue`, or set `includeEpicSiblings: false`.
+- `depth: "basic"` (the default) fetches only the issue itself; use `"full"` only when the surrounding context matters.
+- The full-depth limits (8 linked issues, 10 subtasks, 10 comments per issue, no epic siblings) are fixed in v2.
+- If the brief is too large, lower `JIRA_MAX_CONTEXT_CHARS` (default `30000`).
 
 ### Why these tools are still read-only
 
