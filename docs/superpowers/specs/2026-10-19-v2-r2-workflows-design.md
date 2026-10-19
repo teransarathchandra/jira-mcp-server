@@ -4,6 +4,7 @@ Status: Proposed
 Date: 2026-10-19
 Parent: `2026-10-19-v2-delivery-mcp-design.md` (§6, §7 R2 row). Narrows the scope of `2026-08-05-contextual-guidance-design.md` to what R2 ships.
 Decisions: the owner asked for the recommended defaults without a question round, so every choice below is the author's call unless marked as coming from the parent spec.
+Plan: `docs/superpowers/plans/2026-10-19-v2-r2-workflows.md`
 
 ## 1. Intent
 
@@ -118,6 +119,7 @@ The existing implementation prompt is kept and prefixed by a short **Start here*
 2. **Blocker direction.** `relationship.toLowerCase().includes('block')` treats outbound "blocks" as blocking in `formatContextBrief.ts:175`, `reviewPrAlignment.ts:89` and `deliveryVerifyDefinitionOfDone.ts:196`. Replace it with one shared `isInboundBlocker(link)` helper.
 3. **Newest comments dropped.** Comment pagination is ascending and capped. Request the newest page (`orderBy=-created`), then sort the comments chronologically for analysis.
 4. **Speculative questions.** `clarificationQuestionGenerator` asks up to five questions inferred from silence. Gate them as in §4.5.
+5. **A linked issue you can't see fails the whole brief.** `JiraClient` maps both 401 and 403 to `JiraAuthError`, and `fetchIssueContext` re-throws `JiraAuthError` for related issues. A 403 on a related issue must instead mark that evidence `denied_or_missing` and keep going. A 401 (bad credentials) still fails. *(Found while planning.)*
 
 ## 6. Verify before PR — `delivery_check_changes`
 
@@ -152,7 +154,7 @@ These come straight from the existing typed results (`AlignmentResult` + `MatchR
 
 ### 6.3 Shared fetch
 
-When more than one check is selected, the Jira context and the git diff are fetched once and shared. Each check still runs in its own try/catch, as in R1.
+No new plumbing. Each `JiraClient` already caches `getIssue` and `getIssueMinimal` for the life of the server (`MCP_CACHE_ENABLED`, on by default), so checks after the first one in a call reuse the Jira responses, and the local git commands are cheap. Each check still runs in its own try/catch, as in R1. *(Revised while planning, after the cache was found in `src/jiraClient.ts`.)*
 
 ## 7. Testing
 
@@ -179,9 +181,9 @@ When more than one check is selected, the Jira context and the git diff are fetc
 ## 8. Order and cut line
 
 Build in this order, cutting from the bottom if the budget runs out:
-1. Fixtures harness and defect fixes 1–3, which every later item depends on.
+1. Fixtures harness and defect fixes 1–3 and 5, which every later item depends on.
 2. `WorkBriefData`: readiness, evidence states, actions, branch name, plus defect 4 and questions.
-3. `CheckChangesData` and the shared fetch.
+3. `CheckChangesData`.
 4. The "Start here" Markdown section.
 5. Elicitation (§4.6). This is the cut line: if it doesn't fit, it moves to R3 together with the write confirmations, which use the same mechanism.
 
