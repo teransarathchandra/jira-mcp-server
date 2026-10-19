@@ -2,8 +2,8 @@
 // readiness, recommended actions, clarifying questions and a branch name.
 //
 // Jira text is untrusted. It may decide WHICH template applies, but it is
-// never copied into action or question text; only keys, counts, status names
-// and the slugged branch name are interpolated.
+// never copied into action or question text; only keys, counts and status
+// names are interpolated. The branch name lives in data.branchName only.
 
 import type { Config } from '../config.js';
 import type { EvidenceState, IssueContext, LinkedIssueContext } from '../jira/issueContextService.js';
@@ -172,7 +172,7 @@ export function buildWorkBriefData(context: IssueContext, config: Config): WorkB
 
   const progress: Action[] = [];
   if (openBlockers.length === 0) {
-    progress.push({ id: 'create-branch', text: `Create branch ${branchName}.`, evidence: [`issue:${key}:summary`] });
+    progress.push({ id: 'create-branch', text: 'Create the suggested branch (see branchName).', evidence: [`issue:${key}:summary`] });
   }
   progress.push({
     id: 'implement-and-verify',

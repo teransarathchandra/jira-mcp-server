@@ -12,6 +12,7 @@ import { adfToMarkdown } from "../utils/adfToMarkdown.js";
 import { validateIssueKey } from "../utils/issueKey.js";
 import { safeJqlProjectKey, safeJqlIssueKey, quoteJqlString } from "../utils/jql.js";
 import { logger } from "../logging/logger.js";
+import { isInboundBlocker } from "./linkUtils.js";
 
 // ── Output types ──────────────────────────────────────────────────────────────
 
@@ -256,6 +257,8 @@ export async function fetchIssueContext(
     const eligibleLinks = mainIssue.fields.issuelinks
       .map(getLinkRelationship)
       .filter((l): l is NonNullable<typeof l> => l !== null && !visited.has(l.key));
+    // Inbound blockers go first so the limit below can never hide one.
+    eligibleLinks.sort((x, y) => Number(isInboundBlocker(y)) - Number(isInboundBlocker(x)));
 
     const outcomes = new Set<EvidenceState>();
     if (eligibleLinks.length > limit) {

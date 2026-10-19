@@ -98,6 +98,21 @@ describe('buildWorkBriefData()', () => {
     expect(questionIds(data)).toContain('q-conflict');
   });
 
+  // Review fix 3: an inbound blocker beyond the linked-issue limit is still found.
+  it('finds an open inbound blocker listed after more than 8 other links', async () => {
+    const data = await briefFor('many-links-blocker');
+    expect(data.readiness.status).toBe('BLOCKED');
+    expect(data.blockers.map((b) => b.key)).toEqual(['ABC-9']);
+  });
+
+  // Review fix 4: the summary reaches the branch name, never the action text.
+  it('never copies the ticket summary into actions or questions', async () => {
+    const data = await briefFor('injection-in-summary');
+    const text = [...data.recommendedActions.map((a) => a.text), ...data.clarifyingQuestions.map((q) => q.text)].join('\n');
+    expect(text).not.toMatch(/ignore|previous|instructions|transition/i);
+    expect(data.branchName).toContain('ignore-previous');
+  });
+
   it('never copies ticket text into actions or questions', async () => {
     const data = await briefFor('injection-in-description');
     const text = [...data.recommendedActions.map((a) => a.text), ...data.clarifyingQuestions.map((q) => q.text)].join('\n');
@@ -117,6 +132,8 @@ describe('buildWorkBriefData()', () => {
     ['many-comments', fixtureConfig()],
     ['conflicting-comment', fixtureConfig()],
     ['injection-in-description', fixtureConfig()],
+    ['injection-in-summary', fixtureConfig()],
+    ['many-links-blocker', fixtureConfig()],
   ] as const;
 
   it.each(ALL)('keeps the invariants for %s', async (name, config) => {

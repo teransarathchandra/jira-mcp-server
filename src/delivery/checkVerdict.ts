@@ -26,22 +26,32 @@ export function deriveVerdict(parts: {
 
   const failed = new Set(parts.failedChecks);
   if (diffBased.every((c) => failed.has(c))) return insufficient('checks failed');
+  // A crashed diff-based check leaves the verdict unproven, never ready.
+  const crashed = diffBased.find((c) => failed.has(c));
+  if (crashed) return insufficient(`the ${crashed} check failed`);
 
-  const withoutEvidence = (c: Check) =>
-    failed.has(c) ||
-    (c === 'alignment' && parts.alignment?.status === 'NOT_ENOUGH_EVIDENCE') ||
-    (c === 'dod' && parts.dod?.status === 'NOT_ENOUGH_EVIDENCE');
-  if (diffBased.every(withoutEvidence)) return insufficient('alignment could not find evidence');
-
-  const missing = parts.alignment?.criteria.filter((c) => c.status === 'missing').length ?? 0;
-  const requiredFixes = parts.dod?.requiredFixes.length ?? 0;
-  const dodFailed = parts.dod !== undefined && DOD_FAILED.has(parts.dod.status);
-  if (missing > 0 || requiredFixes > 0 || dodFailed) {
-    return { verdict: 'needs_work', summary: `Needs work: ${missing} missing criteria, ${requiredFixes} required fixes.` };
+  if (parts.alignment?.status === 'NOT_ENOUGH_EVIDENCE') return insufficient('alignment could not find evidence');
+  if (!parts.alignment && parts.dod?.status === 'NOT_ENOUGH_EVIDENCE') {
+    return insufficient('the Definition of Done check could not find evidence');
   }
 
+  const criteria = parts.alignment?.criteria ?? [];
+  const count = (status: AlignmentData['criteria'][number]['status']) => criteria.filter((c) => c.status === status).length;
+  const missing = count('missing');
+  const partial = count('partial');
+  const noEvidence = count('not_enough_evidence');
+  const requiredFixes = parts.dod?.requiredFixes.length ?? 0;
+  const dodFailed = parts.dod !== undefined && DOD_FAILED.has(parts.dod.status);
+  if (missing > 0 || partial > 0 || requiredFixes > 0 || dodFailed) {
+    return {
+      verdict: 'needs_work',
+      summary: `Needs work: ${missing} missing, ${partial} partial criteria, ${requiredFixes} required fixes.`,
+    };
+  }
+  if (noEvidence > 0) return insufficient(`${noEvidence} of ${criteria.length} criteria have no evidence`);
+
   const summary = parts.alignment
-    ? `Ready for PR: all ${parts.alignment.criteria.length} criteria covered.`
+    ? `Ready for PR: all ${criteria.length} criteria covered.`
     : 'Ready for PR: Definition of Done passed.';
   return { verdict: 'ready_for_pr', summary };
 }

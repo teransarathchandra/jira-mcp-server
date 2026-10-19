@@ -107,7 +107,7 @@ The text starts with a short **Start here** section (readiness, blockers, next s
   ],
   "blockers": [],
   "recommendedActions": [
-    { "id": "create-branch", "text": "Create branch feature/ABC-1-add-login-rate-limiting.", "evidence": ["issue:ABC-1:summary"] },
+    { "id": "create-branch", "text": "Create the suggested branch (see branchName).", "evidence": ["issue:ABC-1:summary"] },
     { "id": "implement-and-verify", "text": "Implement against the 2 acceptance criteria, then run delivery_check_changes.", "evidence": ["issue:ABC-1:description"] }
   ],
   "clarifyingQuestions": [],
@@ -131,7 +131,7 @@ How it decides:
 ```json
 {
   "verdict": "needs_work",
-  "summary": "Needs work: 1 missing criteria, 0 required fixes.",
+  "summary": "Needs work: 1 missing, 0 partial criteria, 0 required fixes.",
   "alignment": {
     "status": "PARTIALLY_ALIGNED", "score": 55, "confidence": "Medium",
     "criteria": [
@@ -148,9 +148,9 @@ How it decides:
 ```
 
 The verdict comes only from the diff-based checks (`alignment`, `dod`); `impact` is advisory.
-- `insufficient_evidence`: no changes against the base branch, the diff couldn't be read, or every diff-based check failed or found nothing.
-- `needs_work`: a criterion is `missing`, the Definition of Done failed, or there are required fixes.
-- `ready_for_pr`: otherwise.
+- `insufficient_evidence`: no changes against the base branch, the diff couldn't be read, a selected diff-based check crashed, alignment found no evidence, or some criteria have no evidence.
+- `needs_work`: a criterion is `missing` or only `partial`, the Definition of Done failed, or there are required fixes.
+- `ready_for_pr`: every criterion is `covered` and the Definition of Done passed.
 
 ## Migrating from 1.x
 

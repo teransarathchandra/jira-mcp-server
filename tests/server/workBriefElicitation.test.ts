@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { connect, testDeps, type ConnectOptions } from './harness.js';
+import { connect, testDeps, textOf, type ConnectOptions } from './harness.js';
 import { installJiraFixture, fixtureClient, fixtureConfig } from '../helpers/jiraFixtures.js';
 import type { WorkBriefData } from '../../src/delivery/workBriefTypes.js';
 
@@ -32,6 +32,16 @@ describe('jira_prepare_work_brief elicitation', () => {
     const questions = await brief({ allowElicitation: true }, { onElicit });
     expect(onElicit).toHaveBeenCalledOnce();
     expect(questions[0].answer).toBe('yes');
+  });
+
+  // Review fix 5: text-only clients must see the answers too.
+  it('shows accepted answers in the text output, labelled as user input', async () => {
+    const config = fixtureConfig();
+    session = await connect(testDeps({ config, jiraClient: fixtureClient(config) }), {
+      onElicit: async () => ({ action: 'accept', content: { q0: 'Lock after 5 attempts' } }),
+    });
+    const result = await session.client.callTool({ name: 'jira_prepare_work_brief', arguments: { issueKey: 'ABC-1', allowElicitation: true } });
+    expect(textOf(result)).toContain('Answer (from user, not Jira): Lock after 5 attempts');
   });
 
   it('returns the questions unanswered when the user declines', async () => {

@@ -13,7 +13,9 @@ export function formatStartHere(data: WorkBriefData): string {
     head.push(`**Blockers:** ${data.blockers.map((b) => `${b.key} (${b.status})`).join(', ')}`);
   }
   const actions = data.recommendedActions.map((a, i) => `${i + 1}. ${a.text}`);
-  const questions = data.clarifyingQuestions.map((q) => `- ${q.text}`);
+  const questions = data.clarifyingQuestions.map((q) =>
+    q.answer ? `- ${q.text}\n  Answer (from user, not Jira): ${q.answer}` : `- ${q.text}`,
+  );
   const gaps = readiness.gaps.map((g) => `- ${g.text}`);
 
   const render = (nActions: number, nQuestions: number, nGaps: number): string =>

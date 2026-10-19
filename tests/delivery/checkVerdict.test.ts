@@ -33,7 +33,7 @@ describe('deriveVerdict()', () => {
 
   it('needs work when a criterion is missing', () => {
     const r = deriveVerdict({ selected: ['alignment', 'dod'], alignment: alignment(['covered', 'missing']), dod: dod('READY_FOR_REVIEW'), diff: diff(3), failedChecks: [] });
-    expect(r).toEqual({ verdict: 'needs_work', summary: 'Needs work: 1 missing criteria, 0 required fixes.' });
+    expect(r).toEqual({ verdict: 'needs_work', summary: 'Needs work: 1 missing, 0 partial criteria, 0 required fixes.' });
   });
 
   it('needs work when the Definition of Done fails', () => {
@@ -43,7 +43,7 @@ describe('deriveVerdict()', () => {
 
   it('needs work when there are required fixes', () => {
     const r = deriveVerdict({ selected: ['dod'], dod: dod('READY_FOR_REVIEW', ['Add tests']), failedChecks: [] });
-    expect(r).toEqual({ verdict: 'needs_work', summary: 'Needs work: 0 missing criteria, 1 required fixes.' });
+    expect(r).toEqual({ verdict: 'needs_work', summary: 'Needs work: 0 missing, 0 partial criteria, 1 required fixes.' });
   });
 
   it('is ready when every criterion is covered and the DoD passes', () => {
@@ -53,7 +53,7 @@ describe('deriveVerdict()', () => {
 
   it('is insufficient_evidence when alignment found nothing and the DoD check failed', () => {
     const r = deriveVerdict({ selected: ['alignment', 'dod'], alignment: alignment([], 'NOT_ENOUGH_EVIDENCE'), diff: diff(3), failedChecks: ['dod'] });
-    expect(r).toEqual({ verdict: 'insufficient_evidence', summary: 'Not enough evidence: alignment could not find evidence.' });
+    expect(r).toEqual({ verdict: 'insufficient_evidence', summary: 'Not enough evidence: the dod check failed.' });
   });
 
   it('is insufficient_evidence when every diff-based check failed', () => {
@@ -76,6 +76,28 @@ describe('deriveVerdict()', () => {
       baseBranch: 'origin/main',
     });
     expect(r).toEqual({ verdict: 'insufficient_evidence', summary: 'Not enough evidence: the diff against origin/main could not be read.' });
+  });
+
+  // Review fix 1: "ready" must not claim coverage that is partial or unproven.
+  it('needs work when a criterion is only partially covered', () => {
+    const r = deriveVerdict({ selected: ['alignment', 'dod'], alignment: alignment(['covered', 'partial']), dod: dod('READY_FOR_REVIEW'), diff: diff(3), failedChecks: [] });
+    expect(r).toEqual({ verdict: 'needs_work', summary: 'Needs work: 0 missing, 1 partial criteria, 0 required fixes.' });
+  });
+
+  it('is insufficient_evidence when criteria have no evidence, even if the DoD passes', () => {
+    const r = deriveVerdict({ selected: ['alignment', 'dod'], alignment: alignment(['covered', 'not_enough_evidence']), dod: dod('READY_FOR_REVIEW'), diff: diff(3), failedChecks: [] });
+    expect(r).toEqual({ verdict: 'insufficient_evidence', summary: 'Not enough evidence: 1 of 2 criteria have no evidence.' });
+  });
+
+  it('is insufficient_evidence when alignment found no evidence, even if the DoD passes', () => {
+    const r = deriveVerdict({ selected: ['alignment', 'dod'], alignment: alignment([], 'NOT_ENOUGH_EVIDENCE'), dod: dod('READY_FOR_REVIEW'), diff: diff(3), failedChecks: [] });
+    expect(r).toEqual({ verdict: 'insufficient_evidence', summary: 'Not enough evidence: alignment could not find evidence.' });
+  });
+
+  // Review fix 2: a crashed diff-based check never yields ready_for_pr.
+  it('is insufficient_evidence when the alignment check crashed but the DoD passed', () => {
+    const r = deriveVerdict({ selected: ['alignment', 'dod'], dod: dod('READY_FOR_REVIEW'), failedChecks: ['alignment'] });
+    expect(r).toEqual({ verdict: 'insufficient_evidence', summary: 'Not enough evidence: the alignment check failed.' });
   });
 
   it('is insufficient_evidence when only the impact check was run', () => {

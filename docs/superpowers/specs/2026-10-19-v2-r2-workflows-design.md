@@ -61,7 +61,7 @@ interface WorkBriefData {
                confidence: 'high' | 'medium' | 'low';  // drops when evidence is missing (4.3)
                gaps: Array<{ id: string; text: string }> };
   acceptanceCriteria: Array<{ text: string; source: 'field' | 'description' }>;
-  blockers: Array<{ key: string; status: string; direction: 'inbound' }>;
+  blockers: Array<{ key: string; status: string; direction: 'inward' }>;
   recommendedActions: Array<{ id: string; text: string; evidence: string[] }>;  // 2-4, from fixed templates
   clarifyingQuestions: Array<{ id: string; text: string; reason: string; evidence: string[] }>; // 0-3
   branchName: string;
@@ -145,11 +145,11 @@ interface CheckChangesData {
 
 These come straight from the existing typed results (`AlignmentResult` + `MatchResult`, `DoDResult`, `ImpactAnalysis`). The wrappers get a `*Data` variant that returns the typed result alongside the Markdown, so Jira and git are only read once.
 
-### 6.2 Verdict rule (author's call)
+### 6.2 Verdict rule (author's call; tightened after the R2 review)
 
-- `insufficient_evidence`: the diff is empty, or every selected diff-based check failed or reported `NOT_ENOUGH_EVIDENCE`.
-- `needs_work`: any criterion is `missing`, the DoD status is failed, or `requiredFixes` is non-empty.
-- `ready_for_pr`: otherwise.
+- `insufficient_evidence`: no diff-based check was selected; the diff could not be read; the diff is empty; any selected diff-based check crashed; alignment reported `NOT_ENOUGH_EVIDENCE`; or, after the rules below, some criteria are `not_enough_evidence`.
+- `needs_work`: any criterion is `missing` or `partial`, the DoD status is failed, or `requiredFixes` is non-empty.
+- `ready_for_pr`: every criterion is `covered` and the DoD passed. The summary never claims coverage it has not observed.
 - `impact` never affects the verdict; it is advisory.
 
 ### 6.3 Shared fetch
