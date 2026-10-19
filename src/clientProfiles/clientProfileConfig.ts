@@ -94,7 +94,7 @@ export function getClientExampleCommands(profile: McpClientProfile, exampleIssue
   ];
 
   if (profile === 'claude-code') {
-    examples.push(`Run jira_get_issue_with_confluence_context for ${exampleIssueKey}`);
+    examples.push(`Run jira_get_issue (includeConfluence: true) for ${exampleIssueKey}`);
   }
 
   return examples;

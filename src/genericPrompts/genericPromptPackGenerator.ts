@@ -37,12 +37,12 @@ Use this template with your MCP client to generate a full implementation prompt 
 
 Ask your coding agent:
 
-> Use the jira-delivery-mcp MCP server tool \`jira_prepare_contextual_work_prompt\`
+> Use the jira-delivery-mcp MCP server tool \`jira_prepare_work_brief\` (depth: full)
 > with issue key <ISSUE-KEY> to generate an implementation prompt.
 
 Or for Confluence-enriched context:
 
-> Use \`jira_prepare_confluence_enriched_work_prompt\` with issue key <ISSUE-KEY>.
+> Use \`jira_prepare_work_brief\` (includeConfluence: true) with issue key <ISSUE-KEY>.
 
 ## What you get
 
@@ -73,12 +73,12 @@ Use this template with your MCP client to generate a PR review prompt aligned to
 
 Ask your coding agent:
 
-> Use the jira-delivery-mcp MCP server tool \`jira_prepare_pr_review_prompt\`
-> with issue key <ISSUE-KEY> to generate a PR review prompt.
+> Use the jira-delivery-mcp MCP server tool \`delivery_check_changes\`
+> with issue key <ISSUE-KEY> to review the branch against the ticket.
 
-Or for alignment scoring:
+Or for alignment scoring only:
 
-> Use \`jira_review_pr_alignment\` with issue key <ISSUE-KEY>.
+> Use \`delivery_check_changes\` (checks: alignment) with issue key <ISSUE-KEY>.
 
 ## What you get
 
@@ -108,7 +108,7 @@ Use this template with your MCP client to generate a QA handoff document for a J
 
 Ask your coding agent:
 
-> Use the jira-delivery-mcp MCP server tool \`delivery_generate_qa_handoff\`
+> Use the jira-delivery-mcp MCP server tool \`delivery_generate\` (type: qa_handoff)
 > with issue key <ISSUE-KEY> to generate a QA handoff document.
 
 ## What you get
@@ -137,7 +137,7 @@ Use this template with your MCP client to verify Definition of Done for a Jira t
 
 Ask your coding agent:
 
-> Use the jira-delivery-mcp MCP server tool \`delivery_verify_definition_of_done\`
+> Use the jira-delivery-mcp MCP server tool \`delivery_check_changes\` (checks: dod)
 > with issue key <ISSUE-KEY> to check whether DoD criteria are met.
 
 ## What you get
@@ -166,7 +166,7 @@ Use this template with your MCP client to generate a test strategy for a Jira ta
 
 Ask your coding agent:
 
-> Use the jira-delivery-mcp MCP server tool \`delivery_generate_test_strategy\`
+> Use the jira-delivery-mcp MCP server tool \`delivery_generate\` (type: test_strategy)
 > with issue key <ISSUE-KEY> to generate a test strategy.
 
 ## What you get
@@ -196,7 +196,7 @@ Use this template with your MCP client to generate release notes for a Jira task
 
 Ask your coding agent:
 
-> Use the jira-delivery-mcp MCP server tool \`delivery_generate_release_notes\`
+> Use the jira-delivery-mcp MCP server tool \`delivery_generate\` (type: release_notes)
 > with issue key <ISSUE-KEY> to generate release notes.
 
 ## What you get
@@ -242,12 +242,12 @@ export function generateGenericPromptPack(input: GenericPromptPackInput): Generi
   }
 
   const usageExamples = [
-    'Ask your coding agent: "Use jira_prepare_contextual_work_prompt with <ISSUE-KEY>"',
-    'Ask your coding agent: "Use jira_prepare_pr_review_prompt with <ISSUE-KEY>"',
-    'Ask your coding agent: "Use delivery_generate_qa_handoff with <ISSUE-KEY>"',
-    'Ask your coding agent: "Use delivery_verify_definition_of_done with <ISSUE-KEY>"',
-    'Ask your coding agent: "Use delivery_generate_test_strategy with <ISSUE-KEY>"',
-    'Ask your coding agent: "Use delivery_generate_release_notes with <ISSUE-KEY>"',
+    'Ask your coding agent: "Use jira_prepare_work_brief (depth: full) with <ISSUE-KEY>"',
+    'Ask your coding agent: "Use delivery_check_changes with <ISSUE-KEY>"',
+    'Ask your coding agent: "Use delivery_generate (type: qa_handoff) with <ISSUE-KEY>"',
+    'Ask your coding agent: "Use delivery_check_changes (checks: dod) with <ISSUE-KEY>"',
+    'Ask your coding agent: "Use delivery_generate (type: test_strategy) with <ISSUE-KEY>"',
+    'Ask your coding agent: "Use delivery_generate (type: release_notes) with <ISSUE-KEY>"',
   ];
 
   return { generated, skipped, usageExamples };
