@@ -227,21 +227,38 @@ describe("fetchIssueContext — comment pagination", () => {
     expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing the newest 4 of 10/);
   });
 
-  it("re-fetches the newest page when Jira returns more inline comments than the cap", async () => {
+  // R2 minor 3: when Jira already returned every comment inline, the newest
+  // ones are on hand; no extra request is needed.
+  it("uses the newest inline comments without a request when Jira returned all of them", async () => {
     const issue = makeIssue({ comments: ["c1", "c2", "c3"].map(makeComment), total: 3 });
-    const getIssueComments = vi.fn().mockResolvedValueOnce({
-      comments: ["c3", "c2"].map(makeComment),
-      total: 3,
-      startAt: 0,
-      maxResults: 2,
-    });
-    const client = makeMockClient(issue, { getIssueComments });
+    const client = makeMockClient(issue);
 
     const ctx = await fetchIssueContext("PROJ-1", makeOptions({ maxCommentsPerIssue: 2 }), client, makeConfig());
 
+    expect(client.getIssueComments).not.toHaveBeenCalled();
     expect(ctx.mainIssue.fields.comment.comments.map((c) => c.id)).toEqual(["c2", "c3"]);
     expect(ctx.truncationWarnings[0]).toMatch(/Comments truncated: showing the newest 2 of 3/);
     expect(ctx.truncationWarnings[0]).toMatch(/maxCommentsPerIssue cap=2/);
+  });
+
+  it("keeps no comments when the cap is 0", async () => {
+    const issue = makeIssue({ comments: ["c1", "c2", "c3"].map(makeComment), total: 10 });
+    const getIssueComments = vi.fn().mockResolvedValue({ comments: [], total: 10, startAt: 0, maxResults: 0 });
+    const client = makeMockClient(issue, { getIssueComments });
+
+    const ctx = await fetchIssueContext("PROJ-1", makeOptions({ maxCommentsPerIssue: 0 }), client, makeConfig());
+
+    expect(ctx.mainIssue.fields.comment.comments).toEqual([]);
+  });
+
+  // R2 minor 4: the client caches issue objects; context building must not edit them.
+  it("does not modify the issue object returned by the client", async () => {
+    const issue = makeIssue({ comments: ["c1", "c2", "c3"].map(makeComment), total: 3 });
+    const client = makeMockClient(issue);
+
+    await fetchIssueContext("PROJ-1", makeOptions({ maxCommentsPerIssue: 2 }), client, makeConfig());
+
+    expect(issue.fields.comment.comments.map((c) => c.id)).toEqual(["c1", "c2", "c3"]);
   });
 
   it("asks for at most `cap` newest comments in a single request", async () => {

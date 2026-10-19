@@ -68,10 +68,37 @@ describe('delivery_check_changes data', () => {
     const result = await check(repo);
     expect(result.isError).toBeFalsy();
     const data = (result.structuredContent as { data: CheckChangesData }).data;
-    expect(['ready_for_pr', 'needs_work', 'insufficient_evidence']).toContain(data.verdict);
+    // R2 minor 8: pin the real outcome. Both criteria are covered, but the DoD
+    // flags the ticket's conflicting comment and the auth-path change.
+    expect(data.verdict).toBe('needs_work');
+    expect(data.alignment?.criteria.map((c) => c.status)).toEqual(['covered', 'covered']);
+    expect(data.dod?.requiredFixes).toEqual(['Blocking conflicts detected', 'Critical risky file types: auth_security']);
+    expect(data.summary).toBe('Needs work: 0 missing, 0 partial criteria, 2 required fixes.');
     expect(data.alignment?.criteria).toHaveLength(2);
     expect(data.diff.filesChanged).toBeGreaterThanOrEqual(1);
     expect(data.failedChecks).toEqual([]);
+  });
+
+  // R2 minor 2: a DoD-only run still reports how many files changed.
+  it('reports changed files for a DoD-only run', async () => {
+    const repo = makeRepo(true);
+    repos.push(repo);
+    const result = await session.client.callTool({
+      name: 'delivery_check_changes',
+      arguments: { issueKey: 'ABC-1', repoPath: repo, baseBranch: 'main', checks: ['dod'] },
+    });
+    const data = (result.structuredContent as { data: CheckChangesData }).data;
+    expect(data.diff.filesChanged).toBe(2);
+  });
+
+  it('reports insufficient evidence for a DoD-only run on a branch with no changes', async () => {
+    const repo = makeRepo(false);
+    repos.push(repo);
+    const result = await session.client.callTool({
+      name: 'delivery_check_changes',
+      arguments: { issueKey: 'ABC-1', repoPath: repo, baseBranch: 'main', checks: ['dod'] },
+    });
+    expect((result.structuredContent as { data: CheckChangesData }).data.verdict).toBe('insufficient_evidence');
   });
 
   it('reports insufficient evidence when the branch has no changes', async () => {

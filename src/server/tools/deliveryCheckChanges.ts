@@ -44,6 +44,8 @@ export const registerDeliveryCheckChanges: ToolRegistrar = (server, { config, ji
       const failedChecks: Check[] = [];
       const parts: Partial<Pick<CheckChangesData, 'alignment' | 'dod' | 'impact' | 'diff'>> = {};
       let diffUnreadable = false;
+      let dodFilesChanged = 0;
+      let dodReadDiff = false;
 
       const run = async (check: Check, body: () => Promise<string>) => {
         try {
@@ -72,6 +74,9 @@ export const registerDeliveryCheckChanges: ToolRegistrar = (server, { config, ji
             const result = await computeDefinitionOfDone({ issueKey, baseBranch, compareRef, repoPath, includeConfluence }, jiraClient, config);
             parts.dod = result.data;
             if (!result.diffRead) diffUnreadable = true;
+            // The DoD read the diff itself; use its count when alignment did not run.
+            dodFilesChanged = result.filesChanged;
+            dodReadDiff = result.diffRead;
             return result.markdown;
           });
         } else {
@@ -89,11 +94,13 @@ export const registerDeliveryCheckChanges: ToolRegistrar = (server, { config, ji
         return failed;
       }
 
+      const diff = parts.diff ?? { baseBranch, compareRef, filesChanged: dodFilesChanged, truncated: false };
+      const diffKnown = parts.diff !== undefined || dodReadDiff;
       const data: CheckChangesData = {
-        ...deriveVerdict({ selected, ...parts, failedChecks, diffUnreadable, baseBranch }),
+        ...deriveVerdict({ selected, ...parts, diff: diffKnown ? diff : undefined, failedChecks, diffUnreadable, baseBranch }),
         ...parts,
         failedChecks,
-        diff: parts.diff ?? { baseBranch, compareRef, filesChanged: 0, truncated: false },
+        diff,
       };
       return toolResult(NAME, markdown, {
         issueKey,

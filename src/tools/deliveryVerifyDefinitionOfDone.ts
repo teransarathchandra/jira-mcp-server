@@ -156,7 +156,7 @@ export async function computeDefinitionOfDone(
   input: DeliveryVerifyDoDInput,
   client: JiraClient,
   config: Config,
-): Promise<{ markdown: string; data: DodData; diffRead: boolean }> {
+): Promise<{ markdown: string; data: DodData; diffRead: boolean; filesChanged: number }> {
   // ── Step 1: Validate inputs ─────────────────────────────────────────────────
   validateIssueKey(input.issueKey);
 
@@ -468,6 +468,7 @@ export async function computeDefinitionOfDone(
   const toItem = (c: DoDCheck) => ({ id: c.checkId, name: c.checkName, detail: c.detail });
   return {
     diffRead,
+    filesChanged: changedFileCount,
     markdown: formatDoDResult(dodResult),
     data: {
       status: dodResult.overallStatus,
