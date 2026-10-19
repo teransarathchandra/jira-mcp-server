@@ -52,7 +52,7 @@ function redactHeaders(headers: Record<string, string>): Record<string, string> 
 }
 
 async function httpRequest(
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'PUT',
   url: string,
   headers: Record<string, string>,
   body: unknown | undefined,
@@ -173,4 +173,17 @@ export function httpPost(
   options?: HttpClientOptions,
 ): Promise<HttpResponse> {
   return httpRequest('POST', url, headers, body, options);
+}
+
+/**
+ * PUT request with timeout + rate-limit handling. Callers that write should
+ * pass `maxRetries: 0` so a write is never sent twice.
+ */
+export function httpPut(
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+  options?: HttpClientOptions,
+): Promise<HttpResponse> {
+  return httpRequest('PUT', url, headers, body, options);
 }

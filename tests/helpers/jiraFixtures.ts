@@ -20,16 +20,18 @@ export function loadFixture(name: string): FixtureFile {
   return JSON.parse(readFileSync(url, 'utf8')) as FixtureFile;
 }
 
-export function installJiraFixture(name: string): { requests: string[]; restore(): void } {
+export function installJiraFixture(name: string): { requests: string[]; bodies: unknown[]; restore(): void } {
   const { routes } = loadFixture(name);
   const requests: string[] = [];
+  const bodies: unknown[] = []; // parallel to requests; undefined when the request had no body
 
   vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
     const method = (init?.method ?? 'GET').toUpperCase();
     requests.push(`${method} ${url.pathname}${url.search}`);
+    bodies.push(typeof init?.body === 'string' ? JSON.parse(init.body) : undefined);
     const route = routes[`${method} ${url.pathname}`] ?? { status: 404, body: { errorMessages: ['no fixture route'] } };
-    return new Response(JSON.stringify(route.body), {
+    return new Response(route.status === 204 ? null : JSON.stringify(route.body), {
       status: route.status,
       headers: { 'content-type': 'application/json' },
     });
@@ -37,6 +39,7 @@ export function installJiraFixture(name: string): { requests: string[]; restore(
 
   return {
     requests,
+    bodies,
     restore() {
       vi.unstubAllGlobals();
     },
