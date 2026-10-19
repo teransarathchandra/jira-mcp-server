@@ -1,6 +1,8 @@
 import { McpClientProfile } from './clientProfiles/clientProfile.js';
 import { parseClientProfile } from './clientProfiles/clientProfileConfig.js';
 import { DEFAULT_BRANCH_PATTERN } from './delivery/branchName.js';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 export interface JiraProjectConfig {
   defaultProjectKey?: string;
@@ -25,6 +27,8 @@ export interface Config {
   projectConfig: JiraProjectConfig;
   clientProfile: McpClientProfile;
   branchPattern: string;                    // JIRA_BRANCH_PATTERN (default: {type}/{KEY}-{slug})
+  enableWrites: boolean;                    // JIRA_ENABLE_WRITES=true registers the write tools (default: false)
+  auditLogPath: string;                     // JIRA_DELIVERY_AUDIT_LOG (default: ~/.jira-delivery-mcp/audit.log)
 }
 
 export function getProjectConfig(): JiraProjectConfig {
@@ -126,5 +130,7 @@ export function getConfig(): Config {
     projectConfig: getProjectConfig(),
     clientProfile,
     branchPattern: process.env.JIRA_BRANCH_PATTERN?.trim() || DEFAULT_BRANCH_PATTERN,
+    enableWrites: process.env.JIRA_ENABLE_WRITES?.trim().toLowerCase() === 'true',
+    auditLogPath: process.env.JIRA_DELIVERY_AUDIT_LOG?.trim() || join(homedir(), '.jira-delivery-mcp', 'audit.log'),
   };
 }

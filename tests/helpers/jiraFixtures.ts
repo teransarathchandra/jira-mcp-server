@@ -1,5 +1,7 @@
 import { vi } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { JiraClient } from '../../src/jiraClient.js';
 import type { Config } from '../../src/config.js';
 
@@ -67,6 +69,8 @@ export function fixtureConfig(overrides: Partial<Config> = {}): Config {
     },
     clientProfile: 'generic',
     branchPattern: '{type}/{KEY}-{slug}',
+    enableWrites: false,
+    auditLogPath: join(tmpdir(), 'jira-delivery-mcp-test-audit', `audit-${process.pid}.log`),
     ...overrides,
   } as Config;
 }
