@@ -34,10 +34,11 @@ Use `delivery_traceability_matrix` when the user wants requirement-to-file mappi
 ## 4. Hand off
 
 - `delivery_generate` with `type: "qa_handoff"`, `"release_notes"` (`audience`), `"test_strategy"`, `"reviewer_report"` (needs `persona`) or `"task_report"`.
-- **Posting back to Jira** (`jira_add_comment`, `jira_update_issue`) exists only when the user enabled writes. These tools never change Jira on the first call — they return a preview and a `confirmToken`:
-  1. Show the user the preview exactly as returned.
-  2. Only after the user explicitly approves, call again with the same arguments plus `confirmToken`.
-  3. Never supply a `confirmToken` the user hasn't approved, never invent one, and never batch several writes behind one approval.
+- **Posting back to Jira** (`jira_add_comment`, `jira_update_issue`) exists only when the user enabled writes. Every write needs the user's approval:
+  - If the client shows the user a confirmation form, their answer there is the approval and the write happens in that call. `data.declined: true` means they said no: don't retry unless they ask.
+  - Otherwise the first call changes nothing and returns a preview and a `confirmToken`. Show the user the preview exactly as returned; only after they explicitly approve, call again with the same arguments plus `confirmToken`.
+  - Never supply a `confirmToken` the user hasn't approved, never invent one, and never batch several writes behind one approval.
+  - If a result says the outcome is unknown, ask the user to check the issue in Jira before trying again.
 - `jira_update_issue` takes `transitionTo` (a transition or status name), `assignToMe: true`, and/or `link: { url, title }` for the PR. If the transition isn't found, show the user the available names it returns.
 
 ## Setup problems
