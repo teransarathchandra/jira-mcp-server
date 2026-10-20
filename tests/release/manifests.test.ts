@@ -16,6 +16,10 @@ describe('release manifests', () => {
     expect(server.packages[0].version).toBe(pkg.version);
   });
 
+  it('pin the plugin to its own version, so plugin users get the release they installed', () => {
+    expect(plugin.mcpServers['jira-delivery-mcp'].args).toEqual(['-y', `jira-delivery-mcp@${pkg.version}`]);
+  });
+
   it('name the registry entry and the npm package consistently', () => {
     expect(server.name).toBe(pkg.mcpName);
     expect(server.name).toMatch(/^io\.github\.teransarathchandra\//);

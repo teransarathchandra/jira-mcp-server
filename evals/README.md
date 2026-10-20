@@ -1,6 +1,6 @@
 # Tool-selection evals
 
-Checks that a model, given this server's real tool list, picks the right tool and key arguments for 34 everyday developer requests (`cases.json`). The write cases run only when the write tools are registered.
+Checks that a model, given this server's real tool list, picks the right tool and key arguments for 34 everyday developer requests (`cases.json`). The runner enables the write tools, so the write cases are always scored. Without `ANTHROPIC_API_KEY` the run fails rather than passing empty.
 
 ```bash
 ANTHROPIC_API_KEY=... npm run eval                              # claude-haiku-5-5, must reach 90%

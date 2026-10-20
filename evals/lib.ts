@@ -30,6 +30,11 @@ export interface CaseResult {
   reason?: string;
 }
 
+/** Why `npm run eval` cannot run, or null. A missing key fails the run rather than skipping it green. */
+export function evalSetupError(env: Record<string, string | undefined>): string | null {
+  return env.ANTHROPIC_API_KEY ? null : 'ANTHROPIC_API_KEY is not set: npm run eval calls the Anthropic API and cannot run without it.';
+}
+
 export function loadCases(): EvalCase[] {
   return JSON.parse(readFileSync(new URL('./cases.json', import.meta.url), 'utf8')) as EvalCase[];
 }

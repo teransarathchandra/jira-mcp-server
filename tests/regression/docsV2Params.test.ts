@@ -10,8 +10,14 @@ import { getPackageSpec } from '../../src/version.js';
 describe('README install instructions', () => {
   const readme = readFileSync('README.md', 'utf8');
 
+  it('docs/reference.md runs the CLI from the release line too', () => {
+    const specs = [...readFileSync('docs/reference.md', 'utf8').matchAll(/npx(?: -y)?\s+(jira-delivery-mcp[@\w.-]*)/g)].map((m) => m[1]);
+    expect(specs.length).toBeGreaterThan(0);
+    expect(new Set(specs)).toEqual(new Set([getPackageSpec()]));
+  });
+
   it('installs the release line of package.json (a bare name would install `latest` during a prerelease)', () => {
-    const specs = [...readme.matchAll(/(?:npx -y|npm install -g|"-y", ")\s*(jira-delivery-mcp[@\w.-]*)/g)].map((m) => m[1]);
+    const specs = [...readme.matchAll(/(?:npx(?: -y)?|npm install -g|"-y", ")\s*(jira-delivery-mcp[@\w.-]*)/g)].map((m) => m[1]);
     expect(specs.length).toBeGreaterThan(0);
     expect(new Set(specs)).toEqual(new Set([getPackageSpec()]));
   });

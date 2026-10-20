@@ -1,49 +1,71 @@
 name: Release
 
-# Pushing a tag vX.Y.Z or vX.Y.Z-beta.N publishes that version to npm with
-# provenance (npm trusted publishing, no token), then lists it in the MCP
-# Registry. One-time setup on npmjs.com: package settings → Trusted publisher
-# → GitHub Actions, repository teransarathchandra/jira-mcp-server, workflow
-# release.yml. A version already on npm is not published again.
+# Pushing a tag vX.Y.Z or vX.Y.Z-(alpha|beta|rc).N publishes that version to
+# npm with provenance (npm trusted publishing, no token), lists it in the MCP
+# Registry and creates the GitHub release. One-time setup on npmjs.com: package
+# settings → Trusted publisher → GitHub Actions, repository
+# teransarathchandra/jira-mcp-server, workflow release.yml. A version already
+# on npm is not published again.
 
 on:
   push:
     tags: ['v*']
 
-permissions:
-  contents: write # GitHub release
-  id-token: write # npm provenance and MCP Registry login
+permissions: {}
 
 jobs:
-  publish:
+  # Runs the dependency tree with no credentials: nothing here can publish.
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
-          node-version: 24.x # npm >= 11.5.1 for trusted publishing
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.x
           cache: npm
-
       - name: Check the tag matches every manifest
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          for f in package.json plugin/.claude-plugin/plugin.json server.json; do
-            test "$(node -p "require('./$f').version")" = "$VERSION" || { echo "$f is not $VERSION"; exit 1; }
-          done
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          case "$VERSION" in *-*) echo "DIST_TAG=beta" >> "$GITHUB_ENV" ;; *) echo "DIST_TAG=latest" >> "$GITHUB_ENV" ;; esac
-
-      - run: npm ci
+        run: node scripts/release-check.mjs "$GITHUB_REF_NAME"
+      - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npm pack
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: package
+          path: jira-delivery-mcp-*.tgz
+          if-no-files-found: error
+
+  # Publishes the tarball built above; installs no dependencies.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # GitHub release
+      id-token: write # npm provenance and MCP Registry login
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.x # npm >= 11.5.1 for trusted publishing
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: package
+      - name: Check the tag matches every manifest
+        run: node scripts/release-check.mjs "$GITHUB_REF_NAME"
 
       - name: Publish to npm
         run: |
           if npm view "jira-delivery-mcp@$VERSION" version >/dev/null 2>&1; then
             echo "jira-delivery-mcp@$VERSION is already on npm; skipping"
           else
-            npm publish --provenance --access public --tag "$DIST_TAG"
+            npm publish ./jira-delivery-mcp-*.tgz --provenance --access public --tag "$DIST_TAG"
           fi
 
       - name: List in the MCP Registry
@@ -52,11 +74,17 @@ jobs:
           echo "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  mcp-publisher.tar.gz" | sha256sum -c -
           tar xzf mcp-publisher.tar.gz mcp-publisher
           ./mcp-publisher login github-oidc
-          ./mcp-publisher publish
+          if ! ./mcp-publisher publish 2>&1 | tee publish.log; then
+            grep -qi "already exists" publish.log && echo "already listed; continuing" || exit 1
+          fi
 
       - name: GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PRERELEASE=$([ "$DIST_TAG" = beta ] && echo --prerelease || true)
-          gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes $PRERELEASE || echo "release already exists"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "release already exists"
+          else
+            PRERELEASE=$([ "$DIST_TAG" = latest ] || echo --prerelease)
+            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes $PRERELEASE
+          fi

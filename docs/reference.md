@@ -261,7 +261,7 @@ For VS Code:
 For tailored instructions for your client, run:
 
 ```
-npx jira-delivery-mcp setup cursor
+npx jira-delivery-mcp@beta setup cursor
 ```
 
 ---
@@ -293,7 +293,7 @@ Refer to your client's documentation for where to place this configuration.
 The `setup` command prints setup instructions for any supported client, and needs no Jira credentials:
 
 ```bash
-npx jira-delivery-mcp setup codex-cli
+npx jira-delivery-mcp@beta setup codex-cli
 ```
 
 Supported client values: `generic`, `claude-code`, `claude-desktop`, `codex-cli`, `cursor`, `windsurf`, `vscode`
@@ -771,7 +771,7 @@ Tests live in `tests/` and are run with [Vitest](https://vitest.dev).
 
 ## Security Model
 
-This MCP server is a **read-only** intelligence layer by default. The opt-in write tools (`JIRA_ENABLE_WRITES=true`) are limited to comments, transitions, assign-to-me and links, and each write is previewed, confirmed by you, sent once and audited (see [Hand off: write back to Jira](../README.md#hand-off-write-back-to-jira)).
+This MCP server is a **read-only** intelligence layer by default. The opt-in write tools (`JIRA_ENABLE_WRITES=true`) are limited to comments, transitions, assign-to-me and links, and each write is previewed, needs a confirmation (a form you answer, or a token the agent may only use after showing you the preview), is sent once and audited (see [Hand off: write back to Jira](../README.md#hand-off-write-back-to-jira)).
 
 ### What it will never do
 - Create or delete Jira issues, or edit their summary, description or fields

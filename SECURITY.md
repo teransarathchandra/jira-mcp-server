@@ -20,7 +20,10 @@ commands on the developer's machine.
 
 - Credentials come only from environment variables; logs and errors are redacted.
 - Jira and Confluence content is treated as untrusted data and never as instructions.
-- Write tools are off unless `JIRA_ENABLE_WRITES=true`, require a preview plus a
-  single-use confirmation (or a confirmed form), are never retried, and are
-  recorded in a local audit log without comment text or tokens.
+- Write tools are off unless `JIRA_ENABLE_WRITES=true`. Each write needs a
+  preview plus a single-use confirmation token, or a confirmation form the user
+  answers; they are never retried and are recorded in a local audit log without
+  comment text or tokens. On the token path the server cannot tell who approved:
+  the agent must show the user the preview first (the bundled skill requires it),
+  and clients with confirmation forms let the user confirm directly.
 - No telemetry: the server only talks to your Jira/Confluence site and local git.

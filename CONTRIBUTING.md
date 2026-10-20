@@ -29,7 +29,7 @@ Node.js 20 or later is required.
 
 ## Releasing (maintainer)
 
-1. In a PR, set the same version in `package.json`, `plugin/.claude-plugin/plugin.json` and `server.json` (a test checks they match), and move the `## Unreleased` notes under that version.
+1. In a PR, set the same version in `package.json`, `plugin/.claude-plugin/plugin.json` (its `version` and the `jira-delivery-mcp@<version>` it runs) and `server.json` (a test checks they match), and move the `## Unreleased` notes under that version.
 2. After merge: `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`.
 3. The Release workflow checks the tag against the manifests, runs the tests, publishes to npm with provenance (`beta` dist-tag for prereleases, `latest` otherwise), lists the version in the MCP Registry and creates the GitHub release.
 

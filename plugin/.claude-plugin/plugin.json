@@ -11,7 +11,7 @@
   "mcpServers": {
     "jira-delivery-mcp": {
       "command": "npx",
-      "args": ["-y", "jira-delivery-mcp@beta"],
+      "args": ["-y", "jira-delivery-mcp@2.0.0-beta.2"],
       "env": {
         "JIRA_BASE_URL": "${user_config.jira_base_url}",
         "JIRA_EMAIL": "${user_config.jira_email}",
@@ -43,7 +43,7 @@
     "enable_writes": {
       "type": "boolean",
       "title": "Allow write-back to Jira",
-      "description": "Lets the agent post comments, change status, assign and link — always behind a preview you confirm. Off by default.",
+      "description": "Lets the agent post comments, change status, assign and link. Each write is previewed first and needs a confirmation the agent must get from you. Off by default.",
       "default": false
     }
   }

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { connect, testDeps } from '../tests/server/harness.js';
 import { fixtureConfig } from '../tests/helpers/jiraFixtures.js';
-import { loadCases, scoreCase, summarize, toAnthropicTools, type CaseResult, type ToolCall } from './lib.js';
+import { evalSetupError, loadCases, scoreCase, summarize, toAnthropicTools, type CaseResult, type ToolCall } from './lib.js';
 
 // npm run eval — needs ANTHROPIC_API_KEY. EVAL_MODEL picks the model
 // (default claude-haiku-5-5; spot-check with claude-sonnet-5-5) and
@@ -34,14 +34,16 @@ async function firstToolCall(tools: ReturnType<typeof toAnthropicTools>, prompt:
   }
 }
 
-describe.skipIf(!API_KEY)(`tool selection (${MODEL})`, () => {
+describe(`tool selection (${MODEL})`, () => {
   it(`picks the right tool for at least ${MIN_RATE * 100}% of the cases`, async () => {
+    const setupError = evalSetupError(process.env);
+    if (setupError) throw new Error(setupError);
     const session = await connect(testDeps({ config: fixtureConfig({ enableWrites: true }) }));
     const { tools: mcpTools } = await session.client.listTools();
     await session.close();
     const tools = toAnthropicTools(mcpTools as Parameters<typeof toAnthropicTools>[0]);
-    const names = new Set(tools.map((t) => t.name));
-    const cases = loadCases().filter((c) => !c.requiresWrites || names.has(c.expect.tool));
+    // Writes are enabled above, so every case is scored; a renamed tool fails its cases.
+    const cases = loadCases();
 
     const results: CaseResult[] = [];
     for (let i = 0; i < cases.length; i += CONCURRENCY) {

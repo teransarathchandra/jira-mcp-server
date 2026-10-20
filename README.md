@@ -134,7 +134,7 @@ Transitions are matched by name, then by target status, case-insensitively. If n
 | `delivery_get_project_patterns` | `delivery_project_patterns` with `action: "get"` |
 | `delivery_clear_project_patterns` | `delivery_project_patterns` with `action: "clear"` |
 | `jira_list_configured_projects` | resource `jira-delivery://config/projects` |
-| `mcp_get_client_setup_instructions` | CLI `npx jira-delivery-mcp setup <client>` |
+| `mcp_get_client_setup_instructions` | CLI `npx jira-delivery-mcp@beta setup <client>` |
 | `mcp_clear_cache` | removed (restart the server) |
 
 Parameters that v2 no longer accepts are listed in the [CHANGELOG](CHANGELOG.md#removed-parameters).

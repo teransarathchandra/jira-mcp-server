@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { connect, testDeps } from '../server/harness.js';
 import { fixtureConfig } from '../helpers/jiraFixtures.js';
-import { loadCases, scoreCase, summarize, toAnthropicTools, type EvalCase } from '../../evals/lib.js';
+import { evalSetupError, loadCases, scoreCase, summarize, toAnthropicTools, type EvalCase } from '../../evals/lib.js';
 
 // Offline checks for the tool-selection evals (npm run eval needs an API key).
 
@@ -43,6 +43,13 @@ describe('scoreCase()', () => {
   });
 });
 
+describe('evalSetupError()', () => {
+  it('fails the run when there is no API key, instead of skipping green', () => {
+    expect(evalSetupError({})).toMatch(/ANTHROPIC_API_KEY/);
+    expect(evalSetupError({ ANTHROPIC_API_KEY: 'k' })).toBeNull();
+  });
+});
+
 describe('summarize()', () => {
   it('reports the pass rate per tool and overall', () => {
     const summary = summarize([
@@ -73,13 +80,12 @@ describe('eval cases', () => {
     }
   });
 
-  it('only expects tools and arguments the server declares', async () => {
-    const session = await connect(testDeps({ config: fixtureConfig() }));
+  it('only expects tools and arguments the server declares, write tools included', async () => {
+    const session = await connect(testDeps({ config: fixtureConfig({ enableWrites: true }) }));
     try {
       const { tools } = await session.client.listTools();
       const byName = new Map(tools.map((t) => [t.name, t]));
       for (const c of cases) {
-        if (c.requiresWrites) continue; // write tools exist only with JIRA_ENABLE_WRITES=true
         const tool = byName.get(c.expect.tool);
         expect(tool, `${c.id}: unknown tool ${c.expect.tool}`).toBeDefined();
         const props = Object.keys((tool!.inputSchema as { properties?: object }).properties ?? {});
