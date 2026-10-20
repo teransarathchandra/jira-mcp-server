@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { deriveVerdict } from '../../src/delivery/checkVerdict.js';
-import type { CheckChangesData } from '../../src/delivery/checkChangesTypes.js';
+import { CheckChangesDataSchema, type CheckChangesData } from '../../src/delivery/checkChangesTypes.js';
 
 type Alignment = NonNullable<CheckChangesData['alignment']>;
 type Dod = NonNullable<CheckChangesData['dod']>;
@@ -100,8 +100,27 @@ describe('deriveVerdict()', () => {
     expect(r).toEqual({ verdict: 'insufficient_evidence', summary: 'Not enough evidence: the alignment check failed.' });
   });
 
-  it('is insufficient_evidence when only the impact check was run', () => {
+  it('is not_applicable when only the impact check was run (planning, no PR verdict)', () => {
     const r = deriveVerdict({ selected: ['impact'], failedChecks: [] });
-    expect(r).toEqual({ verdict: 'insufficient_evidence', summary: 'Not enough evidence: no diff-based checks were run.' });
+    expect(r).toEqual({
+      verdict: 'not_applicable',
+      summary: 'No PR verdict: only the impact check was run. Run alignment or dod once there are changes.',
+    });
+  });
+
+  it('is not_applicable for impact-only even when the branch has no changes yet', () => {
+    const r = deriveVerdict({ selected: ['impact'], diff: diff(0), failedChecks: [] });
+    expect(r.verdict).toBe('not_applicable');
+  });
+
+  it('the output schema accepts not_applicable', () => {
+    const parsed = CheckChangesDataSchema.safeParse({
+      verdict: 'not_applicable',
+      summary: 's',
+      impact: { likelyAffectedAreas: [], riskyDownstreamFlows: [], unknowns: [] },
+      failedChecks: [],
+      diff: diff(0),
+    });
+    expect(parsed.success).toBe(true);
   });
 });

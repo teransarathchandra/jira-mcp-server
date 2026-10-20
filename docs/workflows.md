@@ -57,6 +57,7 @@ How it decides:
 ```
 
 The verdict comes only from the diff-based checks (`alignment`, `dod`); `impact` is advisory.
+- `not_applicable`: only `impact` was run (planning before any code exists), so there is no PR verdict.
 - `insufficient_evidence`: no changes against the base branch, the diff couldn't be read, a selected diff-based check crashed, alignment found no evidence, or some criteria have no evidence.
 - `needs_work`: a criterion is `missing` or only `partial`, the Definition of Done failed, or there are required fixes.
 - `ready_for_pr`: every criterion is `covered` and the Definition of Done passed.

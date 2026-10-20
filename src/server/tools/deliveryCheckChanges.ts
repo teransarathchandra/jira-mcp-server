@@ -23,7 +23,7 @@ export const registerDeliveryCheckChanges: ToolRegistrar = (server, { config, ji
         'Check work on a Jira issue. alignment and dod compare the local diff with the acceptance criteria and ' +
         'Definition of Done — run them before opening a PR. impact predicts the affected areas and works before any code ' +
         'is written, so use checks ["impact"] when planning. Each check runs independently. ' +
-        'Returns a verdict (ready_for_pr, needs_work, insufficient_evidence) and per-criterion coverage.',
+        'Returns a verdict (ready_for_pr, needs_work, insufficient_evidence; not_applicable when only impact ran) and per-criterion coverage.',
       inputSchema: z.object({
         issueKey: issueKeyField(config),
         checks: z

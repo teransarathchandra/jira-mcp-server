@@ -63,7 +63,7 @@ claude mcp add jira-delivery \
 
 **Start a ticket.** `jira_prepare_work_brief` returns a short *Start here* (readiness, inbound blockers, 2–4 next steps, up to 3 clarifying questions, a suggested branch name) followed by an implementation prompt. Missing or unreadable data lowers the confidence instead of being reported as "none", and ticket text is never copied into the actions or questions.
 
-**Verify before the PR.** `delivery_check_changes` compares your local diff with the acceptance criteria and the Definition of Done and gives one verdict: `ready_for_pr` only when every criterion is covered, otherwise `needs_work` or `insufficient_evidence`, with the files behind each criterion.
+**Verify before the PR.** `delivery_check_changes` compares your local diff with the acceptance criteria and the Definition of Done and gives one verdict: `ready_for_pr` only when every criterion is covered, otherwise `needs_work` or `insufficient_evidence`, with the files behind each criterion. An impact-only check while planning returns `not_applicable`.
 
 Both return typed `structuredContent` so an agent can act on the result without parsing text — see [docs/workflows.md](docs/workflows.md) for the data and the rules behind each decision.
 

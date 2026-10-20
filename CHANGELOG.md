@@ -12,7 +12,7 @@
 - Tool-selection evals: 34 everyday requests scored against the real tool list (`npm run eval`, needs `ANTHROPIC_API_KEY`).
 - README rewritten as a short front page with a Cursor install link; the detailed reference moved to `docs/reference.md` and the workflow data to `docs/workflows.md`.
 - `jira_prepare_work_brief` returns typed `data`: readiness with confidence, acceptance criteria and their source, inbound blockers, 2–4 recommended actions, 0–3 clarifying questions, a suggested branch name, and how each Jira source was read. The text now starts with a short "Start here" section.
-- `delivery_check_changes` returns typed `data` with one verdict (`ready_for_pr`, `needs_work`, `insufficient_evidence`), per-criterion coverage with files, Definition of Done results and impact.
+- `delivery_check_changes` returns typed `data` with one verdict (`ready_for_pr`, `needs_work`, `insufficient_evidence`, or `not_applicable` when only the `impact` check ran), per-criterion coverage with files, Definition of Done results and impact.
 - Branch name suggestion, configurable with `JIRA_BRANCH_PATTERN` (default `{type}/{KEY}-{slug}`).
 - `jira_prepare_work_brief` `allowElicitation: true` asks the clarifying questions in a form when the client supports it.
 
