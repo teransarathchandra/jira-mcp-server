@@ -2,9 +2,18 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { connect, testDeps } from '../server/harness.js';
 import { fixtureConfig } from '../helpers/jiraFixtures.js';
-import { evalSetupError, loadCases, scoreCase, summarize, toAnthropicTools, type EvalCase } from '../../evals/lib.js';
+import {
+  claudeCodeArgs,
+  evalRunner,
+  firstTurnToolCalls,
+  loadCases,
+  scoreCase,
+  summarize,
+  toAnthropicTools,
+  type EvalCase,
+} from '../../evals/lib.js';
 
-// Offline checks for the tool-selection evals (npm run eval needs an API key).
+// Offline checks for the tool-selection evals (npm run eval calls a model).
 
 describe('toAnthropicTools()', () => {
   it('maps MCP tools to Messages API tool definitions', () => {
@@ -22,6 +31,22 @@ describe('scoreCase()', () => {
 
   it('passes on the right tool with the expected arguments, ignoring extras and case', () => {
     expect(scoreCase(c, { name: 'jira_get_issue', input: { issueKey: 'abc-1', depth: 'FULL', includeConfluence: false } })).toEqual({ pass: true });
+  });
+
+  it('passes when the expected tool is among parallel calls in the first turn', () => {
+    const calls = [
+      { name: 'jira_search_issues', input: {} },
+      { name: 'jira_get_issue', input: { issueKey: 'ABC-1', depth: 'full' } },
+    ];
+    expect(scoreCase(c, calls)).toEqual({ pass: true });
+  });
+
+  it('reports the first call when none of the parallel calls is the expected tool', () => {
+    expect(scoreCase(c, [{ name: 'confluence_search', input: {} }, { name: 'jira_search_issues', input: {} }])).toEqual({
+      pass: false,
+      reason: 'called confluence_search, expected jira_get_issue',
+    });
+    expect(scoreCase(c, [])).toEqual({ pass: false, reason: 'no tool call' });
   });
 
   it('fails on the wrong tool, a wrong argument or no tool call', () => {
@@ -43,10 +68,71 @@ describe('scoreCase()', () => {
   });
 });
 
-describe('evalSetupError()', () => {
-  it('fails the run when there is no API key, instead of skipping green', () => {
-    expect(evalSetupError({})).toMatch(/ANTHROPIC_API_KEY/);
-    expect(evalSetupError({ ANTHROPIC_API_KEY: 'k' })).toBeNull();
+describe('evalRunner()', () => {
+  it('uses the Anthropic API when a key is set, otherwise Claude Code', () => {
+    expect(evalRunner({ ANTHROPIC_API_KEY: 'k' })).toEqual({ runner: 'api' });
+    expect(evalRunner({})).toEqual({ runner: 'claude-code' });
+  });
+
+  it('honours EVAL_RUNNER', () => {
+    expect(evalRunner({ ANTHROPIC_API_KEY: 'k', EVAL_RUNNER: 'claude-code' })).toEqual({ runner: 'claude-code' });
+  });
+
+  it('fails the run when the API runner has no key, instead of skipping green', () => {
+    expect(evalRunner({ EVAL_RUNNER: 'api' }).error).toMatch(/ANTHROPIC_API_KEY/);
+  });
+
+  it('rejects an unknown runner', () => {
+    expect(evalRunner({ EVAL_RUNNER: 'gpt' }).error).toMatch(/EVAL_RUNNER/);
+  });
+});
+
+describe('claudeCodeArgs()', () => {
+  const args = claudeCodeArgs({ prompt: 'Start ABC-1', mcpConfigPath: '/tmp/mcp.json', model: 'claude-haiku-5-5' });
+
+  it('loads only this server, with no built-in tools and no user settings', () => {
+    expect(args.slice(0, 2)).toEqual(['-p', 'Start ABC-1']);
+    expect(args).toContain('--strict-mcp-config');
+    expect(args.join(' ')).toContain('--mcp-config /tmp/mcp.json');
+    expect(args[args.indexOf('--tools') + 1]).toBe('');
+    expect(args[args.indexOf('--setting-sources') + 1]).toBe('');
+  });
+
+  it('streams JSON, stops after one turn and keeps no session', () => {
+    expect(args.join(' ')).toContain('--output-format stream-json --verbose');
+    expect(args.join(' ')).toContain('--max-turns 1');
+    expect(args).toContain('--no-session-persistence');
+    expect(args.join(' ')).toContain('--model claude-haiku-5-5');
+  });
+});
+
+describe('firstTurnToolCalls()', () => {
+  const line = (o: object) => JSON.stringify(o);
+  // Claude Code streams each content block of a turn as its own assistant event, sharing the message id.
+  const block = (id: string, content: object) => line({ type: 'assistant', message: { id, content: [content] } });
+  const use = (id: string, name: string, input: object = {}) => block(id, { type: 'tool_use', name, input });
+
+  it('returns every tool call of the first turn with the server prefix removed', () => {
+    const stream = [
+      line({ type: 'system', subtype: 'init' }),
+      block('m1', { type: 'text', text: 'Let me look.' }),
+      use('m1', 'mcp__jira-delivery__jira_get_issue', { issueKey: 'ABC-1' }),
+      use('m1', 'mcp__jira-delivery__jira_prepare_work_brief', { issueKey: 'ABC-1' }),
+      line({ type: 'user', message: { content: [] } }),
+      use('m2', 'mcp__jira-delivery__delivery_generate', {}),
+    ].join('\n');
+    expect(firstTurnToolCalls(stream, 'jira-delivery')).toEqual([
+      { name: 'jira_get_issue', input: { issueKey: 'ABC-1' } },
+      { name: 'jira_prepare_work_brief', input: { issueKey: 'ABC-1' } },
+    ]);
+  });
+
+  it('reports a tool from elsewhere under its own name so the case fails', () => {
+    expect(firstTurnToolCalls(use('m1', 'Bash'), 'jira-delivery').map((c) => c.name)).toEqual(['Bash']);
+  });
+
+  it('ignores lines that are not JSON and returns no calls without a tool call', () => {
+    expect(firstTurnToolCalls(['not json', block('m1', { type: 'text', text: 'hi' })].join('\n'), 'jira-delivery')).toEqual([]);
   });
 });
 

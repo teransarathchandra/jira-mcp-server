@@ -160,5 +160,5 @@ More in the [security model](docs/reference.md#security-model). To report a vuln
 - [docs/workflows.md](docs/workflows.md) — the data the workflow tools return and how they decide
 - [docs/reference.md](docs/reference.md) — configuration, client setup, Confluence, delivery features, performance, troubleshooting
 - [USAGE_GUIDE.md](USAGE_GUIDE.md) — longer walk-throughs
-- [evals/](evals/README.md) — tool-selection evals
+- [evals/](evals/README.md) — tool-selection evals: Claude Haiku 5.5 picks the right tool for 34/34 everyday requests, Sonnet 5.5 for 33/34 (in Claude Code, 2026-10-20)
 - [CHANGELOG.md](CHANGELOG.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [MIT license](LICENSE)

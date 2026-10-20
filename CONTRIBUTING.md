@@ -33,11 +33,12 @@ Node.js 20 or later is required.
 
 ## Releasing (maintainer)
 
-1. In a PR, set the same version in `package.json`, `plugin/.claude-plugin/plugin.json` (its `version` and the `jira-delivery-mcp@<version>` it runs) and `server.json` (a test checks they match), and move the `## Unreleased` notes under that version.
-2. After merge: `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`.
-3. The Release workflow checks the tag against the manifests, runs the tests, publishes to npm with provenance (`beta` dist-tag for prereleases, `latest` otherwise), lists the version in the MCP Registry and creates the GitHub release.
+1. If tool names, descriptions or inputs changed, run `npm run eval` and update the results table in `evals/README.md` and the line in the README.
+2. In a PR, set the same version in `package.json`, `plugin/.claude-plugin/plugin.json` (its `version` and the `jira-delivery-mcp@<version>` it runs) and `server.json` (a test checks they match), and move the `## Unreleased` notes under that version.
+3. After merge: `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`.
+4. The Release workflow checks the tag against the manifests, runs the tests, publishes to npm with provenance (`beta` dist-tag for prereleases, `latest` otherwise), lists the version in the MCP Registry and creates the GitHub release.
 
-npm trusted publishing must be set up once on npmjs.com (package settings → Trusted publisher → GitHub Actions, workflow `release.yml`). Until then the npm step fails and `npm publish --tag beta` by hand still works; the workflow skips a version that is already on npm.
+npm trusted publishing must be set up once, on npmjs.com (package settings → Trusted publisher → GitHub Actions, workflow `release.yml`) or with `npm trust github jira-delivery-mcp --file release.yml --repo teransarathchandra/jira-mcp-server --allow-publish` (needs 2FA). Until then the npm step fails and `npm publish --tag beta` by hand still works; the workflow skips a version that is already on npm.
 
 ## Reporting security issues
 

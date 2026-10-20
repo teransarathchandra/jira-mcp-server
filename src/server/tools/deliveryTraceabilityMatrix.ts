@@ -15,7 +15,8 @@ export const registerDeliveryTraceabilityMatrix: ToolRegistrar = (server, { conf
     {
       title: 'Build a requirement traceability matrix',
       description:
-        'Map each requirement and acceptance criterion of a Jira issue to the changed files that implement it, and flag gaps.',
+        'Build a requirements traceability matrix: map each requirement and acceptance criterion of a Jira issue to the ' +
+        'changed files that implement it, and flag gaps. Fetches the issue itself. For a ready-for-PR verdict use delivery_check_changes.',
       inputSchema: z.object({
         issueKey: issueKeyField(config),
         ...gitRefsShape,

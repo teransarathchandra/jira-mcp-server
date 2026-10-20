@@ -65,7 +65,8 @@ export const registerJiraPrepareWorkBrief: ToolRegistrar = (server, { config, ji
       title: 'Prepare a work brief for a Jira issue',
       description:
         'Turn a Jira issue into a ready-to-implement brief for a coding agent: goal, acceptance criteria, ' +
-        'constraints and an implementation prompt. Use this when starting work on a ticket.',
+        'constraints and an implementation prompt. Use this when starting work on a ticket, or to check whether it is ' +
+        'ready to start (readiness, blockers, missing acceptance criteria). Fetches the issue itself.',
       inputSchema: z.object({
         issueKey: issueKeyField(config),
         depth: depthField,

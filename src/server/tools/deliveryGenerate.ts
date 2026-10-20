@@ -43,7 +43,8 @@ export const registerDeliveryGenerate: ToolRegistrar = (server, { config, jiraCl
       title: 'Generate a delivery document for a Jira issue',
       description:
         'Generate a delivery artifact from a Jira issue and the local diff: test_strategy, reviewer_report (needs persona), ' +
-        'qa_handoff, release_notes (audience) or task_report (combined sections). Returns Markdown; writes no files.',
+        'qa_handoff, release_notes (audience) or task_report (combined sections). Use test_strategy to plan tests and ' +
+        'reviewer_report to review a ticket from a persona\'s point of view. Fetches the issue itself. Returns Markdown; writes no files.',
       inputSchema: z.object({
         issueKey: issueKeyField(config),
         type: z.enum(['test_strategy', 'reviewer_report', 'qa_handoff', 'release_notes', 'task_report']),
