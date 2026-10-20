@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { getPackageSpec } from '../../src/version.js';
 
 // The npm package, the Claude Code plugin and the MCP Registry entry are
 // released together; these checks keep their versions and names in step.
@@ -18,6 +19,13 @@ describe('release manifests', () => {
 
   it('pin the plugin to its own version, so plugin users get the release they installed', () => {
     expect(plugin.mcpServers['jira-delivery-mcp'].args).toEqual(['-y', `jira-delivery-mcp@${pkg.version}`]);
+  });
+
+  it('give the skill a setup command from the same release line', () => {
+    const skill = readFileSync(new URL('../../plugin/skills/jira-delivery/SKILL.md', import.meta.url), 'utf8');
+    const specs = [...skill.matchAll(/npx(?: -y)?\s+(jira-delivery-mcp[@\w.-]*)/g)].map((m) => m[1]);
+    expect(specs.length).toBeGreaterThan(0);
+    expect(new Set(specs)).toEqual(new Set([getPackageSpec(pkg.version)]));
   });
 
   it('name the registry entry and the npm package consistently', () => {

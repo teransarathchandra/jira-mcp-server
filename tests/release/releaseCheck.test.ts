@@ -48,8 +48,9 @@ describe('release workflow', () => {
     expect(publish).not.toContain('npm ci');
   });
 
-  it('pins every action by commit SHA', () => {
-    const uses = [...wf.matchAll(/uses: (\S+)/g)].map((m) => m[1]);
+  it.each(['release.yml', 'ci.yml'])('%s pins every action by commit SHA', (file) => {
+    const text = readFileSync(new URL(`../../.github/workflows/${file}`, import.meta.url), 'utf8');
+    const uses = [...text.matchAll(/uses: (\S+)/g)].map((m) => m[1]);
     expect(uses.length).toBeGreaterThan(0);
     for (const u of uses) expect(u).toMatch(/@[0-9a-f]{40}$/);
   });
