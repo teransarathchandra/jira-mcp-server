@@ -31,8 +31,12 @@ export function appendAudit(path: string, entry: AuditEntry): string | null {
     // O_NOFOLLOW: a symlink planted at the path must not redirect the log.
     const fd = openSync(path, constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | constants.O_NOFOLLOW, 0o600);
     try {
-      fchmodSync(fd, 0o600); // an existing file keeps its old mode otherwise
       writeSync(fd, `${JSON.stringify(line)}\n`);
+      try {
+        fchmodSync(fd, 0o600); // an existing file keeps its old mode otherwise
+      } catch {
+        return `The audit log at ${path} was written but its permissions could not be set to 0600; restrict access to it.`;
+      }
     } finally {
       closeSync(fd);
     }
