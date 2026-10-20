@@ -27,6 +27,14 @@ Node.js 20 or later is required.
 - CI (typecheck, tests, build on Node 20 and 22) must pass.
 - Update `CHANGELOG.md` under `## Unreleased`.
 
+## Releasing (maintainer)
+
+1. In a PR, set the same version in `package.json`, `plugin/.claude-plugin/plugin.json` and `server.json` (a test checks they match), and move the `## Unreleased` notes under that version.
+2. After merge: `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`.
+3. The Release workflow checks the tag against the manifests, runs the tests, publishes to npm with provenance (`beta` dist-tag for prereleases, `latest` otherwise), lists the version in the MCP Registry and creates the GitHub release.
+
+npm trusted publishing must be set up once on npmjs.com (package settings → Trusted publisher → GitHub Actions, workflow `release.yml`). Until then the npm step fails and `npm publish --tag beta` by hand still works; the workflow skips a version that is already on npm.
+
 ## Reporting security issues
 
 See [SECURITY.md](SECURITY.md) — please don't open a public issue for vulnerabilities.

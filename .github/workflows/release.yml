@@ -1,0 +1,62 @@
+name: Release
+
+# Pushing a tag vX.Y.Z or vX.Y.Z-beta.N publishes that version to npm with
+# provenance (npm trusted publishing, no token), then lists it in the MCP
+# Registry. One-time setup on npmjs.com: package settings → Trusted publisher
+# → GitHub Actions, repository teransarathchandra/jira-mcp-server, workflow
+# release.yml. A version already on npm is not published again.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # GitHub release
+  id-token: write # npm provenance and MCP Registry login
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x # npm >= 11.5.1 for trusted publishing
+          cache: npm
+
+      - name: Check the tag matches every manifest
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          for f in package.json plugin/.claude-plugin/plugin.json server.json; do
+            test "$(node -p "require('./$f').version")" = "$VERSION" || { echo "$f is not $VERSION"; exit 1; }
+          done
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          case "$VERSION" in *-*) echo "DIST_TAG=beta" >> "$GITHUB_ENV" ;; *) echo "DIST_TAG=latest" >> "$GITHUB_ENV" ;; esac
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - name: Publish to npm
+        run: |
+          if npm view "jira-delivery-mcp@$VERSION" version >/dev/null 2>&1; then
+            echo "jira-delivery-mcp@$VERSION is already on npm; skipping"
+          else
+            npm publish --provenance --access public --tag "$DIST_TAG"
+          fi
+
+      - name: List in the MCP Registry
+        run: |
+          curl -sSfL -o mcp-publisher.tar.gz https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz
+          echo "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  mcp-publisher.tar.gz" | sha256sum -c -
+          tar xzf mcp-publisher.tar.gz mcp-publisher
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRERELEASE=$([ "$DIST_TAG" = beta ] && echo --prerelease || true)
+          gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes $PRERELEASE || echo "release already exists"
