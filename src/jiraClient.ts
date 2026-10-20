@@ -514,6 +514,11 @@ export class JiraClient {
     await this.write('POST', this.issuePath(issueKey, 'transitions'), { transition: { id: transitionId } }, issueKey);
   }
 
+  async listFields(): Promise<Array<{ id: string; name: string; custom: boolean }>> {
+    const fields = await this.read<Array<{ id: string; name: string; custom?: boolean }>>('/rest/api/3/field');
+    return fields.map((f) => ({ id: f.id, name: f.name, custom: f.custom === true }));
+  }
+
   async getMyself(): Promise<{ accountId: string; displayName: string }> {
     const me = await this.read<{ accountId: string; displayName: string }>('/rest/api/3/myself');
     return { accountId: me.accountId, displayName: me.displayName };

@@ -47,7 +47,7 @@ export const DiffInfoSchema = z.object({
 });
 
 export const CheckChangesDataSchema = z.object({
-  verdict: z.enum(['ready_for_pr', 'needs_work', 'insufficient_evidence']),
+  verdict: z.enum(['ready_for_pr', 'needs_work', 'insufficient_evidence', 'not_applicable']),
   summary: z.string(),
   alignment: AlignmentDataSchema.optional(),
   dod: DodDataSchema.optional(),

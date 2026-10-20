@@ -1,7 +1,8 @@
 import type { AlignmentData, Check, CheckChangesData, DiffInfo, DodData } from './checkChangesTypes.js';
 
 // Verdict rules for delivery_check_changes (R2 design §6.2). Only the
-// diff-based checks (alignment, dod) decide the verdict; impact is advisory.
+// diff-based checks (alignment, dod) decide the verdict; impact is advisory, so
+// an impact-only run (planning) has no PR verdict.
 
 const DOD_FAILED: ReadonlySet<DodData['status']> = new Set(['NEEDS_SMALL_FIXES', 'NEEDS_MAJOR_FIXES', 'BLOCKED_BY_REQUIREMENT_GAP']);
 
@@ -18,7 +19,12 @@ export function deriveVerdict(parts: {
   const insufficient = (reason: string) => ({ verdict: 'insufficient_evidence' as const, summary: `Not enough evidence: ${reason}.` });
 
   const diffBased = parts.selected.filter((c) => c === 'alignment' || c === 'dod');
-  if (diffBased.length === 0) return insufficient('no diff-based checks were run');
+  if (diffBased.length === 0) {
+    return {
+      verdict: 'not_applicable',
+      summary: 'No PR verdict: only the impact check was run. Run alignment or dod once there are changes.',
+    };
+  }
   if (parts.diffUnreadable) {
     return insufficient(`the diff against ${parts.baseBranch ?? parts.diff?.baseBranch ?? 'the base branch'} could not be read`);
   }

@@ -51,6 +51,8 @@ claude mcp add jira-delivery \
 
 `npx jira-delivery-mcp@beta setup <client>` prints the exact steps for `claude-code`, `claude-desktop`, `codex-cli`, `cursor`, `windsurf`, `vscode` or `generic`. The three variables above are the only required ones; everything else is in [`.env.example`](.env.example) and the [reference](docs/reference.md#installation-and-configuration).
 
+If your site keeps acceptance criteria, story points, epic links or teams in custom fields, run `npx jira-delivery-mcp@beta doctor` with those three variables exported: it checks your credentials and prints the field ids to add. It only reads from Jira.
+
 ## What you can ask
 
 | Moment | Ask your agent | Tool |
@@ -63,7 +65,7 @@ claude mcp add jira-delivery \
 
 **Start a ticket.** `jira_prepare_work_brief` returns a short *Start here* (readiness, inbound blockers, 2–4 next steps, up to 3 clarifying questions, a suggested branch name) followed by an implementation prompt. Missing or unreadable data lowers the confidence instead of being reported as "none", and ticket text is never copied into the actions or questions.
 
-**Verify before the PR.** `delivery_check_changes` compares your local diff with the acceptance criteria and the Definition of Done and gives one verdict: `ready_for_pr` only when every criterion is covered, otherwise `needs_work` or `insufficient_evidence`, with the files behind each criterion.
+**Verify before the PR.** `delivery_check_changes` compares your local diff with the acceptance criteria and the Definition of Done and gives one verdict: `ready_for_pr` only when every criterion is covered, otherwise `needs_work` or `insufficient_evidence`, with the files behind each criterion. An impact-only check while planning returns `not_applicable`.
 
 Both return typed `structuredContent` so an agent can act on the result without parsing text — see [docs/workflows.md](docs/workflows.md) for the data and the rules behind each decision.
 

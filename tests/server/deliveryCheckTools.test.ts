@@ -94,6 +94,18 @@ describe('delivery check tools', () => {
     expect(impact.mock.calls[0][0]).toEqual({ issueKey: 'ABC-1', includeConfluence: true });
   });
 
+  it('an impact-only run returns the not_applicable verdict through the output schema', async () => {
+    const r = await check({ checks: ['impact'] });
+    expect(r.isError).toBeFalsy();
+    expect((r.structuredContent as Envelope).data.verdict).toBe('not_applicable');
+  });
+
+  it('the tool description lists every verdict', async () => {
+    const { tools } = await session.client.listTools();
+    const description = tools.find((t) => t.name === 'delivery_check_changes')?.description ?? '';
+    for (const v of ['ready_for_pr', 'needs_work', 'insufficient_evidence', 'not_applicable']) expect(description).toContain(v);
+  });
+
   it('runs only the requested checks', async () => {
     await check({ checks: ['dod'] });
     expect(dod).toHaveBeenCalledTimes(1);

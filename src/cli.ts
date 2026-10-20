@@ -1,13 +1,15 @@
+import { defaultDoctorDeps, runDoctor } from './doctor.js';
 import { mcpGetClientSetupInstructions } from './tools/mcpGetClientSetupInstructions.js';
 import { getPackageSpec, getServerVersion } from './version.js';
 
-// Command-line entry points that run without Jira credentials. This is the
+// Command-line entry points (setup and help run without Jira credentials). This is the
 // only module allowed to write to stdout: when serving, stdout is the MCP
 // protocol channel.
 
 export type Command =
   | { kind: 'serve' }
   | { kind: 'setup'; client: string }
+  | { kind: 'doctor' }
   | { kind: 'help' }
   | { kind: 'unknown'; arg: string };
 
@@ -21,6 +23,7 @@ Commands:
   (none)            Start the MCP server on stdio (requires JIRA_* environment variables)
   setup <client>    Print setup instructions for an MCP client
                     Clients: ${SETUP_CLIENTS.join(', ')}
+  doctor            Check the Jira/Confluence credentials and suggest custom field ids (read-only)
   --help, -h        Show this help`;
 
 export function parseCommand(argv: string[]): Command {
@@ -29,6 +32,7 @@ export function parseCommand(argv: string[]): Command {
   if (first === undefined) return { kind: 'serve' };
   if (isHelp(first)) return { kind: 'help' };
   if (first === 'setup') return isHelp(second) ? { kind: 'help' } : { kind: 'setup', client: second ?? '' };
+  if (first === 'doctor') return isHelp(second) ? { kind: 'help' } : { kind: 'doctor' };
   return { kind: 'unknown', arg: first };
 }
 
@@ -52,8 +56,14 @@ const stdout: Writer = (s) => process.stdout.write(`${s}\n`);
 const stderr: Writer = (s) => process.stderr.write(`${s}\n`);
 
 /** Runs a non-serve command and returns the process exit code. */
-export function runCommand(command: Exclude<Command, { kind: 'serve' }>, out: Writer = stdout, err: Writer = stderr): number {
+export function runCommand(
+  command: Exclude<Command, { kind: 'serve' }>,
+  out: Writer = stdout,
+  err: Writer = stderr,
+): number | Promise<number> {
   switch (command.kind) {
+    case 'doctor':
+      return runDoctor(defaultDoctorDeps(), out, err);
     case 'setup':
       return runSetup(command.client, out, err);
     case 'unknown':

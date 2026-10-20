@@ -28,6 +28,7 @@ Run `delivery_check_changes` on the branch (default checks: alignment, dod, impa
 - `ready_for_pr` — every criterion is covered and the Definition of Done passed. Offer to open the PR.
 - `needs_work` — fix each `alignment.criteria[]` that is `missing` or `partial` and each `dod.requiredFixes[]`, then run the check again.
 - `insufficient_evidence` — say why (`summary`): no changes yet, the base branch doesn't exist (pass `baseBranch`), or a check failed.
+- `not_applicable` — only `impact` ran (planning). Report the affected areas; there is no PR verdict yet.
 
 Use `delivery_traceability_matrix` when the user wants requirement-to-file mapping.
 
@@ -44,3 +45,5 @@ Use `delivery_traceability_matrix` when the user wants requirement-to-file mappi
 ## Setup problems
 
 If a tool reports missing configuration, run `npx jira-delivery-mcp@beta setup <client>` for setup instructions (clients: claude-code, cursor, codex-cli, claude-desktop, windsurf, vscode, generic).
+
+If briefs keep reporting `evidence.acceptanceCriteriaField: "not_configured"` or no acceptance criteria, suggest the user run `npx jira-delivery-mcp@beta doctor` with their Jira variables exported; it prints the custom field ids to configure.

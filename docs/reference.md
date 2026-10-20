@@ -401,6 +401,8 @@ When using `jira_get_issue` (depth: full), the brief includes:
 
 ### Optional environment variables
 
+To find the right custom field ids for your site, run `npx jira-delivery-mcp@beta doctor` with `JIRA_BASE_URL`, `JIRA_EMAIL` and `JIRA_API_TOKEN` exported in your shell. It checks the credentials, lists the matching fields and prints the lines to add. It only reads.
+
 ```
 # Identify the custom field used for Epic Links (if standard epic field doesn't work)
 JIRA_EPIC_FIELD_ID=customfield_10014
@@ -743,6 +745,7 @@ The server exposes five named prompts for direct use in MCP-compatible clients:
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
+| Not sure what's wrong | — | Run `npx jira-delivery-mcp@beta doctor` with the server's environment variables exported: it checks the Jira and Confluence credentials and suggests custom field ids |
 | `Jira authentication failed` | Wrong email or API token | Verify `JIRA_EMAIL` and `JIRA_API_TOKEN` in `.env` |
 | `Jira access denied (403)` | Insufficient Jira permissions | Ask your Jira admin to grant you read access |
 | `Issue ENG-XXX not found` | Issue doesn't exist or you lack permission | Check the issue key in Jira, verify project access |
@@ -751,6 +754,7 @@ The server exposes five named prompts for direct use in MCP-compatible clients:
 | `Cannot find module` | `dist/` not built | Run `npm run build` first |
 | `Network error` | Jira unreachable | Check VPN, network, and the Jira Cloud URL in `JIRA_BASE_URL` |
 | Rate limited (429) | Too many requests | Wait a few minutes and retry |
+| Every brief says `NEEDS_CLARIFICATION` with no acceptance criteria | Criteria live in a custom field that isn't configured | Run `doctor` and set `JIRA_ACCEPTANCE_CRITERIA_FIELD_ID` |
 
 ## Development
 
