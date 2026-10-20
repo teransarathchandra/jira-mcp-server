@@ -11,7 +11,7 @@ npm test
 npm run build
 ```
 
-Node.js 20 or later is required. `npm run dev` starts the built server with your local `.env`.
+Node.js 22 or later is required. `npm run dev` starts the built server with your local `.env`.
 
 ## Project layout
 
@@ -36,7 +36,7 @@ Node.js 20 or later is required. `npm run dev` starts the built server with your
 ## Pull requests
 
 - One topic per PR, with a short description of what changed and why.
-- CI (typecheck, tests, build on Node 20 and 22) must pass.
+- CI (typecheck, tests, build on Node 22 and 24) must pass.
 - Update `CHANGELOG.md` under `## Unreleased`.
 - If a tool's name, description or inputs change, run `npm run eval` (it uses your Claude Code login, or `ANTHROPIC_API_KEY`).
 

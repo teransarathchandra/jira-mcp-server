@@ -4,7 +4,7 @@
 
 | Symptom | Fix |
 |---|---|
-| The agent has no `jira_*` tools | The server isn't connected. Check your client's MCP config, then restart the client or reload its MCP servers. Node.js 20+ must be on the `PATH` the client uses. |
+| The agent has no `jira_*` tools | The server isn't connected. Check your client's MCP config, then restart the client or reload its MCP servers. Node.js 22+ must be on the `PATH` the client uses. |
 | `Missing required environment variable(s)` | Set `JIRA_BASE_URL`, `JIRA_EMAIL` and `JIRA_API_TOKEN` in the server's `env`. |
 | `Jira authentication failed` | Wrong email or token. Create a new token at [id.atlassian.com](https://id.atlassian.com/manage-profile/security/api-tokens); it must belong to `JIRA_EMAIL`. |
 | `Permission denied` / `not found` | Your account can't see that project or issue, or the key is wrong. |

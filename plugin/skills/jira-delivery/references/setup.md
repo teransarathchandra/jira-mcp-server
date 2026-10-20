@@ -1,6 +1,6 @@
 # Setting up the jira-delivery MCP server
 
-The skill needs the `jira-delivery-mcp` MCP server. It runs locally over stdio with `npx` (Node.js 20 or newer) and needs three values from the user:
+The skill needs the `jira-delivery-mcp` MCP server. It runs locally over stdio with `npx` (Node.js 22 or newer) and needs three values from the user:
 
 | Variable | Value |
 |---|---|
