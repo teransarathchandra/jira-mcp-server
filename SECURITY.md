@@ -4,7 +4,7 @@
 
 Please **don't open a public issue**. Report it privately through GitHub's
 [security advisories](https://github.com/teransarathchandra/jira-mcp-server/security/advisories/new)
-for this repository. Include steps to reproduce and the version you run (for example from `npm ls jira-delivery-mcp` or the `@beta` tag you installed).
+for this repository. Include steps to reproduce and the version you run (for example from `npx jira-delivery-mcp --version`).
 
 You'll get an acknowledgement within a few days. Fixes are released as a new
 npm version and noted in the CHANGELOG.

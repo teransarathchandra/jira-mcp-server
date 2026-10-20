@@ -2,7 +2,7 @@
 
 **From Jira ticket to merged PR without leaving your coding agent.** A local MCP server for Jira Cloud that turns a ticket into a ready-to-build brief, checks your branch against the acceptance criteria before you open the PR, and hands the work off: QA notes, release notes and, if you allow it, the Jira update itself.
 
-[![npm](https://img.shields.io/npm/v/jira-delivery-mcp/beta?label=npm%20beta)](https://www.npmjs.com/package/jira-delivery-mcp) [![CI](https://github.com/teransarathchandra/jira-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/teransarathchandra/jira-mcp-server/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![npm](https://img.shields.io/npm/v/jira-delivery-mcp?label=npm)](https://www.npmjs.com/package/jira-delivery-mcp) [![CI](https://github.com/teransarathchandra/jira-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/teransarathchandra/jira-mcp-server/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Works with Claude Code, Claude Desktop, Cursor, Codex CLI, Windsurf, VS Code and any stdio MCP client. Jira Cloud with an API token; Node.js 20 or newer. No telemetry, and read-only unless you turn writes on.
 
@@ -12,7 +12,7 @@ Works with Claude Code, Claude Desktop, Cursor, Codex CLI, Windsurf, VS Code and
 
 ## Install
 
-> **v2 is in beta.** These instructions use the `@beta` tag. Plain `jira-delivery-mcp` still installs 1.x until 2.0.0 is released.
+> **Upgrading from 1.x?** v2 consolidates the 28 tools into 10, plus two opt-in write tools — see [Migrating from 1.x](#migrating-from-1x).
 
 You need your Jira site URL, your Atlassian email and an [API token](https://id.atlassian.com/manage-profile/security/api-tokens).
 
@@ -23,7 +23,7 @@ You need your Jira site URL, your Atlassian email and an [API token](https://id.
 /plugin install jira-delivery@jira-delivery
 ```
 
-**Cursor** — [![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=jira-delivery&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImppcmEtZGVsaXZlcnktbWNwQGJldGEiXSwiZW52Ijp7IkpJUkFfQkFTRV9VUkwiOiJodHRwczovL3lvdXItZG9tYWluLmF0bGFzc2lhbi5uZXQiLCJKSVJBX0VNQUlMIjoieW91QGV4YW1wbGUuY29tIiwiSklSQV9BUElfVE9LRU4iOiJ5b3VyLWFwaS10b2tlbiJ9fQ%3D%3D), then replace the three placeholder values.
+**Cursor** — [![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=jira-delivery&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImppcmEtZGVsaXZlcnktbWNwIl0sImVudiI6eyJKSVJBX0JBU0VfVVJMIjoiaHR0cHM6Ly95b3VyLWRvbWFpbi5hdGxhc3NpYW4ubmV0IiwiSklSQV9FTUFJTCI6InlvdUBleGFtcGxlLmNvbSIsIkpJUkFfQVBJX1RPS0VOIjoieW91ci1hcGktdG9rZW4ifX0%3D), then replace the three placeholder values.
 
 **Other agents with Agent Skills** (Cursor, Copilot, Codex and others): set up the server as below, then add the `jira-delivery` skill: the [`plugin/skills/jira-delivery`](plugin/skills/jira-delivery/SKILL.md) folder, also attached to each GitHub release as `jira-delivery-skill-<version>.zip`. It tells the agent when to use each tool and how to help you set the server up.
 
@@ -34,7 +34,7 @@ claude mcp add jira-delivery \
   --env JIRA_BASE_URL=https://your-domain.atlassian.net \
   --env JIRA_EMAIL=you@example.com \
   --env JIRA_API_TOKEN=your-api-token \
-  -- npx -y jira-delivery-mcp@beta
+  -- npx -y jira-delivery-mcp
 ```
 
 **Any other MCP client** — add this to its MCP config:
@@ -44,7 +44,7 @@ claude mcp add jira-delivery \
   "mcpServers": {
     "jira-delivery": {
       "command": "npx",
-      "args": ["-y", "jira-delivery-mcp@beta"],
+      "args": ["-y", "jira-delivery-mcp"],
       "env": {
         "JIRA_BASE_URL": "https://your-domain.atlassian.net",
         "JIRA_EMAIL": "you@example.com",
@@ -55,9 +55,9 @@ claude mcp add jira-delivery \
 }
 ```
 
-`npx jira-delivery-mcp@beta setup <client>` prints the exact steps for `claude-code`, `claude-desktop`, `codex-cli`, `cursor`, `windsurf`, `vscode` or `generic`. The three variables above are the only required ones; everything else is in [`.env.example`](.env.example) and the [reference](docs/reference.md#installation-and-configuration).
+`npx jira-delivery-mcp setup <client>` prints the exact steps for `claude-code`, `claude-desktop`, `codex-cli`, `cursor`, `windsurf`, `vscode` or `generic`. The three variables above are the only required ones; everything else is in [`.env.example`](.env.example) and the [reference](docs/reference.md#installation-and-configuration).
 
-If your site keeps acceptance criteria, story points, epic links or teams in custom fields, run `npx jira-delivery-mcp@beta doctor` with those three variables exported: it checks your credentials and prints the field ids to add. It only reads from Jira.
+If your site keeps acceptance criteria, story points, epic links or teams in custom fields, run `npx jira-delivery-mcp doctor` with those three variables exported: it checks your credentials and prints the field ids to add. It only reads from Jira.
 
 ## What you can ask
 
@@ -142,7 +142,7 @@ Transitions are matched by name, then by target status, case-insensitively. If n
 | `delivery_get_project_patterns` | `delivery_project_patterns` with `action: "get"` |
 | `delivery_clear_project_patterns` | `delivery_project_patterns` with `action: "clear"` |
 | `jira_list_configured_projects` | resource `jira-delivery://config/projects` |
-| `mcp_get_client_setup_instructions` | CLI `npx jira-delivery-mcp@beta setup <client>` |
+| `mcp_get_client_setup_instructions` | CLI `npx jira-delivery-mcp setup <client>` |
 | `mcp_clear_cache` | removed (restart the server) |
 
 Parameters that v2 no longer accepts are listed in the [CHANGELOG](CHANGELOG.md#removed-parameters).

@@ -1,7 +1,7 @@
 {
   "name": "jira-delivery",
   "displayName": "Jira Delivery",
-  "version": "2.0.0-beta.3",
+  "version": "2.0.0",
   "description": "Start Jira tickets with a ready-to-build brief, verify your branch against the acceptance criteria before the PR, and hand off — from inside your coding agent.",
   "author": { "name": "Teran Sarathchandra", "url": "https://github.com/teransarathchandra" },
   "homepage": "https://github.com/teransarathchandra/jira-mcp-server#readme",
@@ -11,7 +11,7 @@
   "mcpServers": {
     "jira-delivery-mcp": {
       "command": "npx",
-      "args": ["-y", "jira-delivery-mcp@2.0.0-beta.3"],
+      "args": ["-y", "jira-delivery-mcp@2.0.0"],
       "env": {
         "JIRA_BASE_URL": "${user_config.jira_base_url}",
         "JIRA_EMAIL": "${user_config.jira_email}",

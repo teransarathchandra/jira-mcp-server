@@ -2,6 +2,14 @@
 
 Drafts for after **2.0.0** (spec decision Q21: free listings first, paid add-ons only once there is adoption). Nothing here is submitted automatically.
 
+## Publish day (2.0.0)
+
+1. Merge the release PR (all manifests at 2.0.0, install lines without `@beta`).
+2. One-time, if not done yet: `npm trust github jira-delivery-mcp --file release.yml --repo teransarathchandra/jira-mcp-server --allow-publish` (needs an authenticator code). Without it, run `npm publish` by hand before step 3; the workflow then skips npm.
+3. `git tag -a v2.0.0 -m v2.0.0 && git push origin v2.0.0`. The Release workflow publishes to npm as `latest` with provenance, lists 2.0.0 in the MCP Registry, and creates the GitHub release with `jira-delivery-skill-2.0.0.zip` attached.
+4. Move the `beta` dist-tag forward so anyone on `@beta` gets 2.0.0: `npm dist-tag add jira-delivery-mcp@2.0.0 beta`.
+5. Check: `npx jira-delivery-mcp@latest --version` prints 2.0.0, and `/plugin install jira-delivery@jira-delivery` starts the server.
+
 ## Before listing
 
 - [ ] 2.0.0 published to npm as `latest`; README and skill install lines use plain `jira-delivery-mcp` (the release-line tests enforce this once the version has no prerelease suffix).

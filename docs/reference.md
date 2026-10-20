@@ -237,7 +237,7 @@ Use the Jira Delivery MCP server to generate a test strategy for ENG-123.
 
 ### Using with Cursor, Windsurf, or VS Code
 
-Each editor launches the server with `npx -y jira-delivery-mcp@beta` and passes `JIRA_BASE_URL`, `JIRA_EMAIL` and `JIRA_API_TOKEN` as environment variables.
+Each editor launches the server with `npx -y jira-delivery-mcp` and passes `JIRA_BASE_URL`, `JIRA_EMAIL` and `JIRA_API_TOKEN` as environment variables.
 
 - **Cursor:** use the *Add to Cursor* button in the README, or add an `mcpServers` entry to `~/.cursor/mcp.json` (Cursor Settings → MCP → Add Server).
 - **Windsurf:** add an `mcpServers` entry in Windsurf Settings → MCP Servers.
@@ -246,7 +246,7 @@ Each editor launches the server with `npx -y jira-delivery-mcp@beta` and passes 
 For the exact snippet, run:
 
 ```
-npx jira-delivery-mcp@beta setup cursor    # or windsurf, vscode
+npx jira-delivery-mcp setup cursor    # or windsurf, vscode
 ```
 
 ---
@@ -278,7 +278,7 @@ Refer to your client's documentation for where to place this configuration.
 The `setup` command prints setup instructions for any supported client, and needs no Jira credentials:
 
 ```bash
-npx jira-delivery-mcp@beta setup codex-cli
+npx jira-delivery-mcp setup codex-cli
 ```
 
 Supported client values: `generic`, `claude-code`, `claude-desktop`, `codex-cli`, `cursor`, `windsurf`, `vscode`
@@ -386,7 +386,7 @@ When using `jira_get_issue` (depth: full), the brief includes:
 
 ### Optional environment variables
 
-To find the right custom field ids for your site, run `npx jira-delivery-mcp@beta doctor` with `JIRA_BASE_URL`, `JIRA_EMAIL` and `JIRA_API_TOKEN` exported in your shell. It checks the credentials, lists the matching fields and prints the lines to add. It only reads.
+To find the right custom field ids for your site, run `npx jira-delivery-mcp doctor` with `JIRA_BASE_URL`, `JIRA_EMAIL` and `JIRA_API_TOKEN` exported in your shell. It checks the credentials, lists the matching fields and prints the lines to add. It only reads.
 
 ```
 # Identify the custom field used for Epic Links (if standard epic field doesn't work)
@@ -730,7 +730,7 @@ The server exposes five named prompts for direct use in MCP-compatible clients:
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
-| Not sure what's wrong | — | Run `npx jira-delivery-mcp@beta doctor` with the server's environment variables exported: it checks the Jira and Confluence credentials and suggests custom field ids |
+| Not sure what's wrong | — | Run `npx jira-delivery-mcp doctor` with the server's environment variables exported: it checks the Jira and Confluence credentials and suggests custom field ids |
 | `Jira authentication failed` | Wrong email or API token | Verify `JIRA_EMAIL` and `JIRA_API_TOKEN` in `.env` |
 | `Jira access denied (403)` | Insufficient Jira permissions | Ask your Jira admin to grant you read access |
 | `Issue ENG-XXX not found` | Issue doesn't exist or you lack permission | Check the issue key in Jira, verify project access |

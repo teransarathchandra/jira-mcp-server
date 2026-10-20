@@ -6,7 +6,7 @@ body:
     id: version
     attributes:
       label: Version
-      description: Output of `npm view jira-delivery-mcp@beta version` or the version you installed
+      description: Output of `npx jira-delivery-mcp --version`, or the version you installed
     validations:
       required: true
   - type: input
