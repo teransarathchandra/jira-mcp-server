@@ -48,15 +48,17 @@ export function suggestFieldIds(fields: JiraField[], env: Record<string, string 
       envVar,
       label,
       current,
-      currentName: current ? fields.find((f) => f.id === current)?.name : undefined,
+      currentName: current ? clean(fields.find((f) => f.id === current)?.name ?? '') || undefined : undefined,
       candidates: fields
         .filter((f) => f.custom && f.id.startsWith('customfield_') && pattern.test(f.name.trim()))
-        .map(({ id, name }) => ({ id, name })),
+        .map(({ id, name }) => ({ id: clean(id), name: clean(name) })),
     };
   });
 }
 
-const message = (err: unknown) => redactString(err instanceof Error ? err.message : String(err));
+const message = (err: unknown) => clean(redactString(err instanceof Error ? err.message : String(err)));
+/** Site-supplied text (field and user names) must not drive the terminal. */
+const clean = (s: string) => s.replace(/[\u0000-\u001f\u007f]/g, '');
 
 export async function runDoctor(deps: DoctorDeps, out: Writer, err: Writer): Promise<number> {
   const missing = REQUIRED.filter((v) => !deps.env[v]?.trim());
@@ -66,10 +68,11 @@ export async function runDoctor(deps: DoctorDeps, out: Writer, err: Writer): Pro
     return 1;
   }
 
-  const jira = deps.jira();
+  let jira: ReturnType<DoctorDeps['jira']>;
   try {
+    jira = deps.jira();
     const me = await jira.getMyself();
-    out(`✓ Jira: signed in to ${deps.env.JIRA_BASE_URL?.trim().replace(/\/+$/, '')} as ${me.displayName}`);
+    out(`✓ Jira: signed in to ${clean(deps.env.JIRA_BASE_URL?.trim().replace(/\/+$/, '') ?? '')} as ${clean(me.displayName)}`);
   } catch (e) {
     err(`✗ Jira: ${message(e)}`);
     err('  Check JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN (https://id.atlassian.com/manage-profile/security/api-tokens).');
@@ -83,7 +86,13 @@ export async function runDoctor(deps: DoctorDeps, out: Writer, err: Writer): Pro
     out(`! Jira: could not list fields (${message(e)}); skipping field suggestions.`);
   }
 
-  const confluence = deps.confluence();
+  let confluence: ReturnType<DoctorDeps['confluence']>;
+  try {
+    confluence = deps.confluence();
+  } catch (e) {
+    err(`✗ Confluence: ${message(e)}`);
+    return 1;
+  }
   if (confluence) {
     try {
       await confluence.check();

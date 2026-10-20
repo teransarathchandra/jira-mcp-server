@@ -109,6 +109,31 @@ describe('runDoctor()', () => {
     expect(r.all).not.toContain(TOKEN);
   });
 
+  it('reports an invalid server setting instead of crashing', async () => {
+    const r = await run(
+      deps({
+        jira: () => {
+          throw new Error('JIRA_ISSUE_KEY_PATTERN is not a valid regex: SyntaxError');
+        },
+      }),
+    );
+    expect(r.code).toBe(1);
+    expect(r.err).toContain('JIRA_ISSUE_KEY_PATTERN is not a valid regex');
+  });
+
+  it('strips control characters from field names before printing them', async () => {
+    const r = await run(
+      deps({
+        jira: () => ({
+          getMyself: async () => ({ accountId: 'abc', displayName: 'Dev\u001b[2J One' }),
+          listFields: async () => [field('customfield_1', 'Acceptance Criteria\u001b]0;pwned\u0007')],
+        }),
+      }),
+    );
+    expect(r.all.replaceAll('\n', '')).not.toMatch(/[\u0000-\u001f\u007f]/);
+    expect(r.out).toContain('customfield_1 "Acceptance Criteria]0;pwned"');
+  });
+
   it('still passes when the field list cannot be read', async () => {
     const r = await run(
       deps({
