@@ -16,6 +16,19 @@ describe('README install instructions', () => {
     expect(new Set(specs)).toEqual(new Set([getPackageSpec()]));
   });
 
+  it('uses the real plugin install commands', () => {
+    expect(readme).toContain('/plugin marketplace add teransarathchandra/jira-mcp-server');
+    expect(readme).toContain('/plugin install jira-delivery@jira-delivery');
+    expect(readme).not.toContain('--marketplace');
+  });
+
+  it('has a Cursor install link whose config installs the release line', () => {
+    const config = /cursor\.com\/install-mcp\?name=jira-delivery&config=([^)\s]+)/.exec(readme)?.[1];
+    expect(config).toBeDefined();
+    const decoded = JSON.parse(Buffer.from(decodeURIComponent(config!), 'base64').toString('utf8'));
+    expect(decoded).toMatchObject({ command: 'npx', args: ['-y', getPackageSpec()] });
+  });
+
   it('carries the v1 → v2 migration table', () => {
     expect(readme).toContain('## Migrating from 1.x');
     expect(readme).toMatch(/\| `jira_get_issue_context` \| `jira_get_issue` with `depth: "full"` \|/);
@@ -47,7 +60,7 @@ const REMOVED_PARAMETERS = [
 const mentioned = (text: string) => REMOVED_PARAMETERS.filter((p) => new RegExp(`\\b${p}\\b`).test(text));
 
 describe('docs only describe v2 parameters', () => {
-  it.each(['README.md', 'USAGE_GUIDE.md'])('%s does not document removed parameters', (file) => {
+  it.each(['README.md', 'USAGE_GUIDE.md', 'docs/reference.md', 'docs/workflows.md'])('%s does not document removed parameters', (file) => {
     expect(mentioned(readFileSync(file, 'utf8'))).toEqual([]);
   });
 
