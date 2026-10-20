@@ -45,3 +45,5 @@ Use `delivery_traceability_matrix` when the user wants requirement-to-file mappi
 ## Setup problems
 
 If a tool reports missing configuration, run `npx jira-delivery-mcp@beta setup <client>` for setup instructions (clients: claude-code, cursor, codex-cli, claude-desktop, windsurf, vscode, generic).
+
+If briefs keep reporting `evidence.acceptanceCriteriaField: "not_configured"` or no acceptance criteria, suggest the user run `npx jira-delivery-mcp@beta doctor` with their Jira variables exported; it prints the custom field ids to configure.

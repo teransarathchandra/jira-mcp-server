@@ -8,7 +8,7 @@ import { parseCommand, runCommand } from './cli.js';
 async function main() {
   const command = parseCommand(process.argv.slice(2));
   if (command.kind !== 'serve') {
-    process.exit(runCommand(command));
+    process.exit(await runCommand(command));
   }
 
   // Validate env vars at startup — fail fast with clear error

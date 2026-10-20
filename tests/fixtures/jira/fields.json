@@ -1,0 +1,11 @@
+{
+  "routes": {
+    "GET /rest/api/3/field": {
+      "status": 200,
+      "body": [
+        { "id": "summary", "name": "Summary", "custom": false, "schema": { "type": "string", "system": "summary" } },
+        { "id": "customfield_10115", "name": "User Acceptance Criteria", "custom": true, "schema": { "type": "string", "custom": "com.atlassian.jira.plugin.system.customfieldtypes:textarea", "customId": 10115 } }
+      ]
+    }
+  }
+}

@@ -51,6 +51,8 @@ claude mcp add jira-delivery \
 
 `npx jira-delivery-mcp@beta setup <client>` prints the exact steps for `claude-code`, `claude-desktop`, `codex-cli`, `cursor`, `windsurf`, `vscode` or `generic`. The three variables above are the only required ones; everything else is in [`.env.example`](.env.example) and the [reference](docs/reference.md#installation-and-configuration).
 
+If your site keeps acceptance criteria, story points, epic links or teams in custom fields, run `npx jira-delivery-mcp@beta doctor` with those three variables exported: it checks your credentials and prints the field ids to add. It only reads from Jira.
+
 ## What you can ask
 
 | Moment | Ask your agent | Tool |
