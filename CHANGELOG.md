@@ -4,7 +4,7 @@
 
 ### New
 
-- **Write-back (opt-in):** `jira_add_comment` and `jira_update_issue` (transition, assign to me, link a branch/PR), registered only with `JIRA_ENABLE_WRITES=true`. Every write needs a preview + single-use confirmToken or a confirmed elicitation form, is sent without retries, and is recorded in an audit log (`JIRA_DELIVERY_AUDIT_LOG`). Markdown comments are converted to Jira's ADF. Declining the confirmation form issues no token; a timed-out or 5xx write is reported as "outcome unknown", and Jira's reason is shown when it rejects a write. A confirmToken no longer applies if the issue's workflow changed after the preview; the audit log refuses symlinks, is kept at 0600, and records account ids rather than names.
+- **Write-back (opt-in):** `jira_add_comment` and `jira_update_issue` (transition, assign to me, link a branch/PR), registered only with `JIRA_ENABLE_WRITES=true`. Every write needs a preview + single-use confirmToken or a confirmed elicitation form, is sent without retries, and is recorded in an audit log (`JIRA_DELIVERY_AUDIT_LOG`). Markdown comments are converted to Jira's ADF, including pipe tables (e.g. a traceability matrix becomes a Jira table). Declining the confirmation form issues no token; a timed-out or 5xx write is reported as "outcome unknown", and Jira's reason is shown when it rejects a write. A confirmToken no longer applies if the issue's workflow changed after the preview; the audit log refuses symlinks, is kept at 0600, and records account ids rather than names.
 - The QA-handoff and release-note prompts offer to post the result when the write tools are available.
 - **Claude Code plugin:** `/plugin marketplace add teransarathchandra/jira-mcp-server` then `/plugin install jira-delivery@jira-delivery` installs the server and a `jira-delivery` skill that tells the agent when to use each tool and never to confirm a write without the user. Credentials are prompted for and the API token is stored in secure storage.
 - Contributing guide, security policy, and issue/PR templates.
@@ -20,6 +20,7 @@
 
 ### Fixes
 
+- A `|` or line break in ticket text no longer breaks the rows of the traceability matrix or test strategy tables.
 - The configured acceptance-criteria, epic, story-points and team custom fields are now requested from Jira; before, they were never fetched.
 - A link where this ticket blocks another issue no longer counts as this ticket being blocked.
 - When a ticket has more comments than the cap, the newest ones are kept (before, the oldest were).

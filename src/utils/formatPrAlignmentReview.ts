@@ -1,6 +1,7 @@
 import type { AlignmentResult, AlignmentStatus } from './alignmentScorer.js';
 import type { MatchResult, RequirementCoverageItem, TestCoverageSignal } from './prRequirementMatcher.js';
 import type { DiffResult } from '../git/gitDiffService.js';
+import { escapeTableCell } from './markdownTable.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -40,12 +41,6 @@ const COVERAGE_STATUS_LABEL: Record<RequirementCoverageItem['status'], string> =
   missing: 'Missing',
   not_enough_evidence: 'Not enough evidence',
 };
-
-// ── Helper: escape markdown table cells ───────────────────────────────────────
-
-function escapeTableCell(value: string): string {
-  return value.replace(/\|/g, '\\|').replace(/\n/g, ' ');
-}
 
 // ── Exported helper functions ──────────────────────────────────────────────────
 

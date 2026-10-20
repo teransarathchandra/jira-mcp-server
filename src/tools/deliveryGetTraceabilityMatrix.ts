@@ -23,6 +23,7 @@ import {
   type ConfluenceContextOptions,
 } from '../confluence/confluenceContextService.js';
 import { adfToMarkdown } from '../utils/adfToMarkdown.js';
+import { escapeTableCell } from '../utils/markdownTable.js';
 
 // ── Input type ────────────────────────────────────────────────────────────────
 
@@ -70,7 +71,7 @@ function formatFilesCell(files: string[]): string {
     .join(', ') + (files.length > 2 ? ` +${files.length - 2}` : '');
 }
 
-function formatMatrix(matrix: TraceabilityMatrix, noDiffNote?: string): string {
+export function formatMatrix(matrix: TraceabilityMatrix, noDiffNote?: string): string {
   const lines: string[] = [];
 
   lines.push(`# Requirement-to-Code Traceability Matrix: ${matrix.issueKey}`);
@@ -104,9 +105,9 @@ function formatMatrix(matrix: TraceabilityMatrix, noDiffNote?: string): string {
   lines.push('|---|---|---|---|---|---|---|');
 
   for (const item of matrix.items) {
-    const reqText = truncate(item.requirementText, 80);
-    const matchedFilesCell = formatFilesCell(item.matchedFiles);
-    const testsCell = formatFilesCell(item.matchedTests);
+    const reqText = escapeTableCell(truncate(item.requirementText, 80));
+    const matchedFilesCell = escapeTableCell(formatFilesCell(item.matchedFiles));
+    const testsCell = escapeTableCell(formatFilesCell(item.matchedTests));
     const status = statusEmoji(item.coverageStatus);
     lines.push(
       `| ${item.requirementId} | ${reqText} | ${sourceLabel(item)} | ${matchedFilesCell} | ${testsCell} | ${status} | ${item.confidence} |`,

@@ -1,7 +1,8 @@
 // Markdown → Atlassian Document Format, for comments the server posts to Jira.
 // Covers the subset the server itself produces (R3 design §6): headings,
-// paragraphs, bullet/ordered lists, fenced code, rules, block quotes, and
-// bold/italic/code/link marks. Anything else stays plain text. Never throws.
+// paragraphs, bullet/ordered lists, fenced code, rules, block quotes, pipe
+// tables, and bold/italic/code/link marks. Anything else stays plain text.
+// Never throws.
 
 export interface AdfMark {
   type: 'strong' | 'em' | 'code' | 'link';
@@ -31,6 +32,7 @@ const BULLET = /^\s*[-*]\s+(.*)$/;
 const ORDERED = /^\s*\d+[.)]\s+(.*)$/;
 const INLINE = /`([^`]+)`|\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|\[([^\]]+)\]\(([^)\s]+)\)/g;
 const SAFE_LINK = /^https?:\/\//i;
+const SEPARATOR_CELL = /^:?-+:?$/;
 
 function startsBlock(line: string): boolean {
   return FENCE.test(line) || HEADING.test(line) || RULE.test(line) || QUOTE.test(line) || BULLET.test(line) || ORDERED.test(line);
@@ -71,6 +73,58 @@ function paragraph(source: string): AdfNode {
   return { type: 'paragraph', content: parseInline(source) };
 }
 
+/** Cells of a pipe-table row; outer pipes are optional and `\|` is a literal pipe. */
+function splitRow(line: string): string[] {
+  let row = line.trim();
+  if (row.startsWith('|')) row = row.slice(1);
+  if (row.endsWith('|') && !row.endsWith('\\|')) row = row.slice(0, -1);
+  const cells: string[] = [];
+  let current = '';
+  for (let k = 0; k < row.length; k++) {
+    if (row[k] === '\\' && row[k + 1] === '|') {
+      current += '|';
+      k++;
+    } else if (row[k] === '|') {
+      cells.push(current.trim());
+      current = '';
+    } else current += row[k];
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
+/** Column count when lines[i] is a table header followed by a matching separator row. */
+function tableColumns(lines: string[], i: number): number | null {
+  const header = lines[i];
+  const separator = lines[i + 1];
+  if (separator === undefined || !header.includes('|') || !separator.includes('|')) return null;
+  const separatorCells = splitRow(separator);
+  if (!separatorCells.every((c) => SEPARATOR_CELL.test(c))) return null;
+  return splitRow(header).length === separatorCells.length ? separatorCells.length : null;
+}
+
+function tableRow(cellType: 'tableHeader' | 'tableCell', line: string, columns: number): AdfNode {
+  const cells = splitRow(line).slice(0, columns);
+  while (cells.length < columns) cells.push('');
+  return { type: 'tableRow', content: cells.map((c) => ({ type: cellType, attrs: {}, content: [paragraph(c)] })) };
+}
+
+/** A table row as one paragraph, cells separated by " | ". */
+function flattenRow(row: AdfNode): AdfNode {
+  const content: AdfNode[] = [];
+  (row.content ?? []).forEach((cell, index) => {
+    if (index > 0) content.push(textNode(' | '));
+    content.push(...(cell.content?.[0]?.content ?? []));
+  });
+  const merged = content.reduce<AdfNode[]>((nodes, node) => {
+    const last = nodes[nodes.length - 1];
+    if (last && last.type === 'text' && !last.marks && node.type === 'text' && !node.marks) last.text += node.text ?? '';
+    else nodes.push({ ...node });
+    return nodes;
+  }, []);
+  return { type: 'paragraph', content: merged };
+}
+
 function list(type: 'bulletList' | 'orderedList', items: string[]): AdfNode {
   return { type, content: items.map((item) => ({ type: 'listItem', content: [paragraph(item)] })) };
 }
@@ -79,6 +133,7 @@ function list(type: 'bulletList' | 'orderedList', items: string[]): AdfNode {
 function quoteContent(blocks: AdfNode[]): AdfNode[] {
   return blocks.flatMap((node): AdfNode[] => {
     if (node.type === 'rule') return [];
+    if (node.type === 'table') return (node.content ?? []).map(flattenRow);
     if (node.type === 'heading') {
       // A heading becomes a bold paragraph; code-marked text cannot also be bold.
       const bold = (t: AdfNode): AdfNode =>
@@ -143,8 +198,22 @@ function parseBlocks(lines: string[]): AdfNode[] {
       blocks.push(list('orderedList', collect(ORDERED)));
       continue;
     }
+    const columns = tableColumns(lines, i);
+    if (columns !== null) {
+      const rows = [tableRow('tableHeader', line, columns)];
+      i += 2;
+      while (i < lines.length && lines[i].trim() !== '' && lines[i].includes('|') && !startsBlock(lines[i])) {
+        rows.push(tableRow('tableCell', lines[i++], columns));
+      }
+      blocks.push({ type: 'table', attrs: { isNumberColumnEnabled: false, layout: 'default' }, content: rows });
+      continue;
+    }
     const text: string[] = [];
-    while (i < lines.length && lines[i].trim() !== '' && (text.length === 0 || !startsBlock(lines[i]))) {
+    while (
+      i < lines.length &&
+      lines[i].trim() !== '' &&
+      (text.length === 0 || (!startsBlock(lines[i]) && tableColumns(lines, i) === null))
+    ) {
       text.push(lines[i].trim());
       i++;
     }
