@@ -21,7 +21,7 @@
 
 ### Fixes
 
-- A `|` or line break in ticket text no longer breaks the rows of the search results, traceability matrix or test strategy tables.
+- A `|` or line break in ticket text no longer breaks the rows of the search results, traceability matrix or test strategy tables, or of a table inside a Jira description or comment.
 - The configured acceptance-criteria, epic, story-points and team custom fields are now requested from Jira; before, they were never fetched.
 - A link where this ticket blocks another issue no longer counts as this ticket being blocked.
 - When a ticket has more comments than the cap, the newest ones are kept (before, the oldest were).

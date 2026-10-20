@@ -1,3 +1,5 @@
+import { escapeTableCell } from "./markdownTable.js";
+
 /**
  * Converts Atlassian Document Format (ADF) JSON to readable Markdown/plain text.
  * ADF is the format Jira uses for rich-text fields like descriptions and comments.
@@ -168,11 +170,13 @@ function renderNode(node: AdfNode, listIndex?: number): string {
 
     case "tableHeader":
     case "tableCell": {
-      const inner = children
-        .map((child) => renderNode(child))
-        .join("")
-        .replace(/\n+/g, " ")
-        .trim();
+      const inner = escapeTableCell(
+        children
+          .map((child) => renderNode(child))
+          .join("")
+          .replace(/\n+/g, " ")
+          .trim()
+      );
       return ` ${inner} |`;
     }
 
