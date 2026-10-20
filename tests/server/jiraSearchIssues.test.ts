@@ -42,6 +42,15 @@ describe('jira_search_issues', () => {
     expect((result.structuredContent as { data: unknown }).data).toEqual({ issueKeys: ['ABC-9'], nextPageToken: 'tok-3' });
   });
 
+  it('accepts a jql filter and says so in its description', async () => {
+    const { tools } = await session.client.listTools();
+    const tool = tools.find((t) => t.name === 'jira_search_issues');
+    expect(Object.keys((tool?.inputSchema as { properties: object }).properties)).toContain('jql');
+    expect(tool?.description).toMatch(/jql/i);
+    await session.client.callTool({ name: 'jira_search_issues', arguments: { jql: 'type = Bug' } });
+    expect(searchMock.mock.calls[0][0]).toMatchObject({ jql: 'type = Bug' });
+  });
+
   it('returns a friendly isError result when the wrapper throws a Jira error', async () => {
     searchMock.mockRejectedValueOnce(new JiraAuthError('x'));
     const result = await session.client.callTool({ name: 'jira_search_issues', arguments: {} });

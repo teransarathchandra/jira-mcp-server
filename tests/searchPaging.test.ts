@@ -52,3 +52,41 @@ describe('jira search paging', () => {
     expect(r.issueKeys).toEqual([]);
   });
 });
+
+describe('jira_search_issues jql filter', () => {
+  let fixture: ReturnType<typeof installJiraFixture>;
+  beforeEach(() => {
+    process.env.MCP_CACHE_ENABLED = 'false';
+    fixture = installJiraFixture('search-paged');
+  });
+  afterEach(() => {
+    fixture.restore();
+    delete process.env.MCP_CACHE_ENABLED;
+  });
+  const sentJql = () => (fixture.bodies[0] as { jql: string }).jql;
+
+  it('sends the filter as given when no scope applies, with a matching heading', async () => {
+    const r = await searchMyIssues({ jql: 'assignee = currentUser() AND type = Bug ORDER BY priority DESC' }, fixtureClient(), fixtureConfig());
+    expect(sentJql()).toBe('(assignee = currentUser() AND type = Bug) ORDER BY priority DESC');
+    expect(r.markdown).toContain('## Issues matching your filter');
+  });
+
+  it('scopes the filter to projectKey', async () => {
+    await searchMyIssues({ jql: 'type = Bug', projectKey: 'abc' }, fixtureClient(), fixtureConfig());
+    expect(sentJql()).toBe('project = "ABC" AND (type = Bug)');
+  });
+
+  it('always scopes the filter to the allowed projects under the strict allowlist', async () => {
+    const config = fixtureConfig();
+    config.projectConfig = { ...config.projectConfig, strictProjectAllowlist: true, allowedProjectKeys: ['ABC', 'DEF'] };
+    await searchMyIssues({ jql: 'project = OTHER' }, fixtureClient(config), config);
+    expect(sentJql()).toBe('project in ("ABC", "DEF") AND (project = OTHER)');
+  });
+
+  it('rejects a filter that tries to escape the scope, without calling Jira', async () => {
+    const config = fixtureConfig();
+    config.projectConfig = { ...config.projectConfig, strictProjectAllowlist: true, allowedProjectKeys: ['ABC'] };
+    await expect(searchMyIssues({ jql: 'type = Bug) OR (project = OTHER' }, fixtureClient(config), config)).rejects.toThrow(/parentheses/);
+    expect(fixture.requests).toHaveLength(0);
+  });
+});

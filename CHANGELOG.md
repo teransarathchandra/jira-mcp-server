@@ -10,14 +10,15 @@
 - The `jira-delivery` skill is also a standalone Agent Skill for other agents and skill directories: `npm run skill:pack` builds `jira-delivery-skill-<version>.zip` (attached to each GitHub release), with a setup reference for Claude Code, Cursor, VS Code, Codex CLI, Windsurf and Claude Desktop. It says what it connects to and that writes are off by default.
 - Contributing guide, security policy, and issue/PR templates.
 - MCP Registry entry (`server.json`, `mcpName` io.github.teransarathchandra/jira-delivery-mcp) and a tag-triggered release workflow that publishes to npm with provenance, lists the version in the Registry and creates the GitHub release.
-- Tool-selection evals: 34 everyday requests scored against the real tool list. `npm run eval` runs them through Claude Code with your own login (or the Anthropic API when `ANTHROPIC_API_KEY` is set). Claude Haiku 5.5 picks the right tool for 34/34, Sonnet 5.5 for 33/34.
-- `EVAL_SKILL=1 npm run eval` scores tool selection with the skill loaded (Haiku 5.5 34/34 and 33/34, Sonnet 5.5 34/34).
+- Tool-selection evals: 36 everyday requests scored against the real tool list. `npm run eval` runs them through Claude Code with your own login (or the Anthropic API when `ANTHROPIC_API_KEY` is set). Claude Haiku 5.5 and Sonnet 5.5 pick the right tool for 36/36.
+- `EVAL_SKILL=1 npm run eval` scores tool selection with the skill loaded (Haiku 5.5 and Sonnet 5.5: 36/36).
 - Tool descriptions say which tools fetch the issue themselves, so agents no longer call `jira_get_issue` first; `jira_prepare_work_brief` also answers "is this ticket ready to start?".
 - README rewritten as a short front page with a Cursor install link; the detailed reference moved to `docs/reference.md` and the workflow data to `docs/workflows.md`.
 - `jira_prepare_work_brief` returns typed `data`: readiness with confidence, acceptance criteria and their source, inbound blockers, 2–4 recommended actions, 0–3 clarifying questions, a suggested branch name, and how each Jira source was read. The text now starts with a short "Start here" section.
 - `delivery_check_changes` returns typed `data` with one verdict (`ready_for_pr`, `needs_work`, `insufficient_evidence`, or `not_applicable` when only the `impact` check ran), per-criterion coverage with files, Definition of Done results and impact.
 - `npx jira-delivery-mcp doctor` checks the Jira (and, if configured, Confluence) credentials and suggests the acceptance-criteria, story-points, epic-link and team custom field ids for your site. Read-only; it never prints the email or token.
 - `--version` / `-v` prints the server version.
+- `jira_search_issues` takes an optional `jql` filter in place of the default "my open issues" query. It is limited to `projectKey` when given and, with `JIRA_STRICT_PROJECT_ALLOWLIST=true`, always to the allowed projects; a filter whose parentheses or quotes don't balance is refused, so it can't reach outside that scope.
 - `jira_search_issues` pages: `data.nextPageToken` is set when there are more results; pass it back as `pageToken`. `data.issueKeys` lists the keys on the page.
 - Branch name suggestion, configurable with `JIRA_BRANCH_PATTERN` (default `{type}/{KEY}-{slug}`).
 - `jira_prepare_work_brief` `allowElicitation: true` asks the clarifying questions in a form when the client supports it.
