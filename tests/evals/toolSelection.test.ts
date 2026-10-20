@@ -98,6 +98,12 @@ describe('claudeCodeArgs()', () => {
     expect(args[args.indexOf('--setting-sources') + 1]).toBe('');
   });
 
+  it('appends the skill text only when one is given', () => {
+    expect(args).not.toContain('--append-system-prompt');
+    const withSkill = claudeCodeArgs({ prompt: 'p', mcpConfigPath: '/m.json', model: 'm', appendSystemPrompt: 'SKILL BODY' });
+    expect(withSkill[withSkill.indexOf('--append-system-prompt') + 1]).toBe('SKILL BODY');
+  });
+
   it('streams JSON, stops after one turn and keeps no session', () => {
     expect(args.join(' ')).toContain('--output-format stream-json --verbose');
     expect(args.join(' ')).toContain('--max-turns 1');

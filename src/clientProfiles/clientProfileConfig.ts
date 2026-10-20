@@ -43,11 +43,19 @@ function jsonServerBlock(serverName: string, serverCommand: string, serverArgs: 
   return ['```json', JSON.stringify(block, null, 2), '```'].join('\n');
 }
 
+/** VS Code reads `.vscode/mcp.json` with a `servers` map and an explicit transport type. */
+function vscodeServerBlock(serverName: string, serverCommand: string, serverArgs: string[]): string {
+  const env = Object.fromEntries(REQUIRED_ENV);
+  const block = { servers: { [serverName]: { type: 'stdio', command: serverCommand, args: serverArgs, env } } };
+  return ['```json', JSON.stringify(block, null, 2), '```'].join('\n');
+}
+
 function getSetupSteps(profile: McpClientProfile, serverName: string, serverCommand: string, serverArgs: string[]): string {
   const argsStr = serverArgs.join(' ');
   // Only a local checkout (`node dist/index.js`) needs building; `npx` fetches the published package.
   const steps = serverCommand === 'node' ? ['Build the server: `npm run build`'] : [];
   const json = jsonServerBlock(serverName, serverCommand, serverArgs);
+  const replace = `Replace the placeholder values of ${REQUIRED_ENV.map(([k]) => k).join(', ')} with your own.`;
 
   switch (profile) {
     case 'generic':
@@ -59,8 +67,8 @@ function getSetupSteps(profile: McpClientProfile, serverName: string, serverComm
       break;
     }
     case 'claude-desktop':
-      steps.push(`Add the server to \`claude_desktop_config.json\`:\n\n${json}`, 'Restart Claude Desktop.');
-      break;
+      steps.push(`Add the server to \`claude_desktop_config.json\`:\n\n${json}`, replace, 'Restart Claude Desktop.');
+      return steps.map((s, i) => `${i + 1}. ${s}`).join('\n');
     case 'codex-cli': {
       const toml = [
         '```toml',
@@ -80,10 +88,12 @@ function getSetupSteps(profile: McpClientProfile, serverName: string, serverComm
       steps.push(`Add the server in Windsurf Settings → MCP Servers:\n\n${json}`);
       break;
     case 'vscode':
-      steps.push(`Configure the server in your VS Code MCP settings:\n\n${json}`);
+      steps.push(
+        `Add the server to \`.vscode/mcp.json\` in your workspace (or run **MCP: Add Server** from the Command Palette):\n\n${vscodeServerBlock(serverName, serverCommand, serverArgs)}`,
+      );
       break;
   }
-  steps.push(`Replace the placeholder values of ${REQUIRED_ENV.map(([k]) => k).join(', ')} with your own.`);
+  steps.push(replace);
   return steps.map((s, i) => `${i + 1}. ${s}`).join('\n');
 }
 

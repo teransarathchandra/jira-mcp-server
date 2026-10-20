@@ -7,6 +7,7 @@ npm run eval                                  # Claude Code (`claude -p`, your o
 EVAL_MODEL=claude-sonnet-5-5 npm run eval     # spot-check another model
 ANTHROPIC_API_KEY=... npm run eval            # call the Anthropic API directly instead
 EVAL_RUNNER=claude-code npm run eval          # force a runner (api | claude-code)
+EVAL_SKILL=1 npm run eval                     # with the jira-delivery skill's text in the system prompt
 ```
 
 **Claude Code runner** (the default without an API key): each case is one `claude -p` turn with only this server loaded (`--strict-mcp-config`), no built-in tools and none of your settings, hooks or plugins (`--setting-sources ""`), from a temporary directory. The server runs from `dist/` (the script builds first) with `JIRA_BASE_URL` pointing at a closed local port, so a tool the model calls fails fast and no Jira is ever contacted. Runs count against your Claude plan.
@@ -21,5 +22,9 @@ Run it before each release and after any change to a tool's name, description or
 |---|---|---|---|---|
 | 2026-10-20 | Claude Code | claude-haiku-5-5 | 34/34 | 34/34 |
 | 2026-10-20 | Claude Code | claude-sonnet-5-5 | 33/34 | 33/34 |
+| 2026-10-20 | Claude Code + skill | claude-haiku-5-5 | 33/34, 34/34 | 33/34, 34/34 |
+| 2026-10-20 | Claude Code + skill | claude-sonnet-5-5 | 34/34 | 34/34 |
+
+With the skill, Haiku sometimes answers "Forget the project patterns" with `action: "get"` before clearing them. An early version of the skill scored 31/34: its line "never guess ticket content — fetch it" sent the model to `jira_get_issue` first, so the skill now says the workflow tools fetch the ticket themselves.
 
 `npm test` covers the scoring and checks that every case names a tool and arguments the server really declares.
