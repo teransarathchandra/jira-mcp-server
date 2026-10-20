@@ -34,10 +34,14 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm pack
+      - name: Pack the standalone skill
+        run: node scripts/pack-skill.mjs .
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: package
-          path: jira-delivery-mcp-*.tgz
+          path: |
+            jira-delivery-mcp-*.tgz
+            jira-delivery-skill-*.zip
           if-no-files-found: error
 
   # Publishes the tarball built above; installs no dependencies.
@@ -88,3 +92,5 @@ jobs:
             PRERELEASE=$([ "$DIST_TAG" = latest ] || echo --prerelease)
             gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes $PRERELEASE
           fi
+          # The standalone Agent Skill (Agensi and other skill directories).
+          gh release upload "$GITHUB_REF_NAME" jira-delivery-skill-*.zip --clobber

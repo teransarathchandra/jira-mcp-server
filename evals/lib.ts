@@ -54,8 +54,9 @@ export function evalRunner(env: Record<string, string | undefined>): { runner: E
 export const EVAL_SERVER_NAME = 'jira-delivery';
 
 /** One non-interactive Claude Code turn with only this server's tools and none of the user's settings. */
-export function claudeCodeArgs(opts: { prompt: string; mcpConfigPath: string; model: string }): string[] {
+export function claudeCodeArgs(opts: { prompt: string; mcpConfigPath: string; model: string; appendSystemPrompt?: string }): string[] {
   return [
+    ...(opts.appendSystemPrompt ? ['--append-system-prompt', opts.appendSystemPrompt] : []),
     '-p', opts.prompt,
     '--model', opts.model,
     '--strict-mcp-config', '--mcp-config', opts.mcpConfigPath,

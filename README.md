@@ -25,6 +25,8 @@ You need your Jira site URL, your Atlassian email and an [API token](https://id.
 
 **Cursor** — [![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=jira-delivery&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImppcmEtZGVsaXZlcnktbWNwQGJldGEiXSwiZW52Ijp7IkpJUkFfQkFTRV9VUkwiOiJodHRwczovL3lvdXItZG9tYWluLmF0bGFzc2lhbi5uZXQiLCJKSVJBX0VNQUlMIjoieW91QGV4YW1wbGUuY29tIiwiSklSQV9BUElfVE9LRU4iOiJ5b3VyLWFwaS10b2tlbiJ9fQ%3D%3D), then replace the three placeholder values.
 
+**Other agents with Agent Skills** (Cursor, Copilot, Codex and others): set up the server as below, then add the `jira-delivery` skill: the [`plugin/skills/jira-delivery`](plugin/skills/jira-delivery/SKILL.md) folder, also attached to each GitHub release as `jira-delivery-skill-<version>.zip`. It tells the agent when to use each tool and how to help you set the server up.
+
 **Claude Code, without the plugin:**
 
 ```bash
@@ -160,5 +162,5 @@ More in the [security model](docs/reference.md#security-model). To report a vuln
 - [docs/workflows.md](docs/workflows.md) — the data the workflow tools return and how they decide
 - [docs/reference.md](docs/reference.md) — configuration, client setup, Confluence, delivery features, performance, troubleshooting
 - [USAGE_GUIDE.md](USAGE_GUIDE.md) — longer walk-throughs
-- [evals/](evals/README.md) — tool-selection evals: Claude Haiku 5.5 picks the right tool for 34/34 everyday requests, Sonnet 5.5 for 33/34 (in Claude Code, 2026-10-20)
+- [evals/](evals/README.md) — tool-selection evals: Claude Haiku 5.5 picks the right tool for 34/34 everyday requests, Sonnet 5.5 for 33/34, and 34/34 with the skill (in Claude Code, 2026-10-20)
 - [CHANGELOG.md](CHANGELOG.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [MIT license](LICENSE)

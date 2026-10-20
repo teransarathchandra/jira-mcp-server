@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,15 +24,21 @@ import {
 // the built server. EVAL_RUNNER forces one (api | claude-code), EVAL_MODEL
 // picks the model (default claude-haiku-5-5; spot-check with
 // claude-sonnet-5-5) and EVAL_MIN_RATE the pass rate to reach (default 0.9).
+// EVAL_SKILL=1 adds the jira-delivery skill's text to the system prompt.
 
 const API_KEY = process.env.ANTHROPIC_API_KEY;
 const { runner: RUNNER, error: RUNNER_ERROR } = evalRunner(process.env);
 const MODEL = process.env.EVAL_MODEL ?? 'claude-haiku-5-5';
 const MIN_RATE = Number(process.env.EVAL_MIN_RATE ?? '0.9');
 const CONCURRENCY = 4;
-const SYSTEM =
+const SKILL = process.env.EVAL_SKILL === '1'
+  ? readFileSync(new URL('../plugin/skills/jira-delivery/SKILL.md', import.meta.url), 'utf8').replace(/^---\n[\s\S]*?\n---\n/, '')
+  : undefined;
+const LABEL = `${RUNNER}-${MODEL}${SKILL ? '-skill' : ''}`;
+const BASE_SYSTEM =
   'You are a coding agent working in a developer\'s repository. The developer uses Jira Cloud. ' +
   'Use one of the available tools to act on the request.';
+const SYSTEM = SKILL ? `${BASE_SYSTEM}\n\n${SKILL}` : BASE_SYSTEM;
 
 /** The tool calls in the model's first response (it may call several in parallel). */
 async function firstToolCalls(tools: ReturnType<typeof toAnthropicTools>, prompt: string): Promise<ToolCall[]> {
@@ -77,7 +83,7 @@ function claudeCodeSetup(): { mcpConfigPath: string; cwd: string } {
 /** Runs one `claude -p` turn (--max-turns 1) and returns the tool calls of its first turn. */
 function claudeCodeToolCalls(setup: { mcpConfigPath: string; cwd: string }, prompt: string): Promise<ToolCall[]> {
   return new Promise((resolve, reject) => {
-    const child = spawn('claude', claudeCodeArgs({ prompt, mcpConfigPath: setup.mcpConfigPath, model: MODEL }), {
+    const child = spawn('claude', claudeCodeArgs({ prompt, mcpConfigPath: setup.mcpConfigPath, model: MODEL, appendSystemPrompt: SKILL }), {
       cwd: setup.cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -109,7 +115,7 @@ function claudeCodeToolCalls(setup: { mcpConfigPath: string; cwd: string }, prom
   });
 }
 
-describe(`tool selection (${RUNNER}, ${MODEL})`, () => {
+describe(`tool selection (${LABEL})`, () => {
   it(`picks the right tool for at least ${MIN_RATE * 100}% of the cases`, async () => {
     if (RUNNER_ERROR) throw new Error(RUNNER_ERROR);
     const session = await connect(testDeps({ config: fixtureConfig({ enableWrites: true }) }));
@@ -135,10 +141,10 @@ describe(`tool selection (${RUNNER}, ${MODEL})`, () => {
 
     const summary = summarize(results);
     const strict = { passed: strictPassed, rate: strictPassed / results.length };
-    const report = { runner: RUNNER, model: MODEL, date: new Date().toISOString(), tools: tools.length, ...summary, strict, failures: results.filter((r) => !r.pass) };
+    const report = { runner: RUNNER, model: MODEL, skill: Boolean(SKILL), date: new Date().toISOString(), tools: tools.length, ...summary, strict, failures: results.filter((r) => !r.pass) };
     mkdirSync(new URL('./results/', import.meta.url), { recursive: true });
-    writeFileSync(new URL(`./results/${RUNNER}-${MODEL}.json`, import.meta.url), `${JSON.stringify(report, null, 2)}\n`);
-    console.log(`${RUNNER} ${MODEL}: ${summary.passed}/${summary.total} (${(summary.rate * 100).toFixed(1)}%), first call only ${strict.passed}/${summary.total}`);
+    writeFileSync(new URL(`./results/${LABEL}.json`, import.meta.url), `${JSON.stringify(report, null, 2)}\n`);
+    console.log(`${LABEL}: ${summary.passed}/${summary.total} (${(summary.rate * 100).toFixed(1)}%), first call only ${strict.passed}/${summary.total}`);
     for (const f of report.failures) console.log(`  ✗ ${f.id}: ${f.reason}`);
 
     expect(summary.rate).toBeGreaterThanOrEqual(MIN_RATE);

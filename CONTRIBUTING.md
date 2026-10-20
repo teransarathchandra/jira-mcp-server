@@ -33,7 +33,7 @@ Node.js 20 or later is required.
 
 ## Releasing (maintainer)
 
-1. If tool names, descriptions or inputs changed, run `npm run eval` and update the results table in `evals/README.md` and the line in the README.
+1. If tool names, descriptions or inputs changed, or the skill did, run `npm run eval` (and `EVAL_SKILL=1 npm run eval`) and update the results table in `evals/README.md` and the line in the README.
 2. In a PR, set the same version in `package.json`, `plugin/.claude-plugin/plugin.json` (its `version` and the `jira-delivery-mcp@<version>` it runs) and `server.json` (a test checks they match), and move the `## Unreleased` notes under that version.
 3. After merge: `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`.
 4. The Release workflow checks the tag against the manifests, runs the tests, publishes to npm with provenance (`beta` dist-tag for prereleases, `latest` otherwise), lists the version in the MCP Registry and creates the GitHub release.
