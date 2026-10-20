@@ -4,7 +4,7 @@
 
 ### New
 
-- **Write-back (opt-in):** `jira_add_comment` and `jira_update_issue` (transition, assign to me, link a branch/PR), registered only with `JIRA_ENABLE_WRITES=true`. Every write needs a preview + single-use confirmToken or a confirmed elicitation form, is sent without retries, and is recorded in an audit log (`JIRA_DELIVERY_AUDIT_LOG`). Markdown comments are converted to Jira's ADF. Declining the confirmation form issues no token; a timed-out or 5xx write is reported as "outcome unknown", and Jira's reason is shown when it rejects a write. A confirmToken no longer applies if the issue's workflow changed after the preview; the audit log refuses symlinks, is kept at 0600, and records account ids rather than names.
+- **Write-back (opt-in):** `jira_add_comment` and `jira_update_issue` (transition, assign to me, link a branch/PR), registered only with `JIRA_ENABLE_WRITES=true`. Every write needs a preview + single-use confirmToken or a confirmed elicitation form, is sent without retries, and is recorded in an audit log (`JIRA_DELIVERY_AUDIT_LOG`). Markdown comments are converted to Jira's ADF, including pipe tables (e.g. a traceability matrix becomes a Jira table). Declining the confirmation form issues no token; a timed-out or 5xx write is reported as "outcome unknown", and Jira's reason is shown when it rejects a write. A confirmToken no longer applies if the issue's workflow changed after the preview; the audit log refuses symlinks, is kept at 0600, and records account ids rather than names.
 - The QA-handoff and release-note prompts offer to post the result when the write tools are available.
 - **Claude Code plugin:** `/plugin marketplace add teransarathchandra/jira-mcp-server` then `/plugin install jira-delivery@jira-delivery` installs the server and a `jira-delivery` skill that tells the agent when to use each tool and never to confirm a write without the user. Credentials are prompted for and the API token is stored in secure storage.
 - Contributing guide, security policy, and issue/PR templates.
@@ -14,11 +14,14 @@
 - `jira_prepare_work_brief` returns typed `data`: readiness with confidence, acceptance criteria and their source, inbound blockers, 2–4 recommended actions, 0–3 clarifying questions, a suggested branch name, and how each Jira source was read. The text now starts with a short "Start here" section.
 - `delivery_check_changes` returns typed `data` with one verdict (`ready_for_pr`, `needs_work`, `insufficient_evidence`, or `not_applicable` when only the `impact` check ran), per-criterion coverage with files, Definition of Done results and impact.
 - `npx jira-delivery-mcp doctor` checks the Jira (and, if configured, Confluence) credentials and suggests the acceptance-criteria, story-points, epic-link and team custom field ids for your site. Read-only; it never prints the email or token.
+- `--version` / `-v` prints the server version.
+- `jira_search_issues` pages: `data.nextPageToken` is set when there are more results; pass it back as `pageToken`. `data.issueKeys` lists the keys on the page.
 - Branch name suggestion, configurable with `JIRA_BRANCH_PATTERN` (default `{type}/{KEY}-{slug}`).
 - `jira_prepare_work_brief` `allowElicitation: true` asks the clarifying questions in a form when the client supports it.
 
 ### Fixes
 
+- A `|` or line break in ticket text no longer breaks the rows of the search results, traceability matrix or test strategy tables.
 - The configured acceptance-criteria, epic, story-points and team custom fields are now requested from Jira; before, they were never fetched.
 - A link where this ticket blocks another issue no longer counts as this ticket being blocked.
 - When a ticket has more comments than the cap, the newest ones are kept (before, the oldest were).

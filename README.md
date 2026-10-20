@@ -74,7 +74,7 @@ Both return typed `structuredContent` so an agent can act on the result without 
 | Tool | What it does |
 |------|-------------|
 | `jira_get_issue` | A Jira issue as a developer brief; `depth: "full"` adds parent, epic, links and subtasks; `includeConfluence` adds related docs |
-| `jira_search_issues` | Your open issues, optionally in one project |
+| `jira_search_issues` | Your open issues, optionally in one project, 50 per page (`pageToken` for the next) |
 | `jira_prepare_work_brief` | A ready-to-implement brief with readiness, blockers, next steps, questions and a branch name |
 | `confluence_search` | Confluence pages related to an issue, ranked by relevance |
 | `confluence_get_page` | A Confluence page, cleaned and size-bounded |

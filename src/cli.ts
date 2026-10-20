@@ -11,6 +11,7 @@ export type Command =
   | { kind: 'setup'; client: string }
   | { kind: 'doctor' }
   | { kind: 'help' }
+  | { kind: 'version' }
   | { kind: 'unknown'; arg: string };
 
 type Writer = (s: string) => void;
@@ -24,6 +25,7 @@ Commands:
   setup <client>    Print setup instructions for an MCP client
                     Clients: ${SETUP_CLIENTS.join(', ')}
   doctor            Check the Jira/Confluence credentials and suggest custom field ids (read-only)
+  --version, -v     Print the version
   --help, -h        Show this help`;
 
 export function parseCommand(argv: string[]): Command {
@@ -31,6 +33,7 @@ export function parseCommand(argv: string[]): Command {
   const isHelp = (arg: string | undefined) => arg === '--help' || arg === '-h';
   if (first === undefined) return { kind: 'serve' };
   if (isHelp(first)) return { kind: 'help' };
+  if (first === '--version' || first === '-v') return { kind: 'version' };
   if (first === 'setup') return isHelp(second) ? { kind: 'help' } : { kind: 'setup', client: second ?? '' };
   if (first === 'doctor') return isHelp(second) ? { kind: 'help' } : { kind: 'doctor' };
   return { kind: 'unknown', arg: first };
@@ -71,6 +74,9 @@ export function runCommand(
       return 1;
     case 'help':
       out(HELP_TEXT);
+      return 0;
+    case 'version':
+      out(getServerVersion());
       return 0;
   }
 }

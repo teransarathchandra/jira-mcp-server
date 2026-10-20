@@ -9,7 +9,7 @@ The jira-delivery-mcp server turns a Jira ticket into a delivery loop: **start �
 
 ## 1. Pick or start a ticket
 
-- **"What should I work on?"** → `jira_search_issues`.
+- **"What should I work on?"** → `jira_search_issues`. If `data.nextPageToken` is set and the user wants more, call it again with `pageToken`.
 - **Starting a ticket** → `jira_prepare_work_brief` with the issue key. Read `structuredContent.data` before coding:
   - `readiness.status`: `BLOCKED` means stop and tell the user which blocker (`blockers[]`) must be resolved first. `NEEDS_CLARIFICATION` means raise `clarifyingQuestions[]` with the user before building.
   - `readiness.confidence`: when `low` or `medium`, say what couldn't be read (`gaps[]`) instead of assuming.

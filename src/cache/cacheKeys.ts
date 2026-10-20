@@ -8,8 +8,9 @@ export function jiraIssueKey(issueKey: string): string {
   return `jira:issue:${issueKey}`;
 }
 
-export function jiraSearchKey(jql: string, maxResults: number): string {
-  return `jira:search:${hashForCacheKey(jql)}:${maxResults}`;
+export function jiraSearchKey(jql: string, maxResults: number, pageToken?: string): string {
+  const page = pageToken ? `:${hashForCacheKey(pageToken)}` : '';
+  return `jira:search:${hashForCacheKey(jql)}:${maxResults}${page}`;
 }
 
 export function confluencePageKey(pageId: string): string {

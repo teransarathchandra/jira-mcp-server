@@ -15,6 +15,7 @@ import { generateTestStrategy } from '../delivery/testStrategyGenerator.js';
 import type { TestStrategy, TestCase } from '../delivery/deliveryTypes.js';
 import type { ClassifiedFiles } from '../utils/changedFileClassifier.js';
 import type { RequirementSignals } from '../utils/requirementExtractor.js';
+import { escapeTableCell } from '../utils/markdownTable.js';
 
 // Confluence imports (conditional — Confluence may not be configured)
 import { isConfluenceEnabled, getConfluenceConfig } from '../confluence/confluenceConfig.js';
@@ -70,7 +71,7 @@ const CATEGORY_ORDER: TestCaseCategory[] = [
   'regression',
 ];
 
-function formatTestStrategy(strategy: TestStrategy, includedPrDiff: boolean): string {
+export function formatTestStrategy(strategy: TestStrategy, includedPrDiff: boolean): string {
   const lines: string[] = [];
 
   lines.push(`# Test Strategy: ${strategy.issueKey}`);
@@ -104,7 +105,7 @@ function formatTestStrategy(strategy: TestStrategy, includedPrDiff: boolean): st
     lines.push('| Priority | Test |');
     lines.push('|---|---|');
     for (const tc of cases) {
-      lines.push(`| ${tc.priority} | ${tc.description} |`);
+      lines.push(`| ${tc.priority} | ${escapeTableCell(tc.description)} |`);
     }
     lines.push('');
   }

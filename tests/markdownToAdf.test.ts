@@ -104,3 +104,65 @@ describe('markdownToAdf()', () => {
     expect(normalise(adfToMarkdown(markdownToAdf(md)))).toBe(normalise(md));
   });
 });
+
+describe('markdownToAdf() tables', () => {
+  const cell = (type: 'tableHeader' | 'tableCell', ...content: AdfNode[]): AdfNode => ({ type, attrs: {}, content: [para(...content)] });
+  const row = (...cells: AdfNode[]): AdfNode => ({ type: 'tableRow', content: cells });
+  const table = (...rows: AdfNode[]): AdfNode => ({ type: 'table', attrs: { isNumberColumnEnabled: false, layout: 'default' }, content: rows });
+  const h = (t: string) => cell('tableHeader', text(t));
+  const c = (t: string) => cell('tableCell', ...(t ? [text(t)] : []));
+
+  it('turns a pipe table into an ADF table with a header row', () => {
+    expect(blocks('| Check | Result |\n|---|---|\n| lint | pass |\n| tests | fail |')).toEqual([
+      table(row(h('Check'), h('Result')), row(c('lint'), c('pass')), row(c('tests'), c('fail'))),
+    ]);
+  });
+
+  it('accepts alignment colons and rows without outer pipes', () => {
+    expect(blocks('a | b\n:-- | --:\n1 | 2')).toEqual([table(row(h('a'), h('b')), row(c('1'), c('2')))]);
+  });
+
+  it('keeps inline marks inside cells', () => {
+    expect(blocks('| File |\n| --- |\n| `src/a.ts` **new** |')).toEqual([
+      table(row(h('File')), row(cell('tableCell', text('src/a.ts', [{ type: 'code' }]), text(' '), text('new', [{ type: 'strong' }])))),
+    ]);
+  });
+
+  it('treats an escaped pipe as text', () => {
+    expect(blocks('| expr |\n|---|\n| a \\| b |')).toEqual([table(row(h('expr')), row(c('a | b')))]);
+  });
+
+  it('pads short rows and drops extra cells', () => {
+    expect(blocks('| a | b |\n|---|---|\n| 1 |\n| 1 | 2 | 3 |')).toEqual([
+      table(row(h('a'), h('b')), row(c('1'), c('')), row(c('1'), c('2'))),
+    ]);
+  });
+
+  it('ends the table at a blank line', () => {
+    expect(blocks('| a |\n|---|\n| 1 |\n\nafter')).toEqual([table(row(h('a')), row(c('1'))), para(text('after'))]);
+  });
+
+  it('starts a table right after a paragraph line', () => {
+    expect(blocks('Results:\n| a |\n|---|\n| 1 |')).toEqual([para(text('Results:')), table(row(h('a')), row(c('1')))]);
+  });
+
+  it('leaves a table whose separator has the wrong column count as text', () => {
+    expect(blocks('| a | b |\n|---|\n| 1 | 2 |')).toEqual([para(text('| a | b | |---| | 1 | 2 |'))]);
+  });
+
+  it('leaves pipes without a separator row as text', () => {
+    expect(blocks('a | b\nc | d')).toEqual([para(text('a | b c | d'))]);
+  });
+
+  it('flattens a table inside a block quote into paragraphs (Jira allows no tables there)', () => {
+    expect(blocks('> | a | b |\n> |---|---|\n> | 1 | 2 |')).toEqual([
+      { type: 'blockquote', content: [para(text('a | b')), para(text('1 | 2'))] },
+    ]);
+  });
+
+  it('never throws on degenerate tables', () => {
+    for (const md of ['|', '||\n|-|', '|---|', '| a |\n|---|\n|', '|\n|\n|', ' | | \n | - | ']) {
+      expect(() => markdownToAdf(md)).not.toThrow();
+    }
+  });
+});

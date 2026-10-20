@@ -27,7 +27,6 @@ Detailed configuration, client setup, feature internals and the security model. 
 - Does not create or delete Jira issues, or edit their summary, description or fields
 - Does not write to Jira at all unless `JIRA_ENABLE_WRITES=true` — and then only comments, transitions, assign-to-me and links, each after you confirm a preview
 - Does not download attachments — it lists filenames and URLs only
-- Does not support pagination beyond the first page (max 50 results for search)
 - Does not write to Confluence
 - Does not use an LLM internally — all logic is deterministic and rule-based
 

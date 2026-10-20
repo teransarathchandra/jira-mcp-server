@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { parseCommand, runSetup, runCommand } from '../src/cli.js';
+import { getServerVersion } from '../src/version.js';
 
 describe('runCommand()', () => {
   it('rejects an unknown command on stderr with exit 1', () => {
@@ -10,6 +11,12 @@ describe('runCommand()', () => {
     expect(err.join('\n')).toContain('Unknown command "stup"');
     expect(err.join('\n')).toContain('Usage:');
     expect(out).toEqual([]);
+  });
+
+  it('prints the server version on stdout with exit 0', () => {
+    const out: string[] = [];
+    expect(runCommand({ kind: 'version' }, (s) => out.push(s), () => {})).toBe(0);
+    expect(out).toEqual([getServerVersion()]);
   });
 
   it('prints help on stdout with exit 0', () => {
@@ -43,6 +50,11 @@ describe('parseCommand()', () => {
 
   it('treats setup --help as help', () => {
     expect(parseCommand(['setup', '--help'])).toEqual({ kind: 'help' });
+  });
+
+  it('parses --version and -v', () => {
+    expect(parseCommand(['--version'])).toEqual({ kind: 'version' });
+    expect(parseCommand(['-v'])).toEqual({ kind: 'version' });
   });
 
   it('marks anything else as unknown', () => {
