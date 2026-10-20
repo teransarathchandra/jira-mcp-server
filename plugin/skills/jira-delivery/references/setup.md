@@ -92,4 +92,4 @@ env = { JIRA_BASE_URL = "https://your-domain.atlassian.net", JIRA_EMAIL = "you@e
 - **Confluence.** `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL` and `CONFLUENCE_API_TOKEN` let the tools read related Confluence pages.
 - **Projects.** `JIRA_DEFAULT_PROJECT_KEY` limits "my open issues" to one project; `JIRA_ALLOWED_PROJECT_KEYS` with `JIRA_STRICT_PROJECT_ALLOWLIST=true` refuses issues outside the listed projects.
 
-The full list is in the project README: https://github.com/teransarathchandra/jira-mcp-server
+Every setting is described in https://github.com/teransarathchandra/jira-mcp-server/blob/main/docs/configuration.md

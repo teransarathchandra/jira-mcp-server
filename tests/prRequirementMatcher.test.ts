@@ -555,3 +555,51 @@ describe('matchRequirementsToChanges – empty input edge case', () => {
     expect(result.technicalSignalTotalCount).toBe(0);
   });
 });
+
+describe('matchRequirementsToChanges – evidence from file contents', () => {
+  const diffText = [
+    'diff --git a/src/auth/rateLimit.ts b/src/auth/rateLimit.ts',
+    'new file mode 100644',
+    '--- /dev/null',
+    '+++ b/src/auth/rateLimit.ts',
+    '@@ -0,0 +1,3 @@',
+    '+// Lock the account for 15 minutes after 5 failed login attempts.',
+    '+export function recordFailedLogin(account) { account.failedAttempts += 1; }',
+    'diff --git a/tests/rateLimit.test.ts b/tests/rateLimit.test.ts',
+    'new file mode 100644',
+    '--- /dev/null',
+    '+++ b/tests/rateLimit.test.ts',
+    '@@ -0,0 +1,2 @@',
+    "+test('locks the account after 5 failed login attempts', () => {});",
+  ].join('\n');
+  const classified = (): ClassifiedFiles => ({
+    ...emptyClassified(),
+    sourceFiles: [makeFile('src/auth/rateLimit.ts')],
+    testFiles: [makeFile('tests/rateLimit.test.ts')],
+  });
+  const signals = (): RequirementSignals => ({
+    ...emptySignals(),
+    acceptanceCriteria: ['Lock the account for 15 minutes after 5 failed login attempts'],
+  });
+
+  it('names the file whose changes contain the criterion terms, not only files whose path does', () => {
+    const result = matchRequirementsToChanges(makeMatchInput({ requirementSignals: signals(), classifiedFiles: classified(), diffText }));
+    expect(result.coverageItems[0].status).toBe('covered');
+    expect(result.coverageItems[0].evidence).toContain('src/auth/rateLimit.ts');
+  });
+
+  it('never reports a criterion as covered without a file behind it', () => {
+    const result = matchRequirementsToChanges(makeMatchInput({ requirementSignals: signals(), classifiedFiles: classified(), diffText }));
+    for (const item of result.coverageItems) if (item.status === 'covered') expect(item.evidence.length).toBeGreaterThan(0);
+  });
+
+  it('lists the files behind covered criteria as matched evidence', () => {
+    const result = matchRequirementsToChanges(makeMatchInput({ requirementSignals: signals(), classifiedFiles: classified(), diffText }));
+    expect(result.matchedEvidence).toContain('src/auth/rateLimit.ts');
+  });
+
+  it('treats a test whose changes mention the criterion as related', () => {
+    const result = matchRequirementsToChanges(makeMatchInput({ requirementSignals: signals(), classifiedFiles: classified(), diffText }));
+    expect(result.testCoverageSignal).toBe('tests_added');
+  });
+});

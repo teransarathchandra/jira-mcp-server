@@ -1,5 +1,12 @@
 # Security policy
 
+## Supported versions
+
+| Version | Supported |
+|---|---|
+| 2.x | ✅ |
+| 1.x | ❌ — please upgrade ([migration guide](docs/migrating-from-v1.md)) |
+
 ## Reporting a vulnerability
 
 Please **don't open a public issue**. Report it privately through GitHub's
@@ -27,3 +34,5 @@ commands on the developer's machine.
   the agent must show the user the preview first (the bundled skill requires it),
   and clients with confirmation forms let the user confirm directly.
 - No telemetry: the server only talks to your Jira/Confluence site and local git.
+
+The full model is in [docs/security.md](docs/security.md).

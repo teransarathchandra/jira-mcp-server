@@ -1,9 +1,10 @@
 // Packs plugin/skills/jira-delivery as a standalone Agent Skill zip
 // (jira-delivery/SKILL.md + references/), the format Agensi and other skill
 // directories take. The same folder ships inside the Claude Code plugin.
-// Usage: node scripts/pack-skill.mjs [outDir]   (default skill-dist/)
+// Usage: node scripts/pack-skill.mjs [outDir]   (default: a new temp directory; the zip's path is printed)
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -53,5 +54,5 @@ export function packSkill({ outDir, version }) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-  console.log(packSkill({ outDir: process.argv[2] ?? 'skill-dist', version }));
+  console.log(packSkill({ outDir: process.argv[2] ?? mkdtempSync(join(tmpdir(), 'jira-delivery-skill-')), version }));
 }

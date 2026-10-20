@@ -12,7 +12,8 @@ Changes since 2.0.0-beta.2 (2.0.0-beta.3 was never published):
 - The QA-handoff and release-note prompts offer to post the result when the write tools are available.
 - **Claude Code plugin:** `/plugin marketplace add teransarathchandra/jira-mcp-server` then `/plugin install jira-delivery@jira-delivery` installs the server and a `jira-delivery` skill that tells the agent when to use each tool and never to confirm a write without the user. Credentials are prompted for and the API token is stored in secure storage.
 - The `jira-delivery` skill is also a standalone Agent Skill for other agents and skill directories: `npm run skill:pack` builds `jira-delivery-skill-<version>.zip` (attached to each GitHub release), with a setup reference for Claude Code, Cursor, VS Code, Codex CLI, Windsurf and Claude Desktop. It says what it connects to and that writes are off by default.
-- Contributing guide, security policy, and issue/PR templates.
+- Contributing guide, code of conduct, security policy, issue/PR templates and Dependabot.
+- Documentation rewritten: a short README with one-click install for Claude Code, Cursor and VS Code (VS Code prompts for the token as a secret) and GIFs of each step, and focused pages in `docs/` (usage, tools, configuration, security, troubleshooting, migrating from 1.x).
 - MCP Registry entry (`server.json`, `mcpName` io.github.teransarathchandra/jira-delivery-mcp) and a tag-triggered release workflow that publishes to npm with provenance, lists the version in the Registry and creates the GitHub release.
 - Tool-selection evals: 36 everyday requests scored against the real tool list. `npm run eval` runs them through Claude Code with your own login (or the Anthropic API when `ANTHROPIC_API_KEY` is set). Claude Haiku 5.5 and Sonnet 5.5 pick the right tool for 36/36.
 - `EVAL_SKILL=1 npm run eval` scores tool selection with the skill loaded (Haiku 5.5 and Sonnet 5.5: 36/36).
@@ -29,6 +30,7 @@ Changes since 2.0.0-beta.2 (2.0.0-beta.3 was never published):
 
 ### Fixes
 
+- `delivery_check_changes` names the files behind each covered criterion when the match is in a file's changes rather than its path; before, a criterion could be `covered` with no files and the report said "no matched implementation evidence". A test whose changes exercise the criterion now counts as a related test.
 - A write preview now tells the agent to show it to the user and wait for approval, and that a request to make the change is not approval. In testing, a model given only "Post this comment on ABC-1" used the token without asking; after the change it stopped at the preview in every run.
 - Acceptance criteria no longer keep their list or checkbox markers (`- `, `1. `, `- [ ] `), which showed up as `- - …` in QA handoffs and as `- …` in traceability-matrix cells.
 - The QA handoff summary is the description's first paragraph, cut at a word boundary, instead of its first 200 characters (which repeated the acceptance criteria and could end mid-word).
