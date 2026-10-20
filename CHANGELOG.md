@@ -14,6 +14,7 @@
 - `jira_prepare_work_brief` returns typed `data`: readiness with confidence, acceptance criteria and their source, inbound blockers, 2–4 recommended actions, 0–3 clarifying questions, a suggested branch name, and how each Jira source was read. The text now starts with a short "Start here" section.
 - `delivery_check_changes` returns typed `data` with one verdict (`ready_for_pr`, `needs_work`, `insufficient_evidence`, or `not_applicable` when only the `impact` check ran), per-criterion coverage with files, Definition of Done results and impact.
 - `npx jira-delivery-mcp doctor` checks the Jira (and, if configured, Confluence) credentials and suggests the acceptance-criteria, story-points, epic-link and team custom field ids for your site. Read-only; it never prints the email or token.
+- `--version` / `-v` prints the server version.
 - Branch name suggestion, configurable with `JIRA_BRANCH_PATTERN` (default `{type}/{KEY}-{slug}`).
 - `jira_prepare_work_brief` `allowElicitation: true` asks the clarifying questions in a form when the client supports it.
 
