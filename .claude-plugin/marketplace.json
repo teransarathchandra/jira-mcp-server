@@ -1,0 +1,12 @@
+{
+  "name": "jira-delivery",
+  "owner": { "name": "Teran Sarathchandra", "url": "https://github.com/teransarathchandra" },
+  "description": "Jira delivery workflows for coding agents: start a ticket, verify before PR, hand off.",
+  "plugins": [
+    {
+      "name": "jira-delivery",
+      "source": "./plugin",
+      "description": "Jira delivery MCP server plus a skill that tells the agent when and how to use it."
+    }
+  ]
+}

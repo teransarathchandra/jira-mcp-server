@@ -1,12 +1,16 @@
 # Changelog
 
-## Unreleased
+## 2.0.0-beta.3
 
 ### New
 
 - **Write-back (opt-in):** `jira_add_comment` and `jira_update_issue` (transition, assign to me, link a branch/PR), registered only with `JIRA_ENABLE_WRITES=true`. Every write needs a preview + single-use confirmToken or a confirmed elicitation form, is sent without retries, and is recorded in an audit log (`JIRA_DELIVERY_AUDIT_LOG`). Markdown comments are converted to Jira's ADF. Declining the confirmation form issues no token; a timed-out or 5xx write is reported as "outcome unknown", and Jira's reason is shown when it rejects a write. A confirmToken no longer applies if the issue's workflow changed after the preview; the audit log refuses symlinks, is kept at 0600, and records account ids rather than names.
 - The QA-handoff and release-note prompts offer to post the result when the write tools are available.
-
+- **Claude Code plugin:** `/plugin marketplace add teransarathchandra/jira-mcp-server` then `/plugin install jira-delivery@jira-delivery` installs the server and a `jira-delivery` skill that tells the agent when to use each tool and never to confirm a write without the user. Credentials are prompted for and the API token is stored in secure storage.
+- Contributing guide, security policy, and issue/PR templates.
+- MCP Registry entry (`server.json`, `mcpName` io.github.teransarathchandra/jira-delivery-mcp) and a tag-triggered release workflow that publishes to npm with provenance, lists the version in the Registry and creates the GitHub release.
+- Tool-selection evals: 34 everyday requests scored against the real tool list (`npm run eval`, needs `ANTHROPIC_API_KEY`).
+- README rewritten as a short front page with a Cursor install link; the detailed reference moved to `docs/reference.md` and the workflow data to `docs/workflows.md`.
 - `jira_prepare_work_brief` returns typed `data`: readiness with confidence, acceptance criteria and their source, inbound blockers, 2–4 recommended actions, 0–3 clarifying questions, a suggested branch name, and how each Jira source was read. The text now starts with a short "Start here" section.
 - `delivery_check_changes` returns typed `data` with one verdict (`ready_for_pr`, `needs_work`, `insufficient_evidence`), per-criterion coverage with files, Definition of Done results and impact.
 - Branch name suggestion, configurable with `JIRA_BRANCH_PATTERN` (default `{type}/{KEY}-{slug}`).

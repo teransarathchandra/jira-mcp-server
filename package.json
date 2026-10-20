@@ -1,6 +1,7 @@
 {
   "name": "jira-delivery-mcp",
-  "version": "2.0.0-beta.2",
+  "version": "2.0.0-beta.3",
+  "mcpName": "io.github.teransarathchandra/jira-delivery-mcp",
   "description": "Client-agnostic MCP server for Jira and Confluence — delivery intelligence, implementation prompts, and workflow automation for any AI coding agent",
   "type": "module",
   "main": "dist/index.js",
@@ -54,7 +55,8 @@
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "security:audit": "npm audit --audit-level=moderate",
-    "prepublishOnly": "npm run typecheck && npm run build"
+    "prepublishOnly": "npm run typecheck && npm run build",
+    "eval": "vitest run --config evals/vitest.config.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.3.1",

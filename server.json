@@ -1,0 +1,25 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.teransarathchandra/jira-delivery-mcp",
+  "title": "Jira Delivery",
+  "description": "Jira Cloud delivery layer: ticket briefs, acceptance-criteria checks before the PR, QA handoff.",
+  "repository": {
+    "url": "https://github.com/teransarathchandra/jira-mcp-server",
+    "source": "github"
+  },
+  "version": "2.0.0-beta.3",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "jira-delivery-mcp",
+      "version": "2.0.0-beta.3",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        { "name": "JIRA_BASE_URL", "description": "Your Jira Cloud site, e.g. https://your-domain.atlassian.net", "isRequired": true, "format": "string" },
+        { "name": "JIRA_EMAIL", "description": "Email of the Atlassian account the API token belongs to", "isRequired": true, "format": "string" },
+        { "name": "JIRA_API_TOKEN", "description": "Atlassian API token", "isRequired": true, "isSecret": true, "format": "string" },
+        { "name": "JIRA_ENABLE_WRITES", "description": "true to register the write tools (comment, transition, assign, link); off by default", "isRequired": false, "format": "boolean", "default": "false" }
+      ]
+    }
+  ]
+}
