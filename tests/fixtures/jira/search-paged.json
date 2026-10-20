@@ -1,0 +1,15 @@
+{
+  "routes": {
+    "POST /rest/api/3/search/jql": {
+      "status": 200,
+      "body": {
+        "issues": [
+          { "key": "ABC-2", "fields": { "summary": "Export A | B report", "status": { "name": "To Do" }, "priority": { "name": "High" }, "updated": "2026-10-19T10:00:00.000+0000" } },
+          { "key": "ABC-1", "fields": { "summary": "Login lockout", "status": { "name": "In Progress" }, "priority": null, "updated": "2026-10-18T10:00:00.000+0000" } }
+        ],
+        "nextPageToken": "tok-page-2",
+        "isLast": false
+      }
+    }
+  }
+}

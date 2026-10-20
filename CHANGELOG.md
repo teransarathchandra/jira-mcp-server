@@ -15,12 +15,13 @@
 - `delivery_check_changes` returns typed `data` with one verdict (`ready_for_pr`, `needs_work`, `insufficient_evidence`, or `not_applicable` when only the `impact` check ran), per-criterion coverage with files, Definition of Done results and impact.
 - `npx jira-delivery-mcp doctor` checks the Jira (and, if configured, Confluence) credentials and suggests the acceptance-criteria, story-points, epic-link and team custom field ids for your site. Read-only; it never prints the email or token.
 - `--version` / `-v` prints the server version.
+- `jira_search_issues` pages: `data.nextPageToken` is set when there are more results; pass it back as `pageToken`. `data.issueKeys` lists the keys on the page.
 - Branch name suggestion, configurable with `JIRA_BRANCH_PATTERN` (default `{type}/{KEY}-{slug}`).
 - `jira_prepare_work_brief` `allowElicitation: true` asks the clarifying questions in a form when the client supports it.
 
 ### Fixes
 
-- A `|` or line break in ticket text no longer breaks the rows of the traceability matrix or test strategy tables.
+- A `|` or line break in ticket text no longer breaks the rows of the search results, traceability matrix or test strategy tables.
 - The configured acceptance-criteria, epic, story-points and team custom fields are now requested from Jira; before, they were never fetched.
 - A link where this ticket blocks another issue no longer counts as this ticket being blocked.
 - When a ticket has more comments than the cap, the newest ones are kept (before, the oldest were).

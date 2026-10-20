@@ -432,9 +432,10 @@ export class JiraClient {
   async searchIssues(
     jql: string,
     fields: string[],
-    maxResults: number
+    maxResults: number,
+    nextPageToken?: string
   ): Promise<JiraSearchResult> {
-    const cacheKey = jiraSearchKey(jql, maxResults);
+    const cacheKey = jiraSearchKey(jql, maxResults, nextPageToken);
     if (isCacheEnabled()) {
       const cached = this._searchCache.get(cacheKey);
       if (cached !== undefined) return cached;
@@ -449,7 +450,7 @@ export class JiraClient {
     try {
       // No startAt — this endpoint rejects offset paging in favour of nextPageToken.
       response = await jiraLimiter.run(() =>
-        httpPost(url, postHeaders, { jql, fields, maxResults }, { provider: 'jira' })
+        httpPost(url, postHeaders, { jql, fields, maxResults, ...(nextPageToken ? { nextPageToken } : {}) }, { provider: 'jira' })
       );
     } catch (err) {
       this.mapHttpClientError(err);

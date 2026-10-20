@@ -1,5 +1,6 @@
 import { JiraIssue } from "../jiraClient.js";
 import { adfToMarkdown } from "./adfToMarkdown.js";
+import { escapeTableCell } from "./markdownTable.js";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -342,9 +343,9 @@ export function formatSearchResult(issues: JiraSearchIssue[], projectKey?: strin
 
   const rows = issues.map((issue) => {
     const key = issue.key;
-    const summary = issue.fields.summary;
-    const status = issue.fields.status?.name ?? "N/A";
-    const priority = issue.fields.priority?.name ?? "N/A";
+    const summary = escapeTableCell(issue.fields.summary ?? "");
+    const status = escapeTableCell(issue.fields.status?.name ?? "N/A");
+    const priority = escapeTableCell(issue.fields.priority?.name ?? "N/A");
     const updated = formatDate(issue.fields.updated);
     return `| ${key} | ${summary} | ${status} | ${priority} | ${updated} |`;
   });
