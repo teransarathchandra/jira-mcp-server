@@ -133,6 +133,17 @@ function hasAuthSignals(
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
+const SUMMARY_MAX = 200;
+
+/** The description's first paragraph (before a blank line or heading), cut at a word boundary. */
+function summarizeDescription(description: string | undefined): string {
+  const paragraph = (description ?? '').trim().split(/\n\s*\n|\n(?=#{1,6}\s)/)[0].replace(/\s+/g, ' ').trim();
+  if (paragraph.length <= SUMMARY_MAX) return paragraph;
+  const cut = paragraph.slice(0, SUMMARY_MAX);
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${lastSpace > SUMMARY_MAX / 2 ? cut.slice(0, lastSpace) : cut}…`;
+}
+
 export function generateQaHandoff(input: QaHandoffInput): QaHandoff {
   const {
     issueKey,
@@ -146,10 +157,7 @@ export function generateQaHandoff(input: QaHandoffInput): QaHandoff {
   } = input;
 
   // ── featureSummary ────────────────────────────────────────────────────────
-  const featureSummary =
-    issueDescription && issueDescription.trim()
-      ? issueDescription.trim().slice(0, 200)
-      : issueSummary;
+  const featureSummary = summarizeDescription(issueDescription) || issueSummary;
 
   // ── businessGoal ─────────────────────────────────────────────────────────
   const businessGoal = extractBusinessGoal(issueDescription, issueSummary);

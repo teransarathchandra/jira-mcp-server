@@ -37,7 +37,9 @@ export function writeToolResult(tool: string, issueKey: string, outcome: WriteOu
       '',
       outcome.preview,
       '',
-      `To apply, call ${tool} again with the same arguments plus confirmToken: "${outcome.confirmToken}" (valid for 5 minutes, once).`,
+      'Show this preview to the user and ask them to approve it. Only after they approve, call ' +
+        `${tool} again with the same arguments plus confirmToken: "${outcome.confirmToken}" (valid for 5 minutes, once). ` +
+        'Do not use the token on your own: a request to make the change is not approval of this preview.',
     ].join('\n');
     return toolResult(tool, text, { issueKey, warnings, data });
   }

@@ -51,7 +51,7 @@ export const registerJiraUpdateIssue: ToolRegistrar = (server, { config, jiraCli
       description:
         'Move a Jira issue to another status (transitionTo: a transition or status name), assign it to yourself ' +
         '(assignToMe), and/or link a branch or PR (link). Nothing changes on the first call: it returns a preview and a ' +
-        'confirmToken (or asks the user in a form). Call again with the same arguments plus confirmToken to apply.',
+        'confirmToken (or asks the user in a form). Call again with the same arguments plus confirmToken only after the user approves the preview.',
       inputSchema: z.object({
         issueKey: issueKeyField(config),
         transitionTo: z.string().min(1).optional().describe('Transition or target status name, e.g. "In Review"'),

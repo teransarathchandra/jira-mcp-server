@@ -93,6 +93,12 @@ const AC_HEADING_PATTERN =
   /^#{1,6}\s*(?:acceptance criteria|ac|definition of done)\s*$/i;
 const GIVEN_WHEN_THEN_PATTERN = /^\s*(?:given|when|then)\b/i;
 const CHECKLIST_PATTERN = /^\s*-\s*\[[ x]\]/i;
+// A leading bullet, number or checkbox: criteria are returned as plain text.
+const ITEM_MARKER = /^(?:[-*•]|\d+[.)])\s+(?:\[[ x]\]\s*)?|^\[[ x]\]\s*/i;
+
+function stripItemMarker(line: string): string {
+  return line.replace(ITEM_MARKER, '').trim();
+}
 
 function extractAcceptanceCriteria(text: string): string[] {
   const lines = toLines(text);
@@ -115,7 +121,7 @@ function extractAcceptanceCriteria(text: string): string[] {
     }
 
     if (inAcSection) {
-      if (trimmed) results.push(trimmed);
+      if (trimmed) results.push(stripItemMarker(trimmed));
       continue;
     }
 
@@ -127,7 +133,7 @@ function extractAcceptanceCriteria(text: string): string[] {
 
     // Checklist items anywhere
     if (CHECKLIST_PATTERN.test(trimmed)) {
-      results.push(trimmed);
+      results.push(stripItemMarker(trimmed));
     }
   }
 

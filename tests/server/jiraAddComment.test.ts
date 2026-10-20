@@ -49,6 +49,22 @@ describe('jira_add_comment', () => {
     expect(tool?.annotations).toEqual({ readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true });
   });
 
+  it('tells the agent to get the user\'s approval before using the token', async () => {
+    await start();
+    const text = textOf(await comment({}));
+    expect(text).toMatch(/show this preview to the user/i);
+    expect(text).toMatch(/only after they approve/i);
+    expect(text).toMatch(/do not use the token on your own/i);
+  });
+
+  it('says in both write tool descriptions that only the user can approve', async () => {
+    await start();
+    const { tools } = await session!.client.listTools();
+    for (const name of ['jira_add_comment', 'jira_update_issue']) {
+      expect(tools.find((t) => t.name === name)?.description, name).toMatch(/only after the user approves the preview/i);
+    }
+  });
+
   it('previews without writing, then applies once with the token', async () => {
     await start();
     const preview = await comment({});
