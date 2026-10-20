@@ -1,6 +1,6 @@
 # Tool-selection evals
 
-Checks that a model, given this server's real tool list, picks the right tool and key arguments for 34 everyday developer requests (`cases.json`). Write tools are enabled, so the write cases are always scored.
+Checks that a model, given this server's real tool list, picks the right tool and key arguments for 36 everyday developer requests (`cases.json`). Write tools are enabled, so the write cases are always scored.
 
 ```bash
 npm run eval                                  # Claude Code (`claude -p`, your own login), claude-haiku-5-5, must reach 90%
@@ -24,6 +24,10 @@ Run it before each release and after any change to a tool's name, description or
 | 2026-10-20 | Claude Code | claude-sonnet-5-5 | 33/34 | 33/34 |
 | 2026-10-20 | Claude Code + skill | claude-haiku-5-5 | 33/34, 34/34, 34/34 | 33/34, 34/34, 34/34 |
 | 2026-10-20 | Claude Code + skill | claude-sonnet-5-5 | 34/34 | 34/34 |
+| 2026-10-20 (36 cases, with `jql` search) | Claude Code | claude-haiku-5-5 | 36/36 | 36/36 |
+| 2026-10-20 (36 cases) | Claude Code | claude-sonnet-5-5 | 36/36 | 36/36 |
+| 2026-10-20 (36 cases) | Claude Code + skill | claude-haiku-5-5 | 36/36 | 36/36 |
+| 2026-10-20 (36 cases) | Claude Code + skill | claude-sonnet-5-5 | 36/36 | 36/36 |
 
 With the skill, Haiku sometimes answers "Forget the project patterns" with `action: "get"` before clearing them. An early version of the skill scored 31/34: its line "never guess ticket content — fetch it" sent the model to `jira_get_issue` first, so the skill now says the workflow tools fetch the ticket themselves.
 
