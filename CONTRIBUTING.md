@@ -27,6 +27,10 @@ Node.js 20 or later is required.
 - CI (typecheck, tests, build on Node 20 and 22) must pass.
 - Update `CHANGELOG.md` under `## Unreleased`.
 
+## Re-recording the demo
+
+`docs/demo.gif` is recorded with [VHS](https://github.com/charmbracelet/vhs) against a local fake Jira (`demo/fake-jira.mjs`), so no real data appears in it: `npm run build && vhs demo/demo.tape`.
+
 ## Releasing (maintainer)
 
 1. In a PR, set the same version in `package.json`, `plugin/.claude-plugin/plugin.json` (its `version` and the `jira-delivery-mcp@<version>` it runs) and `server.json` (a test checks they match), and move the `## Unreleased` notes under that version.

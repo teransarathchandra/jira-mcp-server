@@ -6,6 +6,10 @@
 
 Works with Claude Code, Claude Desktop, Cursor, Codex CLI, Windsurf, VS Code and any stdio MCP client. Jira Cloud with an API token; Node.js 20 or newer. No telemetry, and read-only unless you turn writes on.
 
+![What an agent gets back: your open issues, then a ready-to-build brief for ABC-1](docs/demo.gif)
+
+<sub>What your agent receives from `jira_search_issues` and `jira_prepare_work_brief`, recorded against a local demo Jira ([`demo/`](demo/demo.tape)).</sub>
+
 ## Install
 
 > **v2 is in beta.** These instructions use the `@beta` tag. Plain `jira-delivery-mcp` still installs 1.x until 2.0.0 is released.
