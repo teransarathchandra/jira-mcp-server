@@ -22,7 +22,7 @@ Run it before each release and after any change to a tool's name, description or
 |---|---|---|---|---|
 | 2026-10-20 | Claude Code | claude-haiku-5-5 | 34/34 | 34/34 |
 | 2026-10-20 | Claude Code | claude-sonnet-5-5 | 33/34 | 33/34 |
-| 2026-10-20 | Claude Code + skill | claude-haiku-5-5 | 33/34, 34/34 | 33/34, 34/34 |
+| 2026-10-20 | Claude Code + skill | claude-haiku-5-5 | 33/34, 34/34, 34/34 | 33/34, 34/34, 34/34 |
 | 2026-10-20 | Claude Code + skill | claude-sonnet-5-5 | 34/34 | 34/34 |
 
 With the skill, Haiku sometimes answers "Forget the project patterns" with `action: "get"` before clearing them. An early version of the skill scored 31/34: its line "never guess ticket content — fetch it" sent the model to `jira_get_issue` first, so the skill now says the workflow tools fetch the ticket themselves.

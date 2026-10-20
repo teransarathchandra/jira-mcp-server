@@ -285,13 +285,24 @@ describe('generateQaHandoff', () => {
     expect(result.featureSummary).toBe('Add dark mode support');
   });
 
-  it('uses first 200 chars of description as featureSummary when description present', () => {
-    const longDesc = 'A'.repeat(300);
-    const result = generateQaHandoff(
-      makeInput({ issueDescription: longDesc }),
-    );
+  it('caps a long featureSummary at 200 characters and marks the cut', () => {
+    const result = generateQaHandoff(makeInput({ issueDescription: 'A'.repeat(300) }));
+    expect(result.featureSummary).toBe(`${'A'.repeat(200)}…`);
+  });
 
-    expect(result.featureSummary.length).toBe(200);
+  it('uses only the first paragraph of the description as featureSummary', () => {
+    const result = generateQaHandoff(
+      makeInput({ issueDescription: 'Limit failed logins.\n\n### Acceptance Criteria\n\n- Lock the account' }),
+    );
+    expect(result.featureSummary).toBe('Limit failed logins.');
+  });
+
+  it('cuts a long first paragraph at a word boundary', () => {
+    const words = Array.from({ length: 60 }, (_, i) => `word${i}`).join(' ');
+    const result = generateQaHandoff(makeInput({ issueDescription: words }));
+    expect(result.featureSummary.length).toBeLessThanOrEqual(201);
+    expect(result.featureSummary).toMatch(/word\d+…$/);
+    expect(words.startsWith(result.featureSummary.slice(0, -1))).toBe(true);
   });
 
   // 9. No ACs → happyPath derived from issueSummary

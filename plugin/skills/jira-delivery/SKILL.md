@@ -11,7 +11,7 @@ The jira-delivery-mcp server turns a Jira ticket into a delivery loop: **start �
 
 ## Before you start
 
-This skill drives the tools of the jira-delivery MCP server (`jira_*`, `delivery_*`, `confluence_*`; some clients prefix them, e.g. `mcp__jira-delivery__jira_get_issue`). If those tools aren't available, the server isn't connected: tell the user and walk them through [references/setup.md](references/setup.md) for their agent. Don't call the Jira REST API yourself instead.
+This skill drives the tools of the jira-delivery MCP server (`jira_*`, `delivery_*`, `confluence_*`; some clients prefix them, e.g. `mcp__jira-delivery__jira_get_issue`). If those tools aren't available (none of them is in your tool list), the server isn't connected: tell the user and walk them through [references/setup.md](references/setup.md) for their agent. Don't call the Jira REST API yourself instead.
 
 **What runs where.** This skill contains no scripts. The MCP server runs on the user's machine and connects only to the user's own Jira (and Confluence, if they configured it) with their API token; it sends no telemetry. It only reads unless the user sets `JIRA_ENABLE_WRITES=true`, and even then every write needs the user's confirmation.
 
@@ -20,7 +20,7 @@ This skill drives the tools of the jira-delivery MCP server (`jira_*`, `delivery
 - **"What should I work on?"** → `jira_search_issues`. If `data.nextPageToken` is set and the user wants more, call it again with `pageToken`.
 - **Starting a ticket** → `jira_prepare_work_brief` with the issue key. Read `structuredContent.data` before coding:
   - `readiness.status`: `BLOCKED` means stop and tell the user which blocker (`blockers[]`) must be resolved first. `NEEDS_CLARIFICATION` means raise `clarifyingQuestions[]` with the user before building.
-  - `readiness.confidence`: when `low` or `medium`, say what couldn't be read (`gaps[]`) instead of assuming.
+  - `readiness.gaps[]`: what is missing or couldn't be read (no acceptance criteria, conflicts, unreadable links). When `readiness.confidence` is `low` or `medium`, tell the user these instead of assuming.
   - `recommendedActions[]`: follow them in order.
   - `branchName`: suggest it; create the branch only if the user agrees.
   - Use `depth: "full"` for tickets with a parent, epic or linked issues, and `includeConfluence: true` when specs live in Confluence.
@@ -46,7 +46,7 @@ Use `delivery_traceability_matrix` when the user wants each requirement mapped t
 - **Posting back to Jira** (`jira_add_comment`, `jira_update_issue`) exists only when the user enabled writes. Every write needs the user's approval:
   - If the client shows the user a confirmation form, their answer there is the approval and the write happens in that call. `data.declined: true` means they said no: don't retry unless they ask.
   - Otherwise the first call changes nothing and returns a preview and a `confirmToken`. Show the user the preview exactly as returned; only after they explicitly approve, call again with the same arguments plus `confirmToken`.
-  - Never supply a `confirmToken` the user hasn't approved, never invent one, and never batch several writes behind one approval.
+  - Never supply a `confirmToken` the user hasn't approved, never invent one, and never batch several writes behind one approval. The user asking for the change is not approval of the preview: show it and wait.
   - If a result says the outcome is unknown, ask the user to check the issue in Jira before trying again.
 - `jira_update_issue` takes `transitionTo` (a transition or status name), `assignToMe: true`, and/or `link: { url, title }` for the PR. If the transition isn't found, show the user the available names it returns.
 

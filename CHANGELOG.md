@@ -24,6 +24,9 @@
 
 ### Fixes
 
+- A write preview now tells the agent to show it to the user and wait for approval, and that a request to make the change is not approval. In testing, a model given only "Post this comment on ABC-1" used the token without asking; after the change it stopped at the preview in every run.
+- Acceptance criteria no longer keep their list or checkbox markers (`- `, `1. `, `- [ ] `), which showed up as `- - …` in QA handoffs and as `- …` in traceability-matrix cells.
+- The QA handoff summary is the description's first paragraph, cut at a word boundary, instead of its first 200 characters (which repeated the acceptance criteria and could end mid-word).
 - `setup vscode` prints a `.vscode/mcp.json` entry in VS Code's own format (`servers` with `"type": "stdio"`); the `mcpServers` snippet it printed before was ignored by VS Code. `setup claude-desktop` says to fill in your values before restarting.
 - A `|` or line break in ticket text no longer breaks the rows of the search results, traceability matrix or test strategy tables, or of a table inside a Jira description or comment.
 - The configured acceptance-criteria, epic, story-points and team custom fields are now requested from Jira; before, they were never fetched.

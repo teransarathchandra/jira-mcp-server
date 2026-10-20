@@ -25,7 +25,7 @@ export const registerJiraAddComment: ToolRegistrar = (server, { config, jiraClie
       description:
         'Post a Markdown comment to a Jira issue, e.g. the QA handoff or release notes from delivery_generate. ' +
         'Nothing is posted on the first call: it returns a preview and a confirmToken (or asks the user in a form). ' +
-        'Call again with the same arguments plus confirmToken to post.',
+        'Call again with the same arguments plus confirmToken only after the user approves the preview.',
       inputSchema: z.object({
         issueKey: issueKeyField(config),
         markdown: z.string().min(1).max(32_000).describe('The comment, in Markdown'),

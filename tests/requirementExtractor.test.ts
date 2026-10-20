@@ -22,6 +22,29 @@ User sees an error for invalid credentials.`;
     expect(result.acceptanceCriteria).toContain('User must see a success message.');
   });
 
+  it('returns criteria without list or checkbox markers', () => {
+    const text = `### Acceptance Criteria
+- Lock the account after 5 failed attempts
+* Show the remaining lock time
+1. Log the lockout
+2) Email the user
+- [ ] Unlock after 15 minutes
+- [x] Admins can unlock manually`;
+    expect(extractRequirements(text).acceptanceCriteria).toEqual([
+      'Lock the account after 5 failed attempts',
+      'Show the remaining lock time',
+      'Log the lockout',
+      'Email the user',
+      'Unlock after 15 minutes',
+      'Admins can unlock manually',
+    ]);
+  });
+
+  it('strips the markers from checklist items outside an AC section', () => {
+    const text = `Intro.\n- [ ] Upload is limited to 5 MB`;
+    expect(extractRequirements(text).acceptanceCriteria).toEqual(['Upload is limited to 5 MB']);
+  });
+
   it('extracts unchecked checklist items "- [ ]"', () => {
     const text = `- [ ] User can upload a profile picture
 - [ ] Upload is limited to 5 MB`;
