@@ -4,6 +4,8 @@
 
 The first stable v2: Jira delivery workflows for coding agents. Compared with 1.x, the 28 tools are consolidated into 10 (plus two opt-in write tools), every tool returns typed `structuredContent`, starting a ticket gives a ready-to-build brief with a readiness verdict, and the local branch can be checked against the acceptance criteria before a PR. Upgrading from 1.x: see the migration table under 2.0.0-beta.1 below or in the README. `npx jira-delivery-mcp` now installs 2.x.
 
+**Node.js 22 or later is now required** (Node.js 20 reached end of life in April 2026).
+
 Changes since 2.0.0-beta.2 (2.0.0-beta.3 was never published):
 
 ### New

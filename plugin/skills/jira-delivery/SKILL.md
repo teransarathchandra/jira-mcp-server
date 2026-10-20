@@ -2,7 +2,7 @@
 name: jira-delivery
 description: Use when the user mentions a Jira ticket or issue key (like ABC-123), wants to start work on a ticket, asks what to work on next, wants their branch checked against a ticket's acceptance criteria before a PR, or wants a QA handoff, release notes, test strategy or review report for a ticket. Drives the jira-delivery-mcp tools.
 license: MIT
-compatibility: Requires the jira-delivery-mcp MCP server (Node.js 20+, run with npx) connected to a Jira Cloud site with an API token. Works in any agent that supports MCP tools and Agent Skills.
+compatibility: Requires the jira-delivery-mcp MCP server (Node.js 22+, run with npx) connected to a Jira Cloud site with an API token. Works in any agent that supports MCP tools and Agent Skills.
 ---
 
 # Jira delivery workflow

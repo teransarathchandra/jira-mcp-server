@@ -46,3 +46,18 @@ describe('release manifests', () => {
     expect(declared.get('JIRA_API_TOKEN')).toMatchObject({ isSecret: true, isRequired: true });
   });
 });
+
+describe('supported Node.js versions', () => {
+  const minimum = Number(/^>=(\d+)$/.exec(pkg.engines.node)?.[1]);
+  const ci = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  const matrix = [...(/node-version: \[([^\]]+)\]/.exec(ci)?.[1] ?? '').matchAll(/(\d+)\.x/g)].map((m) => Number(m[1]));
+
+  it('tests the minimum supported Node.js in CI', () => {
+    expect(minimum).toBeGreaterThanOrEqual(22);
+    expect(matrix).toContain(minimum);
+  });
+
+  it('types against the minimum supported Node.js, not a newer one', () => {
+    expect(pkg.devDependencies['@types/node']).toMatch(new RegExp(`^\\^${minimum}\\.`));
+  });
+});

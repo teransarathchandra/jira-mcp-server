@@ -33,4 +33,4 @@ v2 consolidates the 28 v1 tools into 10, plus two opt-in write tools. Every v1 t
 | `mcp_get_client_setup_instructions` | CLI `npx jira-delivery-mcp setup <client>` |
 | `mcp_clear_cache` | removed (restart the server) |
 
-v2 tools ignore unknown arguments, so v1-only parameters are silently dropped; they are listed in the [CHANGELOG](../CHANGELOG.md#removed-parameters). Node.js 20 or newer is required.
+v2 tools ignore unknown arguments, so v1-only parameters are silently dropped; they are listed in the [CHANGELOG](../CHANGELOG.md#removed-parameters). Node.js 22 or newer is required.

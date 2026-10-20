@@ -6,7 +6,7 @@
   <a href="https://www.npmjs.com/package/jira-delivery-mcp"><img src="https://img.shields.io/npm/v/jira-delivery-mcp?logo=npm&label=npm&color=cb3837" alt="npm version"></a>
   <a href="https://github.com/teransarathchandra/jira-mcp-server/actions/workflows/ci.yml"><img src="https://github.com/teransarathchandra/jira-mcp-server/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="evals/README.md"><img src="https://img.shields.io/badge/tool--selection%20evals-36%2F36-2ea44f" alt="Tool-selection evals: 36/36"></a>
-  <img src="https://img.shields.io/badge/node-%E2%89%A520-339933?logo=nodedotjs&logoColor=white" alt="Node.js 20 or newer">
+  <img src="https://img.shields.io/badge/node-%E2%89%A522-339933?logo=nodedotjs&logoColor=white" alt="Node.js 22 or newer">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
 </p>
 
@@ -50,7 +50,7 @@ QA handoffs, release notes, test plans and reviews. With write-back on, the agen
 
 ## Install
 
-You need **Node.js 20+**, your Jira Cloud URL, your Atlassian email and an [API token](https://id.atlassian.com/manage-profile/security/api-tokens).
+You need **Node.js 22+**, your Jira Cloud URL, your Atlassian email and an [API token](https://id.atlassian.com/manage-profile/security/api-tokens).
 
 <details open>
 <summary><img src="https://cdn.simpleicons.org/claude" height="16" alt=""> <b>Claude Code</b> — plugin with the server and the skill</summary>
