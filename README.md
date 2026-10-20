@@ -152,6 +152,24 @@ The verdict comes only from the diff-based checks (`alignment`, `dod`); `impact`
 - `needs_work`: a criterion is `missing` or only `partial`, the Definition of Done failed, or there are required fixes.
 - `ready_for_pr`: every criterion is `covered` and the Definition of Done passed.
 
+## Hand off: write back to Jira
+
+Two write tools finish the loop without leaving your editor. They are **off by default**: set `JIRA_ENABLE_WRITES=true` in the server's environment to register them.
+
+| Tool | What it does |
+|------|-------------|
+| `jira_add_comment` | Post a Markdown comment (e.g. the QA handoff or release notes from `delivery_generate`), converted to Jira's rich text |
+| `jira_update_issue` | `transitionTo` a status or transition name, `assignToMe`, and/or `link` a branch or PR URL |
+
+Every write is guarded:
+- **Preview first.** The first call changes nothing. It returns exactly what will be sent and a single-use `confirmToken` (valid 5 minutes). Calling again with the same arguments plus the token applies it; a changed argument or a reused token is refused.
+- **Or confirm in a form.** If your client supports form elicitation, you're asked "Apply these changes to ABC-1?" directly and the write happens in one call. Answering no changes nothing and issues no token; a new attempt needs a fresh preview.
+- **Never retried.** A write request is sent once. If it times out or Jira answers 5xx, the outcome is unknown — the result says so; check the issue before confirming again. If Jira rejects a write (e.g. a status needs a resolution), its reason is shown.
+- **Audited.** Each step is appended to `~/.jira-delivery-mcp/audit.log` (override with `JIRA_DELIVERY_AUDIT_LOG`): time, tool, issue, action, outcome. No comment text, tokens or credentials.
+- **Allowlist.** With `JIRA_STRICT_PROJECT_ALLOWLIST=true`, writes outside `JIRA_ALLOWED_PROJECT_KEYS` are refused before any preview.
+
+Transitions are matched by name, then by target status, case-insensitively. If nothing matches, the available transitions are listed and nothing changes.
+
 ## Migrating from 1.x
 
 | v1 tool | v2 equivalent |
@@ -189,9 +207,8 @@ Parameters that v2 no longer accepts are listed in the [CHANGELOG](CHANGELOG.md#
 
 ## What this server does NOT do
 
-- Does not create, edit, or delete Jira issues
-- Does not add comments to Jira
-- Does not transition issue statuses
+- Does not create or delete Jira issues, or edit their summary, description or fields
+- Does not write to Jira at all unless `JIRA_ENABLE_WRITES=true` — and then only comments, transitions, assign-to-me and links, each after you confirm a preview
 - Does not download attachments — it lists filenames and URLs only
 - Does not support pagination beyond the first page (max 50 results for search)
 - Does not write to Confluence
@@ -669,7 +686,7 @@ Possible statuses:
 - A low score may result from poor Jira description quality, not poor implementation.
 - **This is not a replacement for human code review.** Use it as a pre-review checklist.
 - The tool never posts PR comments, approves/rejects PRs, or modifies Jira issues.
-- Git access is read-only. Jira access is read-only.
+- Git access is read-only, and this check never writes to Jira.
 
 ## Confluence Integration
 
@@ -688,7 +705,7 @@ The server can optionally enrich Jira issue context with relevant Confluence doc
 ### What it does NOT do
 
 - **Does not write to Confluence**: Read-only access only. No pages are created, edited, or deleted.
-- **Does not update Jira**: Jira data is also read-only.
+- **Does not update Jira**: the Confluence features only read Jira.
 - **Does not use an LLM**: All analysis is deterministic and rule-based.
 - **Does not blindly include all Confluence content**: Only relevant pages (relevance score ≥ 25) are included by default.
 
@@ -932,15 +949,16 @@ Tests live in `tests/` and are run with [Vitest](https://vitest.dev).
 
 - Never commit `.env` — it is listed in `.gitignore`
 - API tokens are stored only in environment variables, never hardcoded
-- The server never writes to Jira (read-only)
-- No Jira data is persisted to disk
+- The server reads from Jira only, unless `JIRA_ENABLE_WRITES=true` registers the write tools (every write needs your confirmation)
+- No Jira content is persisted to disk; the write audit log records only issue keys, actions, outcomes and ids
 
 ## Security Model
 
-This MCP server is designed as a **read-only** intelligence layer.
+This MCP server is a **read-only** intelligence layer by default. The opt-in write tools (`JIRA_ENABLE_WRITES=true`) are limited to comments, transitions, assign-to-me and links, and each write is previewed, confirmed by you, sent once and audited (see [Hand off: write back to Jira](#hand-off-write-back-to-jira)).
 
 ### What it will never do
-- Write to Jira (no issue creation, updates, transitions, or comments)
+- Create or delete Jira issues, or edit their summary, description or fields
+- Write to Jira without your confirmation, or retry a write
 - Write to Confluence (no page creation or edits)
 - Post PR comments automatically
 - Approve or reject pull requests

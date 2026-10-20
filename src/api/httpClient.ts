@@ -8,6 +8,14 @@ import {
 } from './retryPolicy.js';
 import { extractRateLimitState, formatRateLimitWarning } from './rateLimitHandler.js';
 
+/** A non-success HTTP response, with Jira's response body for error reporting. */
+export class HttpStatusError extends Error {
+  constructor(message: string, readonly status: number, readonly responseBody: string) {
+    super(message);
+    this.name = 'HttpStatusError';
+  }
+}
+
 export interface HttpClientOptions {
   timeoutMs?: number;
   maxRetries?: number;
@@ -52,7 +60,7 @@ function redactHeaders(headers: Record<string, string>): Record<string, string> 
 }
 
 async function httpRequest(
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'PUT',
   url: string,
   headers: Record<string, string>,
   body: unknown | undefined,
@@ -146,8 +154,16 @@ async function httpRequest(
     }
 
     // All retries exhausted or non-retryable non-success status
-    throw new Error(
+    let responseBody = '';
+    try {
+      responseBody = (await response.text()).slice(0, 4000);
+    } catch {
+      // body unavailable; the status alone is reported
+    }
+    throw new HttpStatusError(
       `[${provider}] HTTP ${status} after ${attempt + 1} attempt(s). URL: ${redactedUrl}`,
+      status,
+      responseBody,
     );
   }
 }
@@ -173,4 +189,17 @@ export function httpPost(
   options?: HttpClientOptions,
 ): Promise<HttpResponse> {
   return httpRequest('POST', url, headers, body, options);
+}
+
+/**
+ * PUT request with timeout + rate-limit handling. Callers that write should
+ * pass `maxRetries: 0` so a write is never sent twice.
+ */
+export function httpPut(
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+  options?: HttpClientOptions,
+): Promise<HttpResponse> {
+  return httpRequest('PUT', url, headers, body, options);
 }

@@ -17,7 +17,7 @@ const PROMPTS: Array<{ name: string; description: string; text: (issueKey: strin
   {
     name: 'jira_qa_handoff_prompt',
     description: 'Generate a QA handoff for a Jira task',
-    text: (k) => `Use delivery_generate with type qa_handoff for ${k}.`,
+    text: (k) => `Use delivery_generate with type qa_handoff for ${k}. If the jira_add_comment tool is available, offer to post it.`,
   },
   {
     name: 'jira_definition_of_done_prompt',
@@ -27,7 +27,7 @@ const PROMPTS: Array<{ name: string; description: string; text: (issueKey: strin
   {
     name: 'jira_release_note_prompt',
     description: 'Generate release notes for a Jira task',
-    text: (k) => `Use delivery_generate with type release_notes and audience internal for ${k}.`,
+    text: (k) => `Use delivery_generate with type release_notes and audience internal for ${k}. If the jira_add_comment tool is available, offer to post it.`,
   },
 ];
 

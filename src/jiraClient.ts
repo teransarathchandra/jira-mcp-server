@@ -1,8 +1,11 @@
 import { Config } from "./config.js";
 import { MemoryCache, isCacheEnabled } from "./cache/memoryCache.js";
 import { jiraIssueKey, jiraSearchKey } from "./cache/cacheKeys.js";
-import { httpGet, httpPost } from "./api/httpClient.js";
+import { httpGet, httpPost, httpPut, HttpStatusError, type HttpResponse } from "./api/httpClient.js";
+import { redactString } from "./security/secretRedactor.js";
+import type { AdfDoc } from "./utils/markdownToAdf.js";
 import { jiraLimiter } from "./performance/concurrencyLimiter.js";
+import { createHash } from "node:crypto";
 
 // ── Custom error classes ──────────────────────────────────────────────────────
 
@@ -23,6 +26,28 @@ export class JiraForbiddenError extends JiraAuthError {
     super(message);
     this.name = "JiraForbiddenError";
   }
+}
+
+/** Jira rejected a write as invalid (400/409/422); the message carries Jira's reason. */
+export class JiraRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "JiraRequestError";
+  }
+}
+
+/** Jira's own reasons from an error body: errorMessages plus field errors. */
+function jiraReasons(body: string): string {
+  try {
+    const parsed = JSON.parse(body) as { errorMessages?: unknown; errors?: Record<string, unknown> };
+    const messages = Array.isArray(parsed.errorMessages) ? parsed.errorMessages.map(String) : [];
+    const fields = Object.entries(parsed.errors ?? {}).map(([field, reason]) => `${field}: ${String(reason)}`);
+    const all = [...messages, ...fields].filter(Boolean);
+    if (all.length > 0) return redactString(all.join('; ')).slice(0, 500);
+  } catch {
+    // not JSON
+  }
+  return 'no reason given';
 }
 
 export class JiraNotFoundError extends Error {
@@ -436,4 +461,80 @@ export class JiraClient {
     }
     return result;
   }
+
+  // ── Writes (R3) ─────────────────────────────────────────────────────────────
+  // Every write is sent exactly once: no automatic retries, so a timeout or 5xx
+  // can never duplicate a comment or a transition.
+
+  private async write(method: 'POST' | 'PUT', path: string, body: unknown, issueKey?: string): Promise<HttpResponse> {
+    const url = `${this.baseUrl}${path}`;
+    const headers = { ...this.commonHeaders(), 'Content-Type': 'application/json' };
+    const options = { provider: 'jira', maxRetries: 0 };
+    try {
+      return await jiraLimiter.run(() =>
+        method === 'POST' ? httpPost(url, headers, body, options) : httpPut(url, headers, body, options),
+      );
+    } catch (err) {
+      if (err instanceof HttpStatusError && [400, 409, 422].includes(err.status)) {
+        throw new JiraRequestError(`Jira rejected the request (HTTP ${err.status}): ${jiraReasons(err.responseBody)}`);
+      }
+      this.mapHttpClientError(err, issueKey);
+    }
+  }
+
+  private async read<T>(path: string, issueKey?: string): Promise<T> {
+    let response;
+    try {
+      response = await jiraLimiter.run(() => httpGet(`${this.baseUrl}${path}`, this.commonHeaders(), { provider: 'jira' }));
+    } catch (err) {
+      this.mapHttpClientError(err, issueKey);
+    }
+    return response.json<T>();
+  }
+
+  private issuePath(issueKey: string, suffix: string): string {
+    return `/rest/api/3/issue/${encodeURIComponent(issueKey)}/${suffix}`;
+  }
+
+  async addComment(issueKey: string, body: AdfDoc): Promise<{ id: string }> {
+    const response = await this.write('POST', this.issuePath(issueKey, 'comment'), { body }, issueKey);
+    const created = await response.json<{ id: string }>();
+    return { id: created.id };
+  }
+
+  async getTransitions(issueKey: string): Promise<Array<{ id: string; name: string; to: { name: string } }>> {
+    const result = await this.read<{ transitions: Array<{ id: string; name: string; to: { name: string } }> }>(
+      this.issuePath(issueKey, 'transitions'),
+      issueKey,
+    );
+    return result.transitions.map((t) => ({ id: t.id, name: t.name, to: { name: t.to.name } }));
+  }
+
+  async transitionIssue(issueKey: string, transitionId: string): Promise<void> {
+    await this.write('POST', this.issuePath(issueKey, 'transitions'), { transition: { id: transitionId } }, issueKey);
+  }
+
+  async getMyself(): Promise<{ accountId: string; displayName: string }> {
+    const me = await this.read<{ accountId: string; displayName: string }>('/rest/api/3/myself');
+    return { accountId: me.accountId, displayName: me.displayName };
+  }
+
+  async assignIssue(issueKey: string, accountId: string): Promise<void> {
+    await this.write('PUT', this.issuePath(issueKey, 'assignee'), { accountId }, issueKey);
+  }
+
+  /** globalId is derived from the url, so linking the same URL again updates the link instead of adding a duplicate. */
+  async addRemoteLink(issueKey: string, link: { url: string; title: string }): Promise<void> {
+    await this.write(
+      'POST',
+      this.issuePath(issueKey, 'remotelink'),
+      { globalId: remoteLinkGlobalId(link.url), object: { url: link.url, title: link.title } },
+      issueKey,
+    );
+  }
+}
+
+/** Jira caps a remote link's globalId at 255 characters; longer URLs use a stable hash. */
+export function remoteLinkGlobalId(url: string): string {
+  return url.length <= 255 ? url : `url-sha256:${createHash("sha256").update(url).digest("hex")}`;
 }
