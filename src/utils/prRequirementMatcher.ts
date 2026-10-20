@@ -94,9 +94,24 @@ export function isFileRelatedToTerms(filePath: string, terms: string[]): boolean
 /**
  * Determine test coverage signal from classified files and requirement signals.
  */
+/**
+ * Each file's part of a unified diff, lowercased, keyed by its new path
+ * (`diff --git a/<old> b/<new>`). Empty when the text has no file headers.
+ */
+export function diffSectionsByFile(diffText: string): Map<string, string> {
+  const sections = new Map<string, string>();
+  const headers = [...diffText.matchAll(/^diff --git a\/.+? b\/(.+)$/gm)];
+  headers.forEach((header, i) => {
+    const end = i + 1 < headers.length ? headers[i + 1].index : diffText.length;
+    sections.set(header[1].trim(), diffText.slice(header.index, end).toLowerCase());
+  });
+  return sections;
+}
+
 export function determineTestCoverageSignal(
   testFiles: ChangedFile[],
   requirementSignals: RequirementSignals,
+  diffSections: Map<string, string> = new Map(),
 ): TestCoverageSignal {
   if (testFiles.length === 0) {
     return 'no_test_changes';
@@ -125,7 +140,9 @@ export function determineTestCoverageSignal(
   // Check if any test file is related to requirement terms
   const anyRelated = allRelevantTerms.length === 0
     ? true // no signals to compare against — assume related
-    : testFiles.some(f => isFileRelatedToTerms(f.path, allRelevantTerms));
+    : testFiles.some(
+        f => isFileRelatedToTerms(f.path, allRelevantTerms) || allRelevantTerms.some(t => diffSections.get(f.path)?.includes(t)),
+      );
 
   if (!anyRelated) {
     return 'tests_in_unrelated_areas';
@@ -208,6 +225,7 @@ export function matchRequirementsToChanges(input: MatchInput): MatchResult {
   const allFiles = allChangedFiles(classifiedFiles);
   const allPathsCombined = allFiles.map(f => f.path).join(' ');
   const diffLower = diffText.toLowerCase();
+  const sections = diffSectionsByFile(diffText);
   const hasEnoughContext = diffText.trim().length > 0 || allFiles.length > 0;
 
   // ── Step 1: Technical signal matching ─────────────────────────────────────
@@ -267,9 +285,9 @@ export function matchRequirementsToChanges(input: MatchInput): MatchResult {
 
       if (inPaths || inDiff) {
         termMatchCount++;
-        // collect file paths that contain this term
+        // collect the files whose path or changes contain this term
         for (const file of allFiles) {
-          if (file.path.toLowerCase().includes(termLower)) {
+          if (file.path.toLowerCase().includes(termLower) || sections.get(file.path)?.includes(termLower)) {
             if (!evidenceFiles.includes(file.path)) {
               evidenceFiles.push(file.path);
             }
@@ -293,6 +311,12 @@ export function matchRequirementsToChanges(input: MatchInput): MatchResult {
     }
 
     coverageItems.push({ criterion, evidence: evidenceFiles, status });
+  }
+
+  // Files behind covered or partial criteria are implementation evidence too.
+  for (const item of coverageItems) {
+    if (item.status !== 'covered' && item.status !== 'partial') continue;
+    for (const path of item.evidence) if (!matchedEvidence.includes(path)) matchedEvidence.push(path);
   }
 
   // If there are no AC items at all, there's nothing to cover
@@ -350,6 +374,7 @@ export function matchRequirementsToChanges(input: MatchInput): MatchResult {
   const testCoverageSignal = determineTestCoverageSignal(
     classifiedFiles.testFiles,
     requirementSignals,
+    sections,
   );
 
   // ── Step 5: Risky changes ─────────────────────────────────────────────────
