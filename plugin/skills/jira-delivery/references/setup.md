@@ -28,7 +28,7 @@ claude mcp add jira-delivery \
   --env JIRA_BASE_URL=https://your-domain.atlassian.net \
   --env JIRA_EMAIL=you@example.com \
   --env JIRA_API_TOKEN=your-api-token \
-  -- npx -y jira-delivery-mcp@beta
+  -- npx -y jira-delivery-mcp
 ```
 
 ## Cursor, Windsurf, Claude Desktop and other clients
@@ -40,7 +40,7 @@ Add an `mcpServers` entry to the client's MCP config: `~/.cursor/mcp.json` for C
   "mcpServers": {
     "jira-delivery": {
       "command": "npx",
-      "args": ["-y", "jira-delivery-mcp@beta"],
+      "args": ["-y", "jira-delivery-mcp"],
       "env": {
         "JIRA_BASE_URL": "https://your-domain.atlassian.net",
         "JIRA_EMAIL": "you@example.com",
@@ -61,7 +61,7 @@ VS Code uses its own format: a `servers` entry with `"type": "stdio"` in `.vscod
     "jira-delivery": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "jira-delivery-mcp@beta"],
+      "args": ["-y", "jira-delivery-mcp"],
       "env": {
         "JIRA_BASE_URL": "https://your-domain.atlassian.net",
         "JIRA_EMAIL": "you@example.com",
@@ -79,15 +79,15 @@ In `~/.codex/config.toml`:
 ```toml
 [mcp_servers.jira-delivery]
 command = "npx"
-args = ["-y", "jira-delivery-mcp@beta"]
+args = ["-y", "jira-delivery-mcp"]
 env = { JIRA_BASE_URL = "https://your-domain.atlassian.net", JIRA_EMAIL = "you@example.com", JIRA_API_TOKEN = "your-api-token" }
 ```
 
-`npx jira-delivery-mcp@beta setup <client>` prints the snippet for `claude-code`, `cursor`, `windsurf`, `vscode`, `codex-cli`, `claude-desktop` or `generic`.
+`npx jira-delivery-mcp setup <client>` prints the snippet for `claude-code`, `cursor`, `windsurf`, `vscode`, `codex-cli`, `claude-desktop` or `generic`.
 
 ## Optional settings
 
-- **Custom fields.** Many sites keep acceptance criteria, story points or epic links in custom fields. With the three variables exported in a terminal, `npx jira-delivery-mcp@beta doctor` checks the credentials and prints the lines to add, such as `JIRA_ACCEPTANCE_CRITERIA_FIELD_ID=customfield_10020`. It only reads.
+- **Custom fields.** Many sites keep acceptance criteria, story points or epic links in custom fields. With the three variables exported in a terminal, `npx jira-delivery-mcp doctor` checks the credentials and prints the lines to add, such as `JIRA_ACCEPTANCE_CRITERIA_FIELD_ID=customfield_10020`. It only reads.
 - **Write-back.** `JIRA_ENABLE_WRITES=true` adds `jira_add_comment` and `jira_update_issue`. Each write is previewed and needs the user's confirmation, and is recorded in `~/.jira-delivery-mcp/audit.log`.
 - **Confluence.** `CONFLUENCE_BASE_URL`, `CONFLUENCE_EMAIL` and `CONFLUENCE_API_TOKEN` let the tools read related Confluence pages.
 - **Projects.** `JIRA_DEFAULT_PROJECT_KEY` limits "my open issues" to one project; `JIRA_ALLOWED_PROJECT_KEYS` with `JIRA_STRICT_PROJECT_ALLOWLIST=true` refuses issues outside the listed projects.

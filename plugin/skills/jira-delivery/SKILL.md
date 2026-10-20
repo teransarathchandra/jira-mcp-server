@@ -59,6 +59,6 @@ Use `delivery_traceability_matrix` when the user wants each requirement mapped t
 
 ## Setup problems
 
-If a tool reports missing configuration or bad credentials, use [references/setup.md](references/setup.md); `npx jira-delivery-mcp@beta setup <client>` prints the snippet for one client.
+If a tool reports missing configuration or bad credentials, use [references/setup.md](references/setup.md); `npx jira-delivery-mcp setup <client>` prints the snippet for one client.
 
-If briefs keep reporting `evidence.acceptanceCriteriaField: "not_configured"` or no acceptance criteria, suggest the user run `npx jira-delivery-mcp@beta doctor` with their Jira variables exported; it prints the custom field ids to configure.
+If briefs keep reporting `evidence.acceptanceCriteriaField: "not_configured"` or no acceptance criteria, suggest the user run `npx jira-delivery-mcp doctor` with their Jira variables exported; it prints the custom field ids to configure.

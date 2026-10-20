@@ -40,7 +40,7 @@ After a stable release, [docs/launch.md](docs/launch.md) has the listing checkli
 3. After merge: `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`.
 4. The Release workflow checks the tag against the manifests, runs the tests, publishes to npm with provenance (`beta` dist-tag for prereleases, `latest` otherwise), lists the version in the MCP Registry and creates the GitHub release.
 
-npm trusted publishing must be set up once, on npmjs.com (package settings → Trusted publisher → GitHub Actions, workflow `release.yml`) or with `npm trust github jira-delivery-mcp --file release.yml --repo teransarathchandra/jira-mcp-server --allow-publish` (needs 2FA). Until then the npm step fails and `npm publish --tag beta` by hand still works; the workflow skips a version that is already on npm.
+npm trusted publishing must be set up once, on npmjs.com (package settings → Trusted publisher → GitHub Actions, workflow `release.yml`) or with `npm trust github jira-delivery-mcp --file release.yml --repo teransarathchandra/jira-mcp-server --allow-publish` (needs 2FA). Until then the npm step fails and `npm publish` by hand still works (`--tag beta` for a prerelease); the workflow skips a version that is already on npm.
 
 ## Reporting security issues
 
