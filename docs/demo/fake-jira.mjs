@@ -1,11 +1,11 @@
 // A tiny local stand-in for Jira Cloud, used only to record the README demo.
 // Serves the ABC-1 test fixture plus a few made-up issues; no real Jira data.
-// Usage: node demo/fake-jira.mjs [port]   (default 4545)
+// Usage: node docs/demo/fake-jira.mjs [port]   (default 4545)
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 
 const port = Number(process.argv[2] ?? 4545);
-const fixture = JSON.parse(readFileSync(new URL('../tests/fixtures/jira/ready-story.json', import.meta.url), 'utf8'));
+const fixture = JSON.parse(readFileSync(new URL('../../tests/fixtures/jira/ready-story.json', import.meta.url), 'utf8'));
 const abc1 = fixture.routes['GET /rest/api/3/issue/ABC-1'].body;
 
 const listed = (key, summary, status, priority, updated) => ({

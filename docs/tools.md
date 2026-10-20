@@ -1,6 +1,25 @@
-# Workflows: start a ticket, verify before PR
+# Tools
 
-Two tools return typed `data` in `structuredContent` alongside their Markdown, so an agent can act on the result without parsing text.
+Every tool returns Markdown plus `structuredContent` — `{ schemaVersion: "2.0", tool, issueKey?, markdown, warnings, data? }` — and declares an `outputSchema` and annotations (`readOnlyHint`, `destructiveHint`, …) so clients know which calls change anything.
+
+| Tool | What it does | Key inputs |
+|---|---|---|
+| `jira_search_issues` | Your open issues, or any JQL filter | `projectKey`, `jql`, `maxResults` (≤ 50), `pageToken` |
+| `jira_get_issue` | An issue as a developer brief | `issueKey`, `depth: "full"` (parent, epic, links, subtasks), `includeConfluence` |
+| `jira_prepare_work_brief` | A ready-to-build brief: readiness, blockers, next steps, questions, branch name | `issueKey`, `depth`, `includeConfluence`, `allowElicitation` |
+| `delivery_check_changes` | The local diff against the acceptance criteria and Definition of Done, with one verdict | `issueKey`, `checks` (`alignment`, `dod`, `impact`) |
+| `delivery_traceability_matrix` | Each requirement mapped to the files and tests that implement it | `issueKey` |
+| `delivery_generate` | Test strategy, reviewer report, QA handoff, release notes or task report | `issueKey`, `type`, `persona`, `audience`, `sections` |
+| `delivery_generate_agent_pack` | Reusable delivery prompts/commands written into the repo | `client` (`claude`, `codex`, `generic`) |
+| `delivery_project_patterns` | Learn, show or forget the repository's conventions | `action` (`scan`, `get`, `clear`) |
+| `confluence_search` | Confluence pages related to an issue, ranked by relevance | `issueKey` |
+| `confluence_get_page` | One Confluence page, cleaned and size-bounded | `pageId` |
+| `jira_add_comment` | *Write, opt-in.* Post a Markdown comment (tables included) | `issueKey`, `markdown`, `confirmToken` |
+| `jira_update_issue` | *Write, opt-in.* Transition, assign to me, link a branch or PR | `issueKey`, `transitionTo`, `assignToMe`, `link`, `confirmToken` |
+
+Git-based tools also take `baseBranch` (default `origin/main`), `compareRef` (default `HEAD`) and `repoPath` (default `.`). Git runs read-only, with argument arrays, validated refs and a timeout.
+
+**Search filters.** `jql` replaces the default "my open issues" query. It is limited to `projectKey` when given and, under `JIRA_STRICT_PROJECT_ALLOWLIST=true`, to the allowed projects; a filter whose parentheses or quotes don't balance is refused.
 
 ## Start a ticket: `jira_prepare_work_brief`
 
@@ -62,4 +81,40 @@ The verdict comes only from the diff-based checks (`alignment`, `dod`); `impact`
 - `needs_work`: a criterion is `missing` or only `partial`, the Definition of Done failed, or there are required fixes.
 - `ready_for_pr`: every criterion is `covered` and the Definition of Done passed.
 
-For writing results back to Jira, see [Hand off](../README.md#hand-off-write-back-to-jira).
+
+## Generate documents: `delivery_generate`
+
+| `type` | Output | Options |
+|---|---|---|
+| `test_strategy` | Unit, integration, E2E, manual, negative and permission test cases | `includePrDiff` |
+| `reviewer_report` | A review from one point of view | `persona`: `product_reviewer`, `frontend_reviewer`, `backend_reviewer`, `qa_reviewer`, `security_reviewer`, `release_reviewer` |
+| `qa_handoff` | What to test and not, test data, happy path, negative cases, regression areas | |
+| `release_notes` | Release notes for an audience | `audience`: `internal`, `qa`, `product`, `customer_safe` |
+| `task_report` | Several sections in one document | `sections`: `context`, `impact`, `traceability`, `pr_alignment`, `definition_of_done`, `test_strategy`, `qa_handoff`, `release_notes` |
+
+Nothing is written to disk; save the Markdown yourself if you need a file.
+
+## Writing back to Jira
+
+`jira_add_comment` and `jira_update_issue` exist only when `JIRA_ENABLE_WRITES=true`. Every write is guarded:
+
+- **Preview first.** The first call changes nothing. It returns exactly what will be sent and a single-use `confirmToken` (valid 5 minutes, bound to the tool, the issue and the arguments). The agent must show you the preview and use the token only after you approve.
+- **Or confirm in a form.** If your client supports form elicitation, you're asked "Apply these changes to ABC-1?" directly. Answering no changes nothing.
+- **Never retried.** A write request is sent once. If it times out or Jira answers 5xx, the result says the outcome is unknown; check the issue before confirming again.
+- **Audited.** Each step is appended to `~/.jira-delivery-mcp/audit.log` (owner-only permissions): time, tool, issue, action, outcome — no comment text, tokens or credentials.
+- **Scoped.** With the strict allowlist on, writes outside the allowed projects are refused before any preview.
+
+Transitions are matched by name, then by target status, case-insensitively; if nothing matches, the available transitions are listed and nothing changes.
+
+## Prompts and resources
+
+Five MCP prompts: `jira_implementation_prompt`, `jira_pr_review_prompt`, `jira_qa_handoff_prompt`, `jira_definition_of_done_prompt`, `jira_release_note_prompt`. The resource `jira-delivery://config/projects` describes the configured projects.
+
+## Command line
+
+| Command | What it does |
+|---|---|
+| `npx jira-delivery-mcp` | Start the MCP server on stdio |
+| `npx jira-delivery-mcp setup <client>` | Print setup steps for `claude-code`, `cursor`, `vscode`, `windsurf`, `codex-cli`, `claude-desktop` or `generic` |
+| `npx jira-delivery-mcp doctor` | Check credentials and suggest custom field ids (read-only) |
+| `npx jira-delivery-mcp --version` | Print the version |

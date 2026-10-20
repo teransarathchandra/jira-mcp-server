@@ -2,7 +2,7 @@
   "name": "jira-delivery-mcp",
   "version": "2.0.0",
   "mcpName": "io.github.teransarathchandra/jira-delivery-mcp",
-  "description": "Client-agnostic MCP server for Jira and Confluence — delivery intelligence, implementation prompts, and workflow automation for any AI coding agent",
+  "description": "MCP server and agent skill for Jira Cloud: ready-to-build briefs, branch checks against acceptance criteria, QA handoffs and safe write-back for Claude Code, Cursor, VS Code and any MCP client",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,7 +12,6 @@
   "files": [
     "dist",
     "README.md",
-    "USAGE_GUIDE.md",
     "LICENSE",
     ".env.example",
     "CHANGELOG.md"
@@ -32,16 +31,19 @@
   "homepage": "https://github.com/teransarathchandra/jira-mcp-server#readme",
   "keywords": [
     "mcp",
-    "model-context-protocol",
     "mcp-server",
+    "model-context-protocol",
     "jira",
+    "jira-cloud",
     "confluence",
     "atlassian",
-    "claude",
     "claude-code",
-    "codex",
     "cursor",
-    "ai-agent",
+    "vscode",
+    "github-copilot",
+    "codex",
+    "agent-skills",
+    "ai-agents",
     "developer-tools"
   ],
   "publishConfig": {
@@ -52,7 +54,6 @@
     "postbuild": "node -e \"import('fs').then(fs => fs.chmodSync('dist/index.js', 0o755))\"",
     "dev": "node --env-file=.env dist/index.js",
     "test": "vitest run",
-    "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "security:audit": "npm audit --audit-level=moderate",
     "prepublishOnly": "npm run typecheck && npm run build",
