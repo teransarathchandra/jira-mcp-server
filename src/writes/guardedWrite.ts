@@ -19,8 +19,11 @@ export type ElicitFn = (
 
 export interface WriteStep {
   action: AuditAction;
-  /** Runs the Jira request; returns the audit detail (an id, status name or URL). */
-  run: () => Promise<string>;
+  /**
+   * Runs the Jira request; returns the detail shown to the user (an id, status
+   * name or URL), or that plus a different detail for the audit log.
+   */
+  run: () => Promise<string | { detail: string; auditDetail: string }>;
 }
 
 export interface WritePlan {
@@ -90,9 +93,10 @@ async function apply(plan: WritePlan, auditLogPath: string): Promise<WriteOutcom
       continue;
     }
     try {
-      const detail = await step.run();
+      const ran = await step.run();
+      const { detail, auditDetail } = typeof ran === 'string' ? { detail: ran, auditDetail: ran } : ran;
       results.push({ action: step.action, outcome: 'applied', detail });
-      audit({ tool: plan.tool, issueKey: plan.issueKey, action: step.action, outcome: 'applied', detail });
+      audit({ tool: plan.tool, issueKey: plan.issueKey, action: step.action, outcome: 'applied', detail: auditDetail });
     } catch (err) {
       failed = true;
       const errorClass = err instanceof Error ? err.name : 'Error';

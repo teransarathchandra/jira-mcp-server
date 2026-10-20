@@ -34,9 +34,9 @@ export const registerJiraAddComment: ToolRegistrar = (server, { config, jiraClie
       outputSchema: EnvelopeSchema.extend({ data: WriteResultSchema }),
       annotations: WRITE_ANNOTATIONS,
     },
-    async ({ issueKey, markdown, confirmToken }, ctx) => {
+    async ({ issueKey: rawKey, markdown, confirmToken }, ctx) => {
       try {
-        assertWritableIssue(issueKey, config);
+        const issueKey = assertWritableIssue(rawKey, config);
         const outcome = await runGuardedWrite(
           {
             tool: NAME,

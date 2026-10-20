@@ -65,13 +65,13 @@ export const registerJiraUpdateIssue: ToolRegistrar = (server, { config, jiraCli
       outputSchema: EnvelopeSchema.extend({ data: WriteResultSchema }),
       annotations: WRITE_ANNOTATIONS,
     },
-    async ({ issueKey, transitionTo, assignToMe, link, confirmToken }, ctx) => {
+    async ({ issueKey: rawKey, transitionTo, assignToMe, link, confirmToken }, ctx) => {
       try {
         if (transitionTo === undefined && assignToMe === undefined && link === undefined) {
           throw new McpInputError('Nothing to update: pass transitionTo, assignToMe or link.');
         }
         if (link) assertSafeLink(link);
-        assertWritableIssue(issueKey, config);
+        const issueKey = assertWritableIssue(rawKey, config);
 
         const steps: WriteStep[] = [];
         const preview: string[] = [`Update ${issueKey}:`];
@@ -82,12 +82,14 @@ export const registerJiraUpdateIssue: ToolRegistrar = (server, { config, jiraCli
             run: async () => {
               const me = await jiraClient.getMyself();
               await jiraClient.assignIssue(issueKey, me.accountId);
-              return me.displayName;
+              return { detail: me.displayName, auditDetail: me.accountId };
             },
           });
         }
+        let transitionId: string | undefined;
         if (transitionTo !== undefined) {
           const transition = matchTransition(await jiraClient.getTransitions(issueKey), transitionTo);
+          transitionId = transition.id;
           preview.push(`- Move it with "${transition.name}" to ${transition.to.name}`);
           steps.push({
             action: 'transition',
@@ -108,7 +110,9 @@ export const registerJiraUpdateIssue: ToolRegistrar = (server, { config, jiraCli
           });
         }
 
-        const args: Record<string, unknown> = { issueKey, transitionTo, assignToMe, link };
+        // The resolved transition is part of what the user confirmed: if the
+        // workflow changes between preview and confirm, the token no longer fits.
+        const args: Record<string, unknown> = { issueKey, transitionTo, transitionId, assignToMe, link };
         const outcome = await runGuardedWrite(
           { tool: NAME, issueKey, args, preview: preview.join('\n'), steps },
           {

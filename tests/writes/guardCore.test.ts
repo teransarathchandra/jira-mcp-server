@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ConfirmTokenStore, argsHash } from '../../src/writes/confirmTokens.js';
@@ -66,6 +66,27 @@ describe('appendAudit()', () => {
     expect(statSync(path).mode & 0o777).toBe(0o600);
   });
 
+  it('tightens an existing log file to private permissions', () => {
+    const root = mkdtempSync(join(tmpdir(), 'audit-'));
+    dirs.push(root);
+    const path = join(root, 'audit.log');
+    writeFileSync(path, '');
+    chmodSync(path, 0o644);
+    expect(appendAudit(path, { tool: 't', issueKey: 'ABC-1', action: 'comment', outcome: 'applied' })).toBeNull();
+    expect(statSync(path).mode & 0o777).toBe(0o600);
+  });
+
+  it('refuses to follow a symlink at the log path', () => {
+    const root = mkdtempSync(join(tmpdir(), 'audit-'));
+    dirs.push(root);
+    const target = join(root, 'elsewhere.txt');
+    writeFileSync(target, 'keep\n');
+    const path = join(root, 'audit.log');
+    symlinkSync(target, path);
+    expect(appendAudit(path, { tool: 't', issueKey: 'ABC-1', action: 'comment', outcome: 'applied' })).toMatch(/audit log/i);
+    expect(readFileSync(target, 'utf8')).toBe('keep\n');
+  });
+
   it('returns a warning instead of throwing when the log cannot be written', () => {
     const warning = appendAudit('/dev/null/not-a-dir/audit.log', { tool: 't', issueKey: 'ABC-1', action: 'comment', outcome: 'applied' });
     expect(warning).toMatch(/audit log/i);
@@ -83,6 +104,10 @@ describe('assertWritableIssue()', () => {
 
   it('refuses an issue outside the strict allowlist', () => {
     expect(() => assertWritableIssue('XYZ-1', strict)).toThrow(/not in the allowed list/);
+  });
+
+  it('returns the normalized key', () => {
+    expect(assertWritableIssue(' abc-1 ', strict)).toBe('ABC-1');
   });
 
   it('refuses a malformed key', () => {

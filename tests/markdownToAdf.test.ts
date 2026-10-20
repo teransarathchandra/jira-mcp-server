@@ -41,6 +41,19 @@ describe('markdownToAdf()', () => {
     expect(blocks('> careful')).toEqual([{ type: 'blockquote', content: [para(text('careful'))] }]);
   });
 
+  it('survives deeply nested quotes', () => {
+    expect(() => markdownToAdf(`${'>'.repeat(20_000)} deep`)).not.toThrow();
+  });
+
+  it('keeps only content Jira allows inside a block quote', () => {
+    const quote = blocks('> # Title\n> ---\n> > nested\n> - item')[0];
+    expect(quote.type).toBe('blockquote');
+    const allowed = new Set(['paragraph', 'bulletList', 'orderedList', 'codeBlock']);
+    expect(quote.content?.every((n) => allowed.has(n.type))).toBe(true);
+    expect(JSON.stringify(quote)).toContain('Title');
+    expect(JSON.stringify(quote)).toContain('nested');
+  });
+
   it('parses bold, italic, code and links', () => {
     expect(blocks('**b** and *i* and `c` and [docs](https://x.example/a)')).toEqual([
       para(

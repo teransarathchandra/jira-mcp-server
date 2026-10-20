@@ -145,6 +145,34 @@ describe('jira_update_issue', () => {
     expect(writes()).toEqual([]);
   });
 
+  it('refuses the token when the matched transition changed after the preview', async () => {
+    await start();
+    const preview = await call({ transitionTo: 'QA' });
+    fixture.routes['GET /rest/api/3/issue/ABC-1/transitions'] = {
+      status: 200,
+      body: { transitions: [{ id: '41', name: 'Send to QA', to: { name: 'QA' } }] },
+    };
+    const result = await call({ transitionTo: 'QA', confirmToken: dataOf(preview).confirmToken });
+    expect(result.isError).toBe(true);
+    expect(writes()).toEqual([]);
+  });
+
+  it('audits the account id, not the display name, for an assignment', async () => {
+    await start();
+    await confirmAndApply({ assignToMe: true });
+    const audit = readFileSync(join(auditDir, 'audit.log'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    expect(audit).toEqual([expect.objectContaining({ action: 'assign', outcome: 'applied', detail: 'acc-1' })]);
+  });
+
+  it('keeps the remote link id within Jira\'s 255-character limit for long URLs', async () => {
+    await start();
+    const url = `https://github.com/o/r/pull/7?${'q'.repeat(400)}`;
+    await confirmAndApply({ link: { url, title: 'PR #7' } });
+    const body = bodyOf('POST /rest/api/3/issue/ABC-1/remotelink') as { globalId: string; object: { url: string } };
+    expect(body.object.url).toBe(url);
+    expect(body.globalId.length).toBeLessThanOrEqual(255);
+  });
+
   it('refuses an empty update', async () => {
     await start();
     const result = await call({});

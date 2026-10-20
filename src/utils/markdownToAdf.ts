@@ -25,7 +25,8 @@ export interface AdfDoc {
 const FENCE = /^```(\S*)\s*$/;
 const HEADING = /^(#{1,6})\s+(.*)$/;
 const RULE = /^(?:-{3,}|\*{3,})\s*$/;
-const QUOTE = /^>\s?(.*)$/;
+// Nested markers ("> > x") collapse into one quote: ADF has no nested quotes.
+const QUOTE = /^(?:>\s?)+(.*)$/;
 const BULLET = /^\s*[-*]\s+(.*)$/;
 const ORDERED = /^\s*\d+[.)]\s+(.*)$/;
 const INLINE = /`([^`]+)`|\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|\[([^\]]+)\]\(([^)\s]+)\)/g;
@@ -74,6 +75,21 @@ function list(type: 'bulletList' | 'orderedList', items: string[]): AdfNode {
   return { type, content: items.map((item) => ({ type: 'listItem', content: [paragraph(item)] })) };
 }
 
+/** Jira accepts only paragraphs, lists and code inside a blockquote. */
+function quoteContent(blocks: AdfNode[]): AdfNode[] {
+  return blocks.flatMap((node): AdfNode[] => {
+    if (node.type === 'rule') return [];
+    if (node.type === 'heading') {
+      // A heading becomes a bold paragraph; code-marked text cannot also be bold.
+      const bold = (t: AdfNode): AdfNode =>
+        t.marks?.some((m) => m.type === 'code' || m.type === 'strong') ? t : { ...t, marks: [...(t.marks ?? []), { type: 'strong' }] };
+      const content = (node.content ?? []).map(bold);
+      return [{ type: 'paragraph', content }];
+    }
+    return [node];
+  });
+}
+
 function parseBlocks(lines: string[]): AdfNode[] {
   const blocks: AdfNode[] = [];
   let i = 0;
@@ -115,7 +131,7 @@ function parseBlocks(lines: string[]): AdfNode[] {
       continue;
     }
     if (QUOTE.test(line)) {
-      const inner = parseBlocks(collect(QUOTE));
+      const inner = quoteContent(parseBlocks(collect(QUOTE)));
       blocks.push({ type: 'blockquote', content: inner.length > 0 ? inner : [{ type: 'paragraph', content: [] }] });
       continue;
     }

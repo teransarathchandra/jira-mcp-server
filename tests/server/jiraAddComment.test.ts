@@ -107,6 +107,23 @@ describe('jira_add_comment', () => {
     expect(posts()).toHaveLength(0);
   });
 
+  it('writes to the normalized key when the key has spaces or lower case', async () => {
+    await start();
+    const preview = await comment({ issueKey: ' abc-1' });
+    expect(textOf(preview)).toContain('ABC-1');
+    const applied = await comment({ issueKey: ' abc-1', confirmToken: dataOf(preview).confirmToken });
+    expect(dataOf(applied).applied).toBe(true);
+    expect(posts()).toHaveLength(1);
+  });
+
+  it('shows the audit warning when a refused token cannot be audited', async () => {
+    await start({}, { auditLogPath: '/dev/null/not-a-dir/audit.log' });
+    const result = await comment({ confirmToken: 'f'.repeat(32) });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toMatch(/invalid or expired/);
+    expect(textOf(result)).toMatch(/audit log/i);
+  });
+
   it('refuses a token used for a different issue', async () => {
     await start();
     const token = dataOf(await comment({})).confirmToken;

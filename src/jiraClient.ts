@@ -5,6 +5,7 @@ import { httpGet, httpPost, httpPut, HttpStatusError, type HttpResponse } from "
 import { redactString } from "./security/secretRedactor.js";
 import type { AdfDoc } from "./utils/markdownToAdf.js";
 import { jiraLimiter } from "./performance/concurrencyLimiter.js";
+import { createHash } from "node:crypto";
 
 // ── Custom error classes ──────────────────────────────────────────────────────
 
@@ -522,13 +523,18 @@ export class JiraClient {
     await this.write('PUT', this.issuePath(issueKey, 'assignee'), { accountId }, issueKey);
   }
 
-  /** globalId = url, so linking the same URL again updates the link instead of adding a duplicate. */
+  /** globalId is derived from the url, so linking the same URL again updates the link instead of adding a duplicate. */
   async addRemoteLink(issueKey: string, link: { url: string; title: string }): Promise<void> {
     await this.write(
       'POST',
       this.issuePath(issueKey, 'remotelink'),
-      { globalId: link.url, object: { url: link.url, title: link.title } },
+      { globalId: remoteLinkGlobalId(link.url), object: { url: link.url, title: link.title } },
       issueKey,
     );
   }
+}
+
+/** Jira caps a remote link's globalId at 255 characters; longer URLs use a stable hash. */
+export function remoteLinkGlobalId(url: string): string {
+  return url.length <= 255 ? url : `url-sha256:${createHash("sha256").update(url).digest("hex")}`;
 }

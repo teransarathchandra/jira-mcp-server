@@ -22,7 +22,13 @@ export function loadFixture(name: string): FixtureFile {
   return JSON.parse(readFileSync(url, 'utf8')) as FixtureFile;
 }
 
-export function installJiraFixture(name: string): { requests: string[]; bodies: unknown[]; restore(): void } {
+export function installJiraFixture(name: string): {
+  requests: string[];
+  bodies: unknown[];
+  /** The live route table; a test may change a route mid-session. */
+  routes: Record<string, FixtureRoute>;
+  restore(): void;
+} {
   const { routes } = loadFixture(name);
   const requests: string[] = [];
   const bodies: unknown[] = []; // parallel to requests; undefined when the request had no body
@@ -42,6 +48,7 @@ export function installJiraFixture(name: string): { requests: string[]; bodies: 
   return {
     requests,
     bodies,
+    routes,
     restore() {
       vi.unstubAllGlobals();
     },

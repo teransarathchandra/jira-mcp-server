@@ -20,11 +20,11 @@ export function formElicitation(server: McpServer, elicitInput: unknown): Elicit
 }
 
 export function writeToolResult(tool: string, issueKey: string, outcome: WriteOutcome): CallToolResult {
-  if (outcome.refused) {
-    return { content: [{ type: 'text', text: INVALID_TOKEN_MESSAGE }], isError: true };
-  }
   const { refused: _refused, warnings, ...data } = outcome;
   const warningLines = warnings.length > 0 ? ['', ...warnings.map((w) => `Warning: ${w}`)] : [];
+  if (outcome.refused) {
+    return { content: [{ type: 'text', text: [INVALID_TOKEN_MESSAGE, ...warningLines].join('\n') }], isError: true };
+  }
 
   if (outcome.declined) {
     const text = [`## The user declined — nothing was changed in ${issueKey}`, '', outcome.preview].join('\n');
