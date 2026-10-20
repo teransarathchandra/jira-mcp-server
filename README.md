@@ -158,6 +158,24 @@ The verdict comes only from the diff-based checks (`alignment`, `dod`); `impact`
 - `needs_work`: a criterion is `missing` or only `partial`, the Definition of Done failed, or there are required fixes.
 - `ready_for_pr`: every criterion is `covered` and the Definition of Done passed.
 
+## Hand off: write back to Jira
+
+Two write tools finish the loop without leaving your editor. They are **off by default**: set `JIRA_ENABLE_WRITES=true` in the server's environment to register them.
+
+| Tool | What it does |
+|------|-------------|
+| `jira_add_comment` | Post a Markdown comment (e.g. the QA handoff or release notes from `delivery_generate`), converted to Jira's rich text |
+| `jira_update_issue` | `transitionTo` a status or transition name, `assignToMe`, and/or `link` a branch or PR URL |
+
+Every write is guarded:
+- **Preview first.** The first call changes nothing. It returns exactly what will be sent and a single-use `confirmToken` (valid 5 minutes). Calling again with the same arguments plus the token applies it; a changed argument or a reused token is refused.
+- **Or confirm in a form.** If your client supports form elicitation, you're asked "Apply these changes to ABC-1?" directly and the write happens in one call. Answering no changes nothing and issues no token; a new attempt needs a fresh preview.
+- **Never retried.** A write request is sent once. If it times out or Jira answers 5xx, the outcome is unknown — the result says so; check the issue before confirming again. If Jira rejects a write (e.g. a status needs a resolution), its reason is shown.
+- **Audited.** Each step is appended to `~/.jira-delivery-mcp/audit.log` (override with `JIRA_DELIVERY_AUDIT_LOG`): time, tool, issue, action, outcome. No comment text, tokens or credentials.
+- **Allowlist.** With `JIRA_STRICT_PROJECT_ALLOWLIST=true`, writes outside `JIRA_ALLOWED_PROJECT_KEYS` are refused before any preview.
+
+Transitions are matched by name, then by target status, case-insensitively. If nothing matches, the available transitions are listed and nothing changes.
+
 ## Migrating from 1.x
 
 | v1 tool | v2 equivalent |

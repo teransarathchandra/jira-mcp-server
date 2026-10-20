@@ -6,6 +6,7 @@ import {
   JiraRateLimitError,
   JiraServerError,
   JiraNetworkError,
+  JiraRequestError,
 } from '../jiraClient.js';
 import {
   ConfluenceAuthError,
@@ -22,6 +23,7 @@ export function formatError(err: unknown): string {
   if (err instanceof JiraRateLimitError) return `Rate limited: ${err.message}`;
   if (err instanceof JiraServerError) return `Jira server error: ${err.message}`;
   if (err instanceof JiraNetworkError) return `Network error: ${err.message}`;
+  if (err instanceof JiraRequestError) return err.message;
   if (err instanceof ConfluenceNotConfiguredError) return `Confluence not configured: ${err.message}`;
   if (err instanceof ConfluenceAuthError) return `Confluence authentication error: ${err.message}`;
   if (err instanceof ConfluenceNotFoundError) return `Confluence not found: ${err.message}`;
