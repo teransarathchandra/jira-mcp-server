@@ -57,3 +57,61 @@ export function buildProjectInJql(projectKeys: string[]): string {
   const quoted = projectKeys.map(k => `"${safeJqlProjectKey(k)}"`).join(', ');
   return `project in (${quoted})`;
 }
+
+const MAX_FILTER_LENGTH = 1000;
+
+/**
+ * Index of each character outside a quoted JQL string ("…" or '…', with
+ * backslash escapes), or an error for an unterminated quote.
+ */
+function unquotedIndexes(text: string): number[] {
+  const indexes: number[] = [];
+  let quote: string | undefined;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = undefined;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else {
+      indexes.push(i);
+    }
+  }
+  if (quote) throw new Error('JQL filter has an unterminated quote.');
+  return indexes;
+}
+
+/**
+ * Combine a caller-supplied JQL filter with an optional scope clause:
+ * `scope AND (filter) ORDER BY …`. The filter's parentheses must balance
+ * outside quoted values, so it cannot close the wrapping parentheses and
+ * reach outside the scope (e.g. `x) OR (project = OTHER`).
+ */
+export function scopeJql(filter: string, scope?: string): string {
+  const text = filter.replace(/\s+/g, ' ').trim();
+  if (text.length === 0) throw new Error('JQL filter is empty.');
+  if (text.length > MAX_FILTER_LENGTH) throw new Error(`JQL filter is longer than ${MAX_FILTER_LENGTH} characters.`);
+
+  const unquoted = unquotedIndexes(text);
+  const visible = new Set(unquoted);
+  let condition = text;
+  let orderBy = '';
+  for (const match of text.matchAll(/\bORDER\s+BY\b/gi)) {
+    if (visible.has(match.index ?? -1)) {
+      condition = text.slice(0, match.index).trim();
+      orderBy = text.slice((match.index ?? 0) + match[0].length).trim();
+    }
+  }
+
+  let depth = 0;
+  for (const i of unquoted) {
+    if (i >= condition.length) break;
+    if (text[i] === '(') depth++;
+    if (text[i] === ')' && --depth < 0) break;
+  }
+  if (depth !== 0) throw new Error('JQL filter has unbalanced parentheses.');
+
+  const where = [scope, condition ? `(${condition})` : ''].filter(Boolean).join(' AND ');
+  return [where, orderBy ? `ORDER BY ${orderBy}` : ''].filter(Boolean).join(' ');
+}

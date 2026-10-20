@@ -6,6 +6,7 @@ import {
   safeJqlIssueKey,
   buildProjectJql,
   buildProjectInJql,
+  scopeJql,
 } from '../src/utils/jql.js';
 
 describe('escapeJqlString()', () => {
@@ -127,5 +128,41 @@ describe('buildProjectInJql()', () => {
 
   it('throws on any invalid key in the list', () => {
     expect(() => buildProjectInJql(['PROJ', 'bad key!'])).toThrow();
+  });
+});
+
+describe('scopeJql()', () => {
+  const scope = 'project = "ABC"';
+
+  it('wraps the filter in parentheses, after the scope', () => {
+    expect(scopeJql('type = Bug', scope)).toBe('project = "ABC" AND (type = Bug)');
+    expect(scopeJql('type = Bug OR priority = High')).toBe('(type = Bug OR priority = High)');
+  });
+
+  it('keeps ORDER BY at the end', () => {
+    expect(scopeJql('type = Bug order by priority DESC, updated', scope)).toBe('project = "ABC" AND (type = Bug) ORDER BY priority DESC, updated');
+    expect(scopeJql('ORDER BY updated DESC', scope)).toBe('project = "ABC" ORDER BY updated DESC');
+  });
+
+  it('ignores parentheses and ORDER BY inside quoted values', () => {
+    expect(scopeJql('summary ~ "fix (login" AND text ~ \'order by x\'', scope)).toBe(
+      'project = "ABC" AND (summary ~ "fix (login" AND text ~ \'order by x\')',
+    );
+    expect(scopeJql('summary ~ "say \\"hi\\" ("')).toBe('(summary ~ "say \\"hi\\" (")');
+  });
+
+  it('refuses a filter that would close the scope parentheses', () => {
+    expect(() => scopeJql('type = Bug) OR (project = OTHER', scope)).toThrow(/parentheses/);
+    expect(() => scopeJql('(type = Bug', scope)).toThrow(/parentheses/);
+  });
+
+  it('refuses an unterminated quote, an empty filter and an overlong one', () => {
+    expect(() => scopeJql('summary ~ "oops', scope)).toThrow(/quote/);
+    expect(() => scopeJql('   ', scope)).toThrow(/empty/);
+    expect(() => scopeJql(`summary ~ "${'x'.repeat(1000)}"`, scope)).toThrow(/1000/);
+  });
+
+  it('flattens line breaks', () => {
+    expect(scopeJql('type = Bug\nAND status = Open')).toBe('(type = Bug AND status = Open)');
   });
 });

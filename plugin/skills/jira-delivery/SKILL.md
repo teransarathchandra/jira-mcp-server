@@ -17,7 +17,7 @@ This skill drives the tools of the jira-delivery MCP server (`jira_*`, `delivery
 
 ## 1. Pick or start a ticket
 
-- **"What should I work on?"** → `jira_search_issues`. If `data.nextPageToken` is set and the user wants more, call it again with `pageToken`.
+- **"What should I work on?"** → `jira_search_issues`. For anything narrower ("open bugs in this sprint"), pass a JQL filter as `jql`. If `data.nextPageToken` is set and the user wants more, call it again with `pageToken`.
 - **Starting a ticket** → `jira_prepare_work_brief` with the issue key. Read `structuredContent.data` before coding:
   - `readiness.status`: `BLOCKED` means stop and tell the user which blocker (`blockers[]`) must be resolved first. `NEEDS_CLARIFICATION` means raise `clarifyingQuestions[]` with the user before building.
   - `readiness.gaps[]`: what is missing or couldn't be read (no acceptance criteria, conflicts, unreadable links). When `readiness.confidence` is `low` or `medium`, tell the user these instead of assuming.

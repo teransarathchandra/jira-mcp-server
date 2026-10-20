@@ -1,36 +1,374 @@
 [
-  { "id": "get-plain", "prompt": "What does ABC-42 say?", "expect": { "tool": "jira_get_issue", "args": { "issueKey": "ABC-42" } } },
-  { "id": "get-comments", "prompt": "Show me the description and the comments on ABC-7.", "expect": { "tool": "jira_get_issue", "args": { "issueKey": "ABC-7" } } },
-  { "id": "get-full", "prompt": "Pull up ABC-12 together with its parent epic and the issues linked to it.", "expect": { "tool": "jira_get_issue", "args": { "issueKey": "ABC-12", "depth": "full" } } },
-  { "id": "search-mine", "prompt": "What Jira tickets are assigned to me right now?", "expect": { "tool": "jira_search_issues" } },
-  { "id": "search-project", "prompt": "List my open issues in the ENG project.", "expect": { "tool": "jira_search_issues", "args": { "projectKey": "ENG" } } },
-  { "id": "search-next", "prompt": "What should I work on next? Show me my open tickets.", "expect": { "tool": "jira_search_issues" } },
-  { "id": "brief-start", "prompt": "I'm starting ABC-101 now, get me ready to implement it.", "expect": { "tool": "jira_prepare_work_brief", "args": { "issueKey": "ABC-101" } } },
-  { "id": "brief-pickup", "prompt": "Pick up ABC-55 and tell me exactly what I need to build.", "expect": { "tool": "jira_prepare_work_brief", "args": { "issueKey": "ABC-55" } } },
-  { "id": "brief-ready", "prompt": "Is ABC-77 ready to start, or is it blocked or missing acceptance criteria?", "expect": { "tool": "jira_prepare_work_brief", "args": { "issueKey": "ABC-77" } } },
-  { "id": "brief-confluence", "prompt": "Write me an implementation prompt for ABC-3, and pull in the related Confluence docs.", "expect": { "tool": "jira_prepare_work_brief", "args": { "issueKey": "ABC-3", "includeConfluence": true } } },
-  { "id": "conf-search", "prompt": "Find the Confluence pages related to ABC-9.", "expect": { "tool": "confluence_search", "args": { "issueKey": "ABC-9" } } },
-  { "id": "conf-search-space", "prompt": "Search the DESIGN Confluence space for docs about ABC-18.", "expect": { "tool": "confluence_search", "args": { "issueKey": "ABC-18", "spaceKeys": ["DESIGN"] } } },
-  { "id": "conf-page", "prompt": "Read Confluence page 123456 for me.", "expect": { "tool": "confluence_get_page", "args": { "pageId": "123456" } } },
-  { "id": "conf-page-summary", "prompt": "Summarise the Confluence page with ID 98765.", "expect": { "tool": "confluence_get_page", "args": { "pageId": "98765" } } },
-  { "id": "check-before-pr", "prompt": "Check my branch against ABC-20 before I open the PR.", "expect": { "tool": "delivery_check_changes", "args": { "issueKey": "ABC-20" } } },
-  { "id": "check-ac", "prompt": "Does my diff cover all the acceptance criteria of ABC-21?", "expect": { "tool": "delivery_check_changes", "args": { "issueKey": "ABC-21" } } },
-  { "id": "check-impact", "prompt": "Before I write any code for ABC-22: which parts of the codebase will it touch?", "expect": { "tool": "delivery_check_changes", "args": { "issueKey": "ABC-22", "checks": ["impact"] } } },
-  { "id": "check-dod", "prompt": "Have I met the Definition of Done for ABC-23?", "expect": { "tool": "delivery_check_changes", "args": { "issueKey": "ABC-23", "checks": ["dod"] } } },
-  { "id": "check-ready-pr", "prompt": "Am I ready to open a pull request for ABC-24?", "expect": { "tool": "delivery_check_changes", "args": { "issueKey": "ABC-24" } } },
-  { "id": "gen-qa", "prompt": "Write a QA handoff for ABC-30.", "expect": { "tool": "delivery_generate", "args": { "issueKey": "ABC-30", "type": "qa_handoff" } } },
-  { "id": "gen-release-customer", "prompt": "Draft release notes for ABC-31 that are safe to show customers.", "expect": { "tool": "delivery_generate", "args": { "issueKey": "ABC-31", "type": "release_notes", "audience": "customer_safe" } } },
-  { "id": "gen-test-strategy", "prompt": "Plan the tests I should write for ABC-32.", "expect": { "tool": "delivery_generate", "args": { "issueKey": "ABC-32", "type": "test_strategy" } } },
-  { "id": "gen-security-review", "prompt": "Review ABC-33 from a security reviewer's point of view.", "expect": { "tool": "delivery_generate", "args": { "issueKey": "ABC-33", "type": "reviewer_report", "persona": "security_reviewer" } } },
-  { "id": "gen-task-report", "prompt": "Export a full task report for ABC-34.", "expect": { "tool": "delivery_generate", "args": { "issueKey": "ABC-34", "type": "task_report" } } },
-  { "id": "trace-matrix", "prompt": "Build a requirements traceability matrix for ABC-40.", "expect": { "tool": "delivery_traceability_matrix", "args": { "issueKey": "ABC-40" } } },
-  { "id": "trace-map", "prompt": "Map each requirement in ABC-41 to the code and tests that cover it.", "expect": { "tool": "delivery_traceability_matrix", "args": { "issueKey": "ABC-41" } } },
-  { "id": "patterns-scan", "prompt": "Scan this repo and learn its conventions so later briefs follow them.", "expect": { "tool": "delivery_project_patterns", "args": { "action": "scan" } } },
-  { "id": "patterns-clear", "prompt": "Forget the project patterns you learned for this repo.", "expect": { "tool": "delivery_project_patterns", "args": { "action": "clear" } } },
-  { "id": "pack-claude", "prompt": "Set up Claude Code instruction files in this repo so the agent follows the Jira delivery workflow.", "expect": { "tool": "delivery_generate_agent_pack", "args": { "client": "claude" } } },
-  { "id": "pack-codex", "prompt": "Generate a Codex prompt pack for this repository.", "expect": { "tool": "delivery_generate_agent_pack", "args": { "client": "codex" } } },
-  { "id": "write-comment", "prompt": "Post this as a comment on ABC-30: QA can start, the build is on staging.", "expect": { "tool": "jira_add_comment", "args": { "issueKey": "ABC-30" } }, "requiresWrites": true },
-  { "id": "write-transition", "prompt": "Move ABC-50 to In Review.", "expect": { "tool": "jira_update_issue", "args": { "issueKey": "ABC-50", "transitionTo": "In Review" } }, "requiresWrites": true },
-  { "id": "write-assign", "prompt": "Assign ABC-51 to me.", "expect": { "tool": "jira_update_issue", "args": { "issueKey": "ABC-51", "assignToMe": true } }, "requiresWrites": true },
-  { "id": "write-link", "prompt": "Link https://github.com/acme/app/pull/9 to ABC-52 as the PR.", "expect": { "tool": "jira_update_issue", "args": { "issueKey": "ABC-52" } }, "requiresWrites": true }
+  {
+    "id": "get-plain",
+    "prompt": "What does ABC-42 say?",
+    "expect": {
+      "tool": "jira_get_issue",
+      "args": {
+        "issueKey": "ABC-42"
+      }
+    }
+  },
+  {
+    "id": "get-comments",
+    "prompt": "Show me the description and the comments on ABC-7.",
+    "expect": {
+      "tool": "jira_get_issue",
+      "args": {
+        "issueKey": "ABC-7"
+      }
+    }
+  },
+  {
+    "id": "get-full",
+    "prompt": "Pull up ABC-12 together with its parent epic and the issues linked to it.",
+    "expect": {
+      "tool": "jira_get_issue",
+      "args": {
+        "issueKey": "ABC-12",
+        "depth": "full"
+      }
+    }
+  },
+  {
+    "id": "search-mine",
+    "prompt": "What Jira tickets are assigned to me right now?",
+    "expect": {
+      "tool": "jira_search_issues"
+    }
+  },
+  {
+    "id": "search-jql-reporter",
+    "prompt": "Which issues did I report last week that are still open?",
+    "expect": {
+      "tool": "jira_search_issues"
+    }
+  },
+  {
+    "id": "search-jql-bugs",
+    "prompt": "Show me the open bugs in the current sprint, highest priority first.",
+    "expect": {
+      "tool": "jira_search_issues"
+    }
+  },
+  {
+    "id": "search-project",
+    "prompt": "List my open issues in the ENG project.",
+    "expect": {
+      "tool": "jira_search_issues",
+      "args": {
+        "projectKey": "ENG"
+      }
+    }
+  },
+  {
+    "id": "search-next",
+    "prompt": "What should I work on next? Show me my open tickets.",
+    "expect": {
+      "tool": "jira_search_issues"
+    }
+  },
+  {
+    "id": "brief-start",
+    "prompt": "I'm starting ABC-101 now, get me ready to implement it.",
+    "expect": {
+      "tool": "jira_prepare_work_brief",
+      "args": {
+        "issueKey": "ABC-101"
+      }
+    }
+  },
+  {
+    "id": "brief-pickup",
+    "prompt": "Pick up ABC-55 and tell me exactly what I need to build.",
+    "expect": {
+      "tool": "jira_prepare_work_brief",
+      "args": {
+        "issueKey": "ABC-55"
+      }
+    }
+  },
+  {
+    "id": "brief-ready",
+    "prompt": "Is ABC-77 ready to start, or is it blocked or missing acceptance criteria?",
+    "expect": {
+      "tool": "jira_prepare_work_brief",
+      "args": {
+        "issueKey": "ABC-77"
+      }
+    }
+  },
+  {
+    "id": "brief-confluence",
+    "prompt": "Write me an implementation prompt for ABC-3, and pull in the related Confluence docs.",
+    "expect": {
+      "tool": "jira_prepare_work_brief",
+      "args": {
+        "issueKey": "ABC-3",
+        "includeConfluence": true
+      }
+    }
+  },
+  {
+    "id": "conf-search",
+    "prompt": "Find the Confluence pages related to ABC-9.",
+    "expect": {
+      "tool": "confluence_search",
+      "args": {
+        "issueKey": "ABC-9"
+      }
+    }
+  },
+  {
+    "id": "conf-search-space",
+    "prompt": "Search the DESIGN Confluence space for docs about ABC-18.",
+    "expect": {
+      "tool": "confluence_search",
+      "args": {
+        "issueKey": "ABC-18",
+        "spaceKeys": [
+          "DESIGN"
+        ]
+      }
+    }
+  },
+  {
+    "id": "conf-page",
+    "prompt": "Read Confluence page 123456 for me.",
+    "expect": {
+      "tool": "confluence_get_page",
+      "args": {
+        "pageId": "123456"
+      }
+    }
+  },
+  {
+    "id": "conf-page-summary",
+    "prompt": "Summarise the Confluence page with ID 98765.",
+    "expect": {
+      "tool": "confluence_get_page",
+      "args": {
+        "pageId": "98765"
+      }
+    }
+  },
+  {
+    "id": "check-before-pr",
+    "prompt": "Check my branch against ABC-20 before I open the PR.",
+    "expect": {
+      "tool": "delivery_check_changes",
+      "args": {
+        "issueKey": "ABC-20"
+      }
+    }
+  },
+  {
+    "id": "check-ac",
+    "prompt": "Does my diff cover all the acceptance criteria of ABC-21?",
+    "expect": {
+      "tool": "delivery_check_changes",
+      "args": {
+        "issueKey": "ABC-21"
+      }
+    }
+  },
+  {
+    "id": "check-impact",
+    "prompt": "Before I write any code for ABC-22: which parts of the codebase will it touch?",
+    "expect": {
+      "tool": "delivery_check_changes",
+      "args": {
+        "issueKey": "ABC-22",
+        "checks": [
+          "impact"
+        ]
+      }
+    }
+  },
+  {
+    "id": "check-dod",
+    "prompt": "Have I met the Definition of Done for ABC-23?",
+    "expect": {
+      "tool": "delivery_check_changes",
+      "args": {
+        "issueKey": "ABC-23",
+        "checks": [
+          "dod"
+        ]
+      }
+    }
+  },
+  {
+    "id": "check-ready-pr",
+    "prompt": "Am I ready to open a pull request for ABC-24?",
+    "expect": {
+      "tool": "delivery_check_changes",
+      "args": {
+        "issueKey": "ABC-24"
+      }
+    }
+  },
+  {
+    "id": "gen-qa",
+    "prompt": "Write a QA handoff for ABC-30.",
+    "expect": {
+      "tool": "delivery_generate",
+      "args": {
+        "issueKey": "ABC-30",
+        "type": "qa_handoff"
+      }
+    }
+  },
+  {
+    "id": "gen-release-customer",
+    "prompt": "Draft release notes for ABC-31 that are safe to show customers.",
+    "expect": {
+      "tool": "delivery_generate",
+      "args": {
+        "issueKey": "ABC-31",
+        "type": "release_notes",
+        "audience": "customer_safe"
+      }
+    }
+  },
+  {
+    "id": "gen-test-strategy",
+    "prompt": "Plan the tests I should write for ABC-32.",
+    "expect": {
+      "tool": "delivery_generate",
+      "args": {
+        "issueKey": "ABC-32",
+        "type": "test_strategy"
+      }
+    }
+  },
+  {
+    "id": "gen-security-review",
+    "prompt": "Review ABC-33 from a security reviewer's point of view.",
+    "expect": {
+      "tool": "delivery_generate",
+      "args": {
+        "issueKey": "ABC-33",
+        "type": "reviewer_report",
+        "persona": "security_reviewer"
+      }
+    }
+  },
+  {
+    "id": "gen-task-report",
+    "prompt": "Export a full task report for ABC-34.",
+    "expect": {
+      "tool": "delivery_generate",
+      "args": {
+        "issueKey": "ABC-34",
+        "type": "task_report"
+      }
+    }
+  },
+  {
+    "id": "trace-matrix",
+    "prompt": "Build a requirements traceability matrix for ABC-40.",
+    "expect": {
+      "tool": "delivery_traceability_matrix",
+      "args": {
+        "issueKey": "ABC-40"
+      }
+    }
+  },
+  {
+    "id": "trace-map",
+    "prompt": "Map each requirement in ABC-41 to the code and tests that cover it.",
+    "expect": {
+      "tool": "delivery_traceability_matrix",
+      "args": {
+        "issueKey": "ABC-41"
+      }
+    }
+  },
+  {
+    "id": "patterns-scan",
+    "prompt": "Scan this repo and learn its conventions so later briefs follow them.",
+    "expect": {
+      "tool": "delivery_project_patterns",
+      "args": {
+        "action": "scan"
+      }
+    }
+  },
+  {
+    "id": "patterns-clear",
+    "prompt": "Forget the project patterns you learned for this repo.",
+    "expect": {
+      "tool": "delivery_project_patterns",
+      "args": {
+        "action": "clear"
+      }
+    }
+  },
+  {
+    "id": "pack-claude",
+    "prompt": "Set up Claude Code instruction files in this repo so the agent follows the Jira delivery workflow.",
+    "expect": {
+      "tool": "delivery_generate_agent_pack",
+      "args": {
+        "client": "claude"
+      }
+    }
+  },
+  {
+    "id": "pack-codex",
+    "prompt": "Generate a Codex prompt pack for this repository.",
+    "expect": {
+      "tool": "delivery_generate_agent_pack",
+      "args": {
+        "client": "codex"
+      }
+    }
+  },
+  {
+    "id": "write-comment",
+    "prompt": "Post this as a comment on ABC-30: QA can start, the build is on staging.",
+    "expect": {
+      "tool": "jira_add_comment",
+      "args": {
+        "issueKey": "ABC-30"
+      }
+    },
+    "requiresWrites": true
+  },
+  {
+    "id": "write-transition",
+    "prompt": "Move ABC-50 to In Review.",
+    "expect": {
+      "tool": "jira_update_issue",
+      "args": {
+        "issueKey": "ABC-50",
+        "transitionTo": "In Review"
+      }
+    },
+    "requiresWrites": true
+  },
+  {
+    "id": "write-assign",
+    "prompt": "Assign ABC-51 to me.",
+    "expect": {
+      "tool": "jira_update_issue",
+      "args": {
+        "issueKey": "ABC-51",
+        "assignToMe": true
+      }
+    },
+    "requiresWrites": true
+  },
+  {
+    "id": "write-link",
+    "prompt": "Link https://github.com/acme/app/pull/9 to ABC-52 as the PR.",
+    "expect": {
+      "tool": "jira_update_issue",
+      "args": {
+        "issueKey": "ABC-52"
+      }
+    },
+    "requiresWrites": true
+  }
 ]

@@ -80,7 +80,7 @@ Both return typed `structuredContent` so an agent can act on the result without 
 | Tool | What it does |
 |------|-------------|
 | `jira_get_issue` | A Jira issue as a developer brief; `depth: "full"` adds parent, epic, links and subtasks; `includeConfluence` adds related docs |
-| `jira_search_issues` | Your open issues, optionally in one project, 50 per page (`pageToken` for the next) |
+| `jira_search_issues` | Your open issues, optionally in one project, or any JQL filter (`jql`); 50 per page (`pageToken` for the next) |
 | `jira_prepare_work_brief` | A ready-to-implement brief with readiness, blockers, next steps, questions and a branch name |
 | `confluence_search` | Confluence pages related to an issue, ranked by relevance |
 | `confluence_get_page` | A Confluence page, cleaned and size-bounded |
@@ -162,5 +162,5 @@ More in the [security model](docs/reference.md#security-model). To report a vuln
 - [docs/workflows.md](docs/workflows.md) — the data the workflow tools return and how they decide
 - [docs/reference.md](docs/reference.md) — configuration, client setup, Confluence, delivery features, performance, troubleshooting
 - [USAGE_GUIDE.md](USAGE_GUIDE.md) — longer walk-throughs
-- [evals/](evals/README.md) — tool-selection evals: Claude Haiku 5.5 picks the right tool for 34/34 everyday requests, Sonnet 5.5 for 33/34, and 34/34 with the skill (in Claude Code, 2026-10-20)
+- [evals/](evals/README.md) — tool-selection evals: Claude Haiku 5.5 and Sonnet 5.5 pick the right tool for 36/36 everyday requests, with and without the skill (in Claude Code, 2026-10-20)
 - [CHANGELOG.md](CHANGELOG.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [MIT license](LICENSE)
