@@ -344,3 +344,16 @@ describe('adfToMarkdown — never throws', () => {
     }
   });
 });
+
+describe('adfToMarkdown() tables', () => {
+  const cell = (type: string, value: string) => ({ type, content: [paragraph(text(value))] });
+  const row = (...cells: object[]) => ({ type: 'tableRow', content: cells });
+
+  it('escapes a | inside a Jira table cell so the row keeps its columns', () => {
+    const md = adfToMarkdown(
+      doc({ type: 'table', content: [row(cell('tableHeader', 'Rule'), cell('tableHeader', 'Value')), row(cell('tableCell', 'A | B'), cell('tableCell', 'x'))] }),
+    );
+    expect(md).toContain('| Rule | Value |');
+    expect(md).toContain('| A \\| B | x |');
+  });
+});
