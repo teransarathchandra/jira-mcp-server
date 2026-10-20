@@ -22,6 +22,7 @@
 
 ### Fixes
 
+- `setup vscode` prints a `.vscode/mcp.json` entry in VS Code's own format (`servers` with `"type": "stdio"`); the `mcpServers` snippet it printed before was ignored by VS Code. `setup claude-desktop` says to fill in your values before restarting.
 - A `|` or line break in ticket text no longer breaks the rows of the search results, traceability matrix or test strategy tables, or of a table inside a Jira description or comment.
 - The configured acceptance-criteria, epic, story-points and team custom fields are now requested from Jira; before, they were never fetched.
 - A link where this ticket blocks another issue no longer counts as this ticket being blocked.

@@ -130,3 +130,29 @@ describe('getClientPromptStyle', () => {
     expect(style).toHaveProperty('prReviewInstruction');
   });
 });
+
+// ── getClientSetupInstructions: client-specific config formats ───────────────
+
+describe('getClientSetupInstructions config formats', () => {
+  const jsonBlock = (text: string) => JSON.parse(/```json\n([\s\S]*?)\n```/.exec(text)![1]);
+
+  it('gives VS Code a .vscode/mcp.json "servers" entry with type stdio', () => {
+    const text = getClientSetupInstructions('vscode', 'jira-delivery-mcp', 'npx', ['-y', 'jira-delivery-mcp@beta']);
+    expect(text).toContain('.vscode/mcp.json');
+    const block = jsonBlock(text);
+    expect(block.mcpServers).toBeUndefined();
+    expect(block.servers['jira-delivery-mcp']).toMatchObject({ type: 'stdio', command: 'npx', args: ['-y', 'jira-delivery-mcp@beta'] });
+    expect(block.servers['jira-delivery-mcp'].env.JIRA_API_TOKEN).toBe('your-api-token');
+  });
+
+  it('keeps the mcpServers format for the other JSON clients', () => {
+    for (const profile of ['generic', 'claude-desktop', 'cursor', 'windsurf'] as const) {
+      expect(jsonBlock(getClientSetupInstructions(profile, 's', 'npx', ['-y', 'p'])).mcpServers.s).toBeDefined();
+    }
+  });
+
+  it('tells Claude Desktop users to fill in their values before restarting', () => {
+    const text = getClientSetupInstructions('claude-desktop', 's', 'npx', ['-y', 'p']);
+    expect(text.indexOf('Replace the placeholder values')).toBeLessThan(text.indexOf('Restart Claude Desktop'));
+  });
+});

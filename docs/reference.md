@@ -237,30 +237,16 @@ Use the Jira Delivery MCP server to generate a test strategy for ENG-123.
 
 ### Using with Cursor, Windsurf, or VS Code
 
-Most MCP-compatible editors support stdio-based servers. The general configuration pattern is:
+Each editor launches the server with `npx -y jira-delivery-mcp@beta` and passes `JIRA_BASE_URL`, `JIRA_EMAIL` and `JIRA_API_TOKEN` as environment variables.
 
-**Server name:** `jira-delivery-mcp`
-**Command:** `node`
-**Args:** `["/absolute/path/to/dist/index.js"]`
-**Environment:** `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`
+- **Cursor:** use the *Add to Cursor* button in the README, or add an `mcpServers` entry to `~/.cursor/mcp.json` (Cursor Settings → MCP → Add Server).
+- **Windsurf:** add an `mcpServers` entry in Windsurf Settings → MCP Servers.
+- **VS Code (GitHub Copilot agent mode):** add a `servers` entry with `"type": "stdio"` to `.vscode/mcp.json` in your workspace, or run **MCP: Add Server** from the Command Palette. VS Code does not read the `mcpServers` format.
 
-For Cursor:
-1. Open Cursor Settings → Features → MCP → Add Server
-2. Enter the command and args
-3. Pass credentials via the environment section
-
-For Windsurf:
-1. Open Windsurf Settings → MCP Servers → Add
-2. Enter the server command and args
-
-For VS Code:
-1. Configure the server in your VS Code MCP extension settings
-2. Pass credentials via environment variables
-
-For tailored instructions for your client, run:
+For the exact snippet, run:
 
 ```
-npx jira-delivery-mcp@beta setup cursor
+npx jira-delivery-mcp@beta setup cursor    # or windsurf, vscode
 ```
 
 ---
