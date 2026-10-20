@@ -86,10 +86,10 @@ export const registerJiraUpdateIssue: ToolRegistrar = (server, { config, jiraCli
             },
           });
         }
-        let transitionId: string | undefined;
+        let resolvedTransition: { id: string; to: string } | undefined;
         if (transitionTo !== undefined) {
           const transition = matchTransition(await jiraClient.getTransitions(issueKey), transitionTo);
-          transitionId = transition.id;
+          resolvedTransition = { id: transition.id, to: transition.to.name };
           preview.push(`- Move it with "${transition.name}" to ${transition.to.name}`);
           steps.push({
             action: 'transition',
@@ -112,7 +112,7 @@ export const registerJiraUpdateIssue: ToolRegistrar = (server, { config, jiraCli
 
         // The resolved transition is part of what the user confirmed: if the
         // workflow changes between preview and confirm, the token no longer fits.
-        const args: Record<string, unknown> = { issueKey, transitionTo, transitionId, assignToMe, link };
+        const args: Record<string, unknown> = { issueKey, transitionTo, resolvedTransition, assignToMe, link };
         const outcome = await runGuardedWrite(
           { tool: NAME, issueKey, args, preview: preview.join('\n'), steps },
           {

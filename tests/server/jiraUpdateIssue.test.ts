@@ -157,6 +157,18 @@ describe('jira_update_issue', () => {
     expect(writes()).toEqual([]);
   });
 
+  it('refuses the token when the same transition now leads to another status', async () => {
+    await start();
+    const preview = await call({ transitionTo: 'Ready for QA' });
+    fixture.routes['GET /rest/api/3/issue/ABC-1/transitions'] = {
+      status: 200,
+      body: { transitions: [{ id: '31', name: 'Ready for QA', to: { name: 'Done' } }] },
+    };
+    const result = await call({ transitionTo: 'Ready for QA', confirmToken: dataOf(preview).confirmToken });
+    expect(result.isError).toBe(true);
+    expect(writes()).toEqual([]);
+  });
+
   it('audits the account id, not the display name, for an assignment', async () => {
     await start();
     await confirmAndApply({ assignToMe: true });
