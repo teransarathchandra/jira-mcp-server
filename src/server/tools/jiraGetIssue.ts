@@ -24,7 +24,9 @@ export const registerJiraGetIssue: ToolRegistrar = (server, { config, jiraClient
       title: 'Get a Jira issue',
       description:
         'Fetch a Jira issue as a developer brief: description, acceptance criteria, comments and attachments. ' +
-        'Use depth "full" for parent/epic/linked-issue context and includeConfluence for related documentation.',
+        'Use depth "full" for parent/epic/linked-issue context and includeConfluence for related documentation. ' +
+        'Use this to read a ticket. To start work, check readiness, verify changes or write a report, call ' +
+        'jira_prepare_work_brief or the delivery_* tool directly: they fetch the issue themselves.',
       inputSchema: z.object({
         issueKey: issueKeyField(config),
         depth: depthField,

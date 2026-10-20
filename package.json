@@ -56,7 +56,7 @@
     "typecheck": "tsc --noEmit",
     "security:audit": "npm audit --audit-level=moderate",
     "prepublishOnly": "npm run typecheck && npm run build",
-    "eval": "vitest run --config evals/vitest.config.ts"
+    "eval": "npm run build --silent && vitest run --config evals/vitest.config.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.3.1",

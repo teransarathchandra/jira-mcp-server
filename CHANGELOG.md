@@ -9,7 +9,8 @@
 - **Claude Code plugin:** `/plugin marketplace add teransarathchandra/jira-mcp-server` then `/plugin install jira-delivery@jira-delivery` installs the server and a `jira-delivery` skill that tells the agent when to use each tool and never to confirm a write without the user. Credentials are prompted for and the API token is stored in secure storage.
 - Contributing guide, security policy, and issue/PR templates.
 - MCP Registry entry (`server.json`, `mcpName` io.github.teransarathchandra/jira-delivery-mcp) and a tag-triggered release workflow that publishes to npm with provenance, lists the version in the Registry and creates the GitHub release.
-- Tool-selection evals: 34 everyday requests scored against the real tool list (`npm run eval`, needs `ANTHROPIC_API_KEY`).
+- Tool-selection evals: 34 everyday requests scored against the real tool list. `npm run eval` runs them through Claude Code with your own login (or the Anthropic API when `ANTHROPIC_API_KEY` is set). Claude Haiku 5.5 picks the right tool for 34/34, Sonnet 5.5 for 33/34.
+- Tool descriptions say which tools fetch the issue themselves, so agents no longer call `jira_get_issue` first; `jira_prepare_work_brief` also answers "is this ticket ready to start?".
 - README rewritten as a short front page with a Cursor install link; the detailed reference moved to `docs/reference.md` and the workflow data to `docs/workflows.md`.
 - `jira_prepare_work_brief` returns typed `data`: readiness with confidence, acceptance criteria and their source, inbound blockers, 2–4 recommended actions, 0–3 clarifying questions, a suggested branch name, and how each Jira source was read. The text now starts with a short "Start here" section.
 - `delivery_check_changes` returns typed `data` with one verdict (`ready_for_pr`, `needs_work`, `insufficient_evidence`, or `not_applicable` when only the `impact` check ran), per-criterion coverage with files, Definition of Done results and impact.
